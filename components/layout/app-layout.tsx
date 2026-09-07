@@ -24,6 +24,7 @@ import {
   UserCheck,
   BarChart3,
   ExternalLink,
+  Layers,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { href: '/customers', icon: Users, label: 'Clients' },
   { href: '/measurements', icon: Ruler, label: 'Carnet de mesures' },
   { href: '/orders', icon: ShoppingBag, label: 'Commandes' },
+  { href: '/tissus', icon: Layers, label: 'Tissus & Stocks' },
   { href: '/production', icon: Kanban, label: 'Production' },
   { href: '/calendar', icon: Calendar, label: 'Calendrier' },
   { href: '/payments', icon: CreditCard, label: 'Paiements & Acomptes' },
@@ -44,6 +46,7 @@ const MOBILE_NAV = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Accueil' },
   { href: '/measurements', icon: Ruler, label: 'Mesures' },
   { href: '/orders', icon: ShoppingBag, label: 'Commandes' },
+  { href: '/tissus', icon: Layers, label: 'Tissus' },
   { href: '/customers', icon: Users, label: 'Clients' },
 ];
 
@@ -68,6 +71,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const fabActions = [
     { label: 'Nouvelle commande', href: '/orders/new', icon: ShoppingBag, color: 'bg-[#0F3B32]' },
+    { label: 'Nouveau coupon / tissu', href: '/tissus', icon: Layers, color: 'bg-emerald-600' },
     { label: 'Nouvelle mesure', href: '/measurements/new', icon: Ruler, color: 'bg-amber-600' },
     { label: 'Nouveau client', href: '/customers/new', icon: UserPlus, color: 'bg-blue-600' },
     { label: 'Nouveau paiement', href: '/payments/new', icon: CreditCard, color: 'bg-purple-600' },
