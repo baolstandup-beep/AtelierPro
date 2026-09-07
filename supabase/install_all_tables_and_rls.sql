@@ -356,3 +356,42 @@ DO $$ BEGIN
   DROP POLICY IF EXISTS "audit_logs_policy" ON audit_logs;
   CREATE POLICY "audit_logs_policy" ON audit_logs FOR SELECT TO authenticated USING (workshop_id IS NULL OR public.user_is_member_of(workshop_id));
 END $$;
+
+-- 7. Politiques de Stockage Sécurisées (Supabase Storage RLS)
+DO $$ BEGIN
+  -- Création sécurisée du bucket privé pour les médias d'atelier (mesures, tissus, modèles)
+  INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  VALUES (
+    'atelier-media',
+    'atelier-media',
+    false,
+    10485760, -- 10 MB max
+    ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+  )
+  ON CONFLICT (id) DO NOTHING;
+
+  -- Politiques RLS sur storage.objects
+  DROP POLICY IF EXISTS "storage_objects_authenticated_select" ON storage.objects;
+  CREATE POLICY "storage_objects_authenticated_select" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (bucket_id = 'atelier-media');
+
+  DROP POLICY IF EXISTS "storage_objects_authenticated_insert" ON storage.objects;
+  CREATE POLICY "storage_objects_authenticated_insert" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'atelier-media' AND auth.role() = 'authenticated');
+
+  DROP POLICY IF EXISTS "storage_objects_authenticated_update" ON storage.objects;
+  CREATE POLICY "storage_objects_authenticated_update" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (bucket_id = 'atelier-media' AND owner = auth.uid());
+
+  DROP POLICY IF EXISTS "storage_objects_authenticated_delete" ON storage.objects;
+  CREATE POLICY "storage_objects_authenticated_delete" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (bucket_id = 'atelier-media' AND owner = auth.uid());
+EXCEPTION WHEN OTHERS THEN
+  -- Ignorer si l'extension storage n'est pas activée sur l'environnement local
+  null;
+END $$;
+
