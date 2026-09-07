@@ -25,6 +25,7 @@ import {
   BarChart3,
   ExternalLink,
   Layers,
+  Sparkles,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -32,9 +33,10 @@ const NAV_ITEMS = [
   { href: '/customers', icon: Users, label: 'Clients' },
   { href: '/measurements', icon: Ruler, label: 'Carnet de mesures' },
   { href: '/orders', icon: ShoppingBag, label: 'Commandes' },
+  { href: '/catalogue', icon: Sparkles, label: 'Modèles & Coupes' },
   { href: '/tissus', icon: Layers, label: 'Tissus & Stocks' },
   { href: '/production', icon: Kanban, label: 'Production' },
-  { href: '/calendar', icon: Calendar, label: 'Calendrier' },
+  { href: '/calendar', icon: Calendar, label: 'Calendrier & Essayages' },
   { href: '/payments', icon: CreditCard, label: 'Paiements & Acomptes' },
   { href: '/expenses', icon: DollarSign, label: 'Dépenses' },
   { href: '/team', icon: UserCheck, label: 'Équipe' },

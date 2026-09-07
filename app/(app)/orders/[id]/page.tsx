@@ -11,11 +11,13 @@ import { Input, Select, Textarea } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toaster';
 import { formatCurrency, formatDate, formatDateTime, isDueDateLate, ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS } from '@/lib/utils';
 import {
-  ArrowLeft, CreditCard, Clock, ChevronRight, Plus, Phone, Kanban, CheckCircle, Truck, XCircle, MessageCircle, Trash2
+  ArrowLeft, CreditCard, Clock, ChevronRight, Plus, Phone, Kanban, CheckCircle, Truck, XCircle, MessageCircle, Trash2, Printer, QrCode
 } from 'lucide-react';
 import { PaymentMethodIcon } from '@/components/ui/payment-method-icon';
 import type { OrderStatus, PaymentMethod } from '@/lib/types';
 import { WhatsAppSenderModal } from '@/components/whatsapp/whatsapp-sender-modal';
+import { InvoicePDFModal } from '@/components/orders/invoice-pdf-modal';
+import { MobileMoneyQRModal } from '@/components/payments/mobile-money-qr-modal';
 
 const PAYMENT_METHOD_OPTIONS = [
   { value: 'CASH', label: 'Espèces' },
@@ -52,6 +54,8 @@ export default function OrderDetailPage() {
   const [deliverOpen, setDeliverOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
 
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
@@ -206,6 +210,25 @@ export default function OrderDetailPage() {
 
         {/* Action buttons */}
         <div className="flex gap-2 mt-4 flex-wrap">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="bg-slate-100 hover:bg-slate-200 text-slate-800"
+            leftIcon={<Printer className="h-3.5 w-3.5" />}
+            onClick={() => setInvoiceOpen(true)}
+          >
+            Facture / Devis PDF
+          </Button>
+          {balance > 0 && (
+            <Button
+              size="sm"
+              className="bg-[#1BA8E9] hover:bg-[#1594D0] text-white shadow-xs"
+              leftIcon={<QrCode className="h-3.5 w-3.5" />}
+              onClick={() => setQrModalOpen(true)}
+            >
+              Wave / OM QR
+            </Button>
+          )}
           {order.customer?.phone && (
             <Button
               size="sm"
@@ -576,6 +599,37 @@ export default function OrderDetailPage() {
           }
         />
       )}
+
+      {/* Invoice PDF Modal */}
+      <InvoicePDFModal
+        isOpen={invoiceOpen}
+        onClose={() => setInvoiceOpen(false)}
+        order={order}
+        workshop={ws}
+        customer={order.customer}
+        payments={orderPayments}
+      />
+
+      {/* Mobile Money Wave / Orange QR Modal */}
+      <MobileMoneyQRModal
+        isOpen={qrModalOpen}
+        onClose={() => setQrModalOpen(false)}
+        order={order}
+        workshop={ws}
+        customer={order.customer}
+        onPaymentConfirmed={(amount, method) => {
+          createPayment({
+            order_id: order.id,
+            customer_id: order.customer_id,
+            amount: amount,
+            method: method,
+            payment_date: new Date().toISOString().split('T')[0],
+            notes: `Paiement instantané ${method} QR Code`,
+          });
+          success(`Paiement de ${formatCurrency(amount, ws?.currency_symbol)} validé par ${method} !`);
+          setQrModalOpen(false);
+        }}
+      />
     </div>
   );
 }
