@@ -32,10 +32,10 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const ip = getClientIp(request.headers);
 
-  // ─── 1. Anti-Brute-Force Rate Limiting (Max 5 attempts per IP) ───
-  const isSensitiveAuthRoute = SENSITIVE_AUTH_PREFIXES.some((prefix) =>
-    pathname.startsWith(prefix)
-  );
+  // ─── 1. Anti-Brute-Force Rate Limiting (Max 5 attempts per IP on POST requests) ───
+  const isSensitiveAuthRoute =
+    request.method === 'POST' &&
+    SENSITIVE_AUTH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
   if (isSensitiveAuthRoute) {
     // Check rate limit: 5 attempts per IP with a 15-minute window

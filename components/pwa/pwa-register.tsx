@@ -8,6 +8,29 @@ export function PwaRegister() {
       return;
     }
 
+    const isLocalhost =
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.endsWith('.local');
+
+    // In local development, unregister any active service worker to avoid caching conflicts
+    if (isLocalhost) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          registration.unregister();
+        }
+      });
+      if ('caches' in window) {
+        caches.keys().then((keys) => {
+          for (const key of keys) {
+            caches.delete(key);
+          }
+        });
+      }
+      return;
+    }
+
+    // In production, register PWA Service Worker
     const registerServiceWorker = async () => {
       try {
         const registration = await navigator.serviceWorker.register('/sw.js', {
@@ -15,7 +38,6 @@ export function PwaRegister() {
           updateViaCache: 'none',
         });
 
-        // Listen for updates to automatically refresh if a new worker activates
         registration.addEventListener('updatefound', () => {
           const installingWorker = registration.installing;
           if (installingWorker) {
@@ -30,10 +52,7 @@ export function PwaRegister() {
           }
         });
       } catch (error) {
-        // Silently capture registration failures (e.g. private browsing or unsupported environments)
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('[PWA] Service Worker registration info:', error);
-        }
+        console.warn('[PWA] Service Worker info:', error);
       }
     };
 

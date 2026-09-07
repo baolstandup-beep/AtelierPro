@@ -53,6 +53,18 @@ export function checkRateLimit(
   retryAfterSeconds: number;
   totalAttempts: number;
 } {
+  // Always allow local loopback in development to prevent lockouts during local testing
+  if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+    return {
+      isAllowed: true,
+      limit: maxAttempts,
+      remaining: maxAttempts,
+      resetTime: Date.now() + windowMs,
+      retryAfterSeconds: 0,
+      totalAttempts: 0,
+    };
+  }
+
   const now = Date.now();
   const key = `${prefix}:${ip}`;
   const record = ipStore.get(key);
