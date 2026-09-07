@@ -23,7 +23,7 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn, loginAsDemo, isOnboardingDone } = useAppStore();
+  const { signIn, loginAsDemo, isOnboardingDone, syncWithSupabase } = useAppStore();
   const { success, error: showError } = useToast();
 
   const [form, setForm] = useState({ email: '', password: '' });
@@ -66,10 +66,14 @@ export default function LoginPage() {
 
       // 2. Authentication flow
       if (isSupabaseConfigured) {
-        await signInWithEmail(form.email, form.password);
+        const { user } = await signInWithEmail(form.email, form.password);
+        if (user) {
+          const fullName = user.user_metadata?.full_name || form.email.split('@')[0];
+          await syncWithSupabase(user.id, fullName);
+        }
       } else {
         // Mode Démo / Store Local
-        await new Promise((r) => setTimeout(r, 400));
+        await new Promise((r) => setTimeout(r, 300));
         loginAsDemo();
       }
 
@@ -82,11 +86,14 @@ export default function LoginPage() {
 
       success('Bienvenue !', 'Connexion réussie');
       router.push('/dashboard');
-    } catch {
-      // Graceful fallback to demo mode so clients are never blocked
-      loginAsDemo();
-      success('Bienvenue !', 'Connexion réussie (Mode Test)');
-      router.push('/dashboard');
+    } catch (err: any) {
+      if (isSupabaseConfigured) {
+        showError('Erreur de connexion', err?.message || 'Identifiants incorrects.');
+      } else {
+        loginAsDemo();
+        success('Bienvenue !', 'Connexion réussie (Mode Démo)');
+        router.push('/dashboard');
+      }
     } finally {
       setLoading(false);
     }

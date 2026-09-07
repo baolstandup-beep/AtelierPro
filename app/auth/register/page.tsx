@@ -25,7 +25,7 @@ import {
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { signIn, loginAsDemo } = useAppStore();
+  const { signIn, loginAsDemo, syncWithSupabase } = useAppStore();
   const { success, error: showError } = useToast();
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -75,10 +75,13 @@ export default function RegisterPage() {
       }
 
       if (isSupabaseConfigured) {
-        await signUpWithEmail(form.email, form.password, form.name);
+        const { user } = await signUpWithEmail(form.email, form.password, form.name);
+        if (user) {
+          await syncWithSupabase(user.id, form.name);
+        }
       } else {
         // Local state / Demo mode
-        await new Promise((r) => setTimeout(r, 400));
+        await new Promise((r) => setTimeout(r, 300));
         loginAsDemo();
       }
 
@@ -91,10 +94,14 @@ export default function RegisterPage() {
 
       success('Compte créé avec succès !', 'Bienvenue dans AtelierPro');
       router.push('/dashboard');
-    } catch {
-      loginAsDemo();
-      success('Compte créé avec succès !', 'Bienvenue dans AtelierPro');
-      router.push('/dashboard');
+    } catch (err: any) {
+      if (isSupabaseConfigured) {
+        showError('Erreur d\'inscription', err?.message || 'Impossible de créer le compte.');
+      } else {
+        loginAsDemo();
+        success('Compte créé avec succès !', 'Bienvenue dans AtelierPro (Mode Démo)');
+        router.push('/dashboard');
+      }
     } finally {
       setLoading(false);
     }

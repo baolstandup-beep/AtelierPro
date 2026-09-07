@@ -106,7 +106,7 @@ export default function OrderDetailPage() {
     setPaymentLoading(true);
     try {
       if (!order) throw new Error('Commande introuvable');
-      createPayment({
+      await createPayment({
         order_id: id,
         customer_id: order.customer_id,
         amount,
@@ -125,9 +125,9 @@ export default function OrderDetailPage() {
     }
   }
 
-  function handleStatusChange() {
+  async function handleStatusChange() {
     if (!selectedStatus) return;
-    changeOrderStatus(id, selectedStatus, statusNotes.trim() || undefined);
+    await changeOrderStatus(id, selectedStatus, statusNotes.trim() || undefined);
     success('Statut mis à jour', ORDER_STATUS_LABELS[selectedStatus]);
     setStatusOpen(false);
     setSelectedStatus(null);

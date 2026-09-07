@@ -287,7 +287,7 @@ export default function NewMeasurementPage() {
     setIsSubmitting(true);
     try {
       // 1. Create measurement profile
-      const profile = createMeasurementProfile({
+      const profile = await createMeasurementProfile({
         customer_id: selectedCustomerId,
         label: label.trim() || 'Mesures générales',
         notes: notes.trim() || undefined,
@@ -299,7 +299,7 @@ export default function NewMeasurementPage() {
       // 2. If requested, automatically create the linked order & advance payment!
       if (createLinkedOrder && totalNum > 0) {
         const preset = GARMENT_PRESETS.find((p) => p.id === selectedPreset);
-        createOrder({
+        await createOrder({
           customer_id: selectedCustomerId,
           due_date: dueDate || undefined,
           priority: priority,

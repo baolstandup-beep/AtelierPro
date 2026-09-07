@@ -50,7 +50,7 @@ export default function ExpensesPage() {
   const [expenseDate, setExpenseDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
 
-  function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -62,7 +62,7 @@ export default function ExpensesPage() {
       return;
     }
 
-    createExpense({
+    await createExpense({
       category,
       description: description.trim(),
       amount: parsedAmount,

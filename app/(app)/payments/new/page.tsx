@@ -68,7 +68,7 @@ export default function NewPaymentPage() {
     setLoading(true);
 
     try {
-      createPayment({
+      await createPayment({
         order_id: selectedOrderId,
         customer_id: selectedOrder!.customer_id,
         amount: parseFloat(form.amount),

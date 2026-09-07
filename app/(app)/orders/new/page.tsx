@@ -127,7 +127,7 @@ export default function NewOrderPage() {
       if (initialAmt < 0) throw new Error('Le paiement ne peut pas être négatif');
       if (initialAmt > totalAmount) throw new Error(`L'avance (${initialAmt}) dépasse le total (${totalAmount})`);
 
-      const order = createOrder({
+      const order = await createOrder({
         customer_id: selectedCustomerId,
         due_date: dueDate || undefined,
         priority,

@@ -15,13 +15,16 @@ export const supabase = isSupabaseConfigured
       auth: {
         persistSession: true,
         autoRefreshToken: true,
+        detectSessionInUrl: true,
       },
     })
   : null;
 
 export function getSupabase() {
   if (!supabase) {
-    throw new Error('Supabase non configuré. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY dans votre fichier .env.local');
+    throw new Error(
+      'Supabase non configuré. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY dans votre fichier .env.local'
+    );
   }
   return supabase;
 }
@@ -33,7 +36,7 @@ export async function signInWithGoogle() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
     },
   });
   if (error) throw error;
@@ -69,4 +72,15 @@ export async function signUpWithEmail(email: string, password: string, name?: st
   return data;
 }
 
+export async function signOutUser() {
+  if (!supabase) return;
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+}
 
+export async function getCurrentSession() {
+  if (!supabase) return null;
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session) return null;
+  return data.session;
+}

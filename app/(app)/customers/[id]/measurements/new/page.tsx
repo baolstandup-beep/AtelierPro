@@ -50,7 +50,7 @@ export default function NewMeasurementPage() {
     setLoading(true);
     try {
       const types = measurementTypes;
-      createMeasurementProfile({
+      await createMeasurementProfile({
         customer_id: customerId,
         label: label.trim() || undefined,
         notes: notes.trim() || undefined,

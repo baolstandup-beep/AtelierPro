@@ -52,7 +52,7 @@ export default function NewCustomerPage() {
     setLoading(true);
 
     try {
-      const customer = createCustomer({
+      const customer = await createCustomer({
         full_name: form.full_name.trim(),
         phone: form.phone.trim(),
         email: form.email.trim() || undefined,

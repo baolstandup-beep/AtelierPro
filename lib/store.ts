@@ -24,6 +24,21 @@ import type {
 } from './types';
 import { generateOrderNumber, isDueDateLate } from './utils';
 import { format } from 'date-fns';
+import { isSupabaseConfigured, signOutUser } from './supabase';
+import {
+  dbGetOrCreateUserWorkshop,
+  dbFetchWorkshopFullData,
+  dbCreateCustomer,
+  dbUpdateCustomer,
+  dbDeleteCustomer,
+  dbCreateOrder,
+  dbUpdateOrderStatus,
+  dbDeleteOrder,
+  dbCreatePayment,
+  dbCreateMeasurementProfile,
+  dbCreateExpense,
+  dbDeleteExpense,
+} from './supabase-api';
 
 // ─── Demo data ────────────────────────────────────────────────
 const DEMO_WORKSHOP: Workshop = {
@@ -90,58 +105,6 @@ const DEMO_MEMBERS: WorkshopMember[] = [
       updated_at: new Date().toISOString(),
     },
   },
-  {
-    id: 'member-03',
-    workshop_id: 'demo-workshop-001',
-    user_id: 'demo-user-003',
-    role: 'CUTTER',
-    status: 'ACTIVE',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    profile: {
-      id: 'demo-user-003',
-      full_name: 'Ibrahima Ba',
-      phone: '+221 76 345 67 89',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  },
-];
-
-const DEMO_EXPENSES: Expense[] = [
-  {
-    id: 'exp-01',
-    workshop_id: 'demo-workshop-001',
-    category: 'TISSU',
-    description: 'Bazin riche Getzner 10m',
-    amount: 45000,
-    expense_date: format(new Date(), 'yyyy-MM-dd'),
-    payment_method: 'WAVE',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'exp-02',
-    workshop_id: 'demo-workshop-001',
-    category: 'FIL',
-    description: 'Bobines de fil doré et argenté',
-    amount: 12000,
-    expense_date: format(new Date(), 'yyyy-MM-dd'),
-    payment_method: 'CASH',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'exp-03',
-    workshop_id: 'demo-workshop-001',
-    category: 'ELECTRICITE',
-    description: 'Facture Senelec atelier',
-    amount: 28000,
-    expense_date: format(new Date(), 'yyyy-MM-dd'),
-    payment_method: 'ORANGE_MONEY',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
 ];
 
 const DEMO_CUSTOMERS: Customer[] = [
@@ -160,49 +123,12 @@ const DEMO_CUSTOMERS: Customer[] = [
   {
     id: 'cust-002',
     workshop_id: 'demo-workshop-001',
-    full_name: 'Cheikh Ndiaye',
-    phone: '+221 78 123 45 67',
-    email: 'cheikh.ndiaye@orange.sn',
-    city: 'Dakar',
-    address: 'Les Almadies, Villa 42',
-    notes: 'Costumes sur mesure et tenues traditionnelles chic.',
-    created_at: new Date(Date.now() - 20 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'cust-003',
-    workshop_id: 'demo-workshop-001',
-    full_name: 'Mariama Ba',
-    phone: '+221 70 987 65 43',
-    email: 'mariama.ba@yahoo.fr',
-    city: 'Dakar',
-    address: 'Mermoz Pyrotechnie',
-    notes: 'Robes de soirée et tenues de cérémonie.',
-    created_at: new Date(Date.now() - 15 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'cust-004',
-    workshop_id: 'demo-workshop-001',
-    full_name: 'Ousmane Sow',
+    full_name: 'Ousmane Sonko (Client)',
     phone: '+221 76 543 21 09',
-    email: 'ousmane.sow@gmail.com',
     city: 'Dakar',
-    address: 'Médina, Rue 6',
-    notes: 'Kaftans brodés et tenues vendredi.',
-    created_at: new Date(Date.now() - 10 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'cust-005',
-    workshop_id: 'demo-workshop-001',
-    full_name: 'Aminata Traoré',
-    phone: '+221 77 890 12 34',
-    email: 'aminata.traore@gmail.com',
-    city: 'Dakar',
-    address: 'Sacré-Cœur 3',
-    notes: 'Tailleur moderne et robes wax.',
-    created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
+    address: 'Almadies',
+    notes: 'Costumes traditionnels 3 pièces, col officier',
+    created_at: new Date(Date.now() - 25 * 86400000).toISOString(),
     updated_at: new Date().toISOString(),
   },
 ];
@@ -215,148 +141,30 @@ const DEMO_ORDERS: Order[] = [
     order_number: 'CMD-2026-001',
     status: 'SEWING',
     priority: 'HIGH',
-    total_amount: 120000,
-    paid_amount: 80000,
-    balance: 40000,
-    order_date: format(new Date(Date.now() - 4 * 86400000), 'yyyy-MM-dd'),
-    due_date: format(new Date(Date.now() + 3 * 86400000), 'yyyy-MM-dd'),
-    assigned_to: 'member-02',
-    notes: 'Grand Boubou Bazin Riche Getzner 3 pièces broderie fil d\'or',
+    total_amount: 85000,
+    paid_amount: 50000,
+    balance: 35000,
+    order_date: format(new Date(Date.now() - 5 * 86400000), 'yyyy-MM-dd'),
+    due_date: format(new Date(Date.now() + 2 * 86400000), 'yyyy-MM-dd'),
+    assigned_to: 'demo-user-002',
+    notes: 'Grand Boubou Bazin Riche blanc cassé avec broderie dorée au col.',
+    created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
+    updated_at: new Date().toISOString(),
     items: [
       {
         id: 'item-01',
         order_id: 'ord-001',
         workshop_id: 'demo-workshop-001',
-        name: 'Grand Boubou 3 pièces',
+        name: 'Grand Boubou 3 pièces Bazin Riche',
         garment_type: 'BOUBOU',
         fabric: 'Bazin Riche Getzner',
-        quantity: 1,
-        unit_price: 120000,
-        created_at: new Date().toISOString(),
-      },
-    ],
-    created_at: new Date(Date.now() - 4 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'ord-002',
-    workshop_id: 'demo-workshop-001',
-    customer_id: 'cust-002',
-    order_number: 'CMD-2026-002',
-    status: 'READY',
-    priority: 'HIGH',
-    total_amount: 180000,
-    paid_amount: 180000,
-    balance: 0,
-    order_date: format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd'),
-    due_date: format(new Date(Date.now() + 1 * 86400000), 'yyyy-MM-dd'),
-    assigned_to: 'member-03',
-    notes: 'Costume 3 pièces lin italien & doublure soie',
-    items: [
-      {
-        id: 'item-02',
-        order_id: 'ord-002',
-        workshop_id: 'demo-workshop-001',
-        name: 'Costume 3 pièces lin',
-        garment_type: 'COSTUME',
-        fabric: 'Lin Italien',
-        quantity: 1,
-        unit_price: 180000,
-        created_at: new Date().toISOString(),
-      },
-    ],
-    created_at: new Date(Date.now() - 7 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'ord-003',
-    workshop_id: 'demo-workshop-001',
-    customer_id: 'cust-003',
-    order_number: 'CMD-2026-003',
-    status: 'CUTTING',
-    priority: 'NORMAL',
-    total_amount: 95000,
-    paid_amount: 50000,
-    balance: 45000,
-    order_date: format(new Date(Date.now() - 2 * 86400000), 'yyyy-MM-dd'),
-    due_date: format(new Date(Date.now() + 5 * 86400000), 'yyyy-MM-dd'),
-    assigned_to: 'member-02',
-    notes: 'Robe de soirée drapée en soie sauvage',
-    items: [
-      {
-        id: 'item-03',
-        order_id: 'ord-003',
-        workshop_id: 'demo-workshop-001',
-        name: 'Robe de soirée drapée',
-        garment_type: 'ROBE',
-        fabric: 'Soie sauvage',
-        quantity: 1,
-        unit_price: 95000,
-        created_at: new Date().toISOString(),
-      },
-    ],
-    created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'ord-004',
-    workshop_id: 'demo-workshop-001',
-    customer_id: 'cust-004',
-    order_number: 'CMD-2026-004',
-    status: 'MEASURED',
-    priority: 'NORMAL',
-    total_amount: 65000,
-    paid_amount: 30000,
-    balance: 35000,
-    order_date: format(new Date(Date.now() - 1 * 86400000), 'yyyy-MM-dd'),
-    due_date: format(new Date(Date.now() + 8 * 86400000), 'yyyy-MM-dd'),
-    assigned_to: 'member-03',
-    notes: 'Ensemble Kaftan moderne col officier',
-    items: [
-      {
-        id: 'item-04',
-        order_id: 'ord-004',
-        workshop_id: 'demo-workshop-001',
-        name: 'Ensemble Kaftan moderne',
-        garment_type: 'KAFTAN',
-        fabric: 'Coton glacé',
-        quantity: 1,
-        unit_price: 65000,
-        created_at: new Date().toISOString(),
-      },
-    ],
-    created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'ord-005',
-    workshop_id: 'demo-workshop-001',
-    customer_id: 'cust-005',
-    order_number: 'CMD-2026-005',
-    status: 'DELIVERED',
-    priority: 'NORMAL',
-    total_amount: 85000,
-    paid_amount: 85000,
-    balance: 0,
-    order_date: format(new Date(Date.now() - 12 * 86400000), 'yyyy-MM-dd'),
-    due_date: format(new Date(Date.now() - 2 * 86400000), 'yyyy-MM-dd'),
-    assigned_to: 'member-02',
-    notes: 'Tailleur pantalon wax Woodin & veste cintrée',
-    items: [
-      {
-        id: 'item-05',
-        order_id: 'ord-005',
-        workshop_id: 'demo-workshop-001',
-        name: 'Tailleur pantalon wax',
-        garment_type: 'ENSEMBLE',
-        fabric: 'Wax Woodin',
+        color: 'Blanc cassé',
         quantity: 1,
         unit_price: 85000,
-        created_at: new Date().toISOString(),
+        notes: 'Broderie point de croix fil or',
+        created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
       },
     ],
-    created_at: new Date(Date.now() - 12 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
   },
 ];
 
@@ -366,64 +174,13 @@ const DEMO_PAYMENTS: Payment[] = [
     workshop_id: 'demo-workshop-001',
     order_id: 'ord-001',
     customer_id: 'cust-001',
-    amount: 80000,
-    method: 'WAVE',
-    payment_date: format(new Date(Date.now() - 4 * 86400000), 'yyyy-MM-dd'),
-    reference: 'WAVE-TX-99882',
-    status: 'CONFIRMED',
-    created_at: new Date(Date.now() - 4 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'pay-002',
-    workshop_id: 'demo-workshop-001',
-    order_id: 'ord-002',
-    customer_id: 'cust-002',
-    amount: 180000,
-    method: 'ORANGE_MONEY',
-    payment_date: format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd'),
-    reference: 'OM-SN-77341',
-    status: 'CONFIRMED',
-    created_at: new Date(Date.now() - 7 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'pay-003',
-    workshop_id: 'demo-workshop-001',
-    order_id: 'ord-003',
-    customer_id: 'cust-003',
     amount: 50000,
     method: 'WAVE',
-    payment_date: format(new Date(Date.now() - 2 * 86400000), 'yyyy-MM-dd'),
-    reference: 'WAVE-TX-10294',
     status: 'CONFIRMED',
-    created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'pay-004',
-    workshop_id: 'demo-workshop-001',
-    order_id: 'ord-004',
-    customer_id: 'cust-004',
-    amount: 30000,
-    method: 'CASH',
-    payment_date: format(new Date(Date.now() - 1 * 86400000), 'yyyy-MM-dd'),
-    reference: 'RECU-004',
-    status: 'CONFIRMED',
-    created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'pay-005',
-    workshop_id: 'demo-workshop-001',
-    order_id: 'ord-005',
-    customer_id: 'cust-005',
-    amount: 85000,
-    method: 'WAVE',
-    payment_date: format(new Date(Date.now() - 12 * 86400000), 'yyyy-MM-dd'),
-    reference: 'WAVE-TX-88219',
-    status: 'CONFIRMED',
-    created_at: new Date(Date.now() - 12 * 86400000).toISOString(),
+    reference: 'WAV-2026-001',
+    notes: 'Acompte 58% versé à la commande via Wave',
+    payment_date: format(new Date(Date.now() - 5 * 86400000), 'yyyy-MM-dd'),
+    created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
     updated_at: new Date().toISOString(),
   },
 ];
@@ -433,40 +190,38 @@ const DEMO_MEASUREMENT_PROFILES: MeasurementProfile[] = [
     id: 'prof-001',
     workshop_id: 'demo-workshop-001',
     customer_id: 'cust-001',
-    label: 'Mesures Grand Boubou Festif',
-    notes: 'Coupe ample traditionnelle',
+    label: 'Mesures Grand Boubou Bazin',
+    notes: 'Coupe ample sénégalaise',
     fabric_type: 'Bazin Riche',
     taken_at: new Date(Date.now() - 30 * 86400000).toISOString(),
     created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
     values: [
-      { id: 'v1', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-01', value: 42, unit: 'cm' },
-      { id: 'v2', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-02', value: 48, unit: 'cm' },
-      { id: 'v3', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-03', value: 104, unit: 'cm' },
-      { id: 'v4', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-07', value: 65, unit: 'cm' },
+      { id: 'v1', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-01', value: 38, unit: 'cm' },
+      { id: 'v2', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-02', value: 42, unit: 'cm' },
+      { id: 'v3', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-03', value: 92, unit: 'cm' },
+      { id: 'v4', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-04', value: 76, unit: 'cm' },
       { id: 'v5', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-09', value: 145, unit: 'cm' },
-    ],
-  },
-  {
-    id: 'prof-002',
-    workshop_id: 'demo-workshop-001',
-    customer_id: 'cust-002',
-    label: 'Mesures Costume 3 pièces',
-    notes: 'Coupe ajustée italienne',
-    fabric_type: 'Lin & Soie',
-    taken_at: new Date(Date.now() - 20 * 86400000).toISOString(),
-    created_at: new Date(Date.now() - 20 * 86400000).toISOString(),
-    values: [
-      { id: 'v6', profile_id: 'prof-002', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-02', value: 46, unit: 'cm' },
-      { id: 'v7', profile_id: 'prof-002', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-03', value: 98, unit: 'cm' },
-      { id: 'v8', profile_id: 'prof-002', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-04', value: 84, unit: 'cm' },
-      { id: 'v9', profile_id: 'prof-002', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-10', value: 106, unit: 'cm' },
     ],
   },
 ];
 
+const DEMO_EXPENSES: Expense[] = [
+  {
+    id: 'exp-01',
+    workshop_id: 'demo-workshop-001',
+    category: 'TISSU',
+    description: 'Bazin riche Getzner 10m',
+    amount: 45000,
+    expense_date: format(new Date(), 'yyyy-MM-dd'),
+    payment_method: 'WAVE',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 // ─── Store interface ──────────────────────────────────────────
-interface AppStore {
-  // Auth state (demo)
+export interface AppStore {
+  // Auth state
   isAuthenticated: boolean;
   currentUserId: string | null;
   currentUserName: string;
@@ -489,39 +244,42 @@ interface AppStore {
   isLoading: boolean;
   error: string | null;
 
+  // Supabase Sync Action
+  syncWithSupabase: (userId: string, fullName?: string) => Promise<void>;
+
   // Auth actions
   signIn: (email: string, name: string) => void;
   loginAsDemo: () => void;
   signOut: () => void;
-  completeOnboarding: (workshopData: Partial<Workshop>) => void;
+  completeOnboarding: (workshopData: Partial<Workshop>) => Promise<void>;
 
   // Customer actions
-  createCustomer: (input: CreateCustomerInput) => Customer;
-  updateCustomer: (id: string, input: Partial<CreateCustomerInput>) => void;
-  archiveCustomer: (id: string) => void;
+  createCustomer: (input: CreateCustomerInput) => Promise<Customer>;
+  updateCustomer: (id: string, input: Partial<CreateCustomerInput>) => Promise<void>;
+  archiveCustomer: (id: string) => Promise<void>;
   getCustomer: (id: string) => Customer | undefined;
   getCustomerOrders: (customerId: string) => Order[];
 
   // Measurement actions
-  createMeasurementProfile: (input: CreateMeasurementInput) => MeasurementProfile;
-  deleteMeasurementProfile: (id: string) => void;
+  createMeasurementProfile: (input: CreateMeasurementInput) => Promise<MeasurementProfile>;
+  deleteMeasurementProfile: (id: string) => Promise<void>;
   getMeasurementProfiles: (customerId: string) => MeasurementProfile[];
   addMeasurementType: (name: string, unit?: string) => MeasurementType;
 
   // Order actions
-  createOrder: (input: CreateOrderInput) => Order;
-  updateOrder: (id: string, updates: Partial<Order>) => void;
-  changeOrderStatus: (orderId: string, newStatus: OrderStatus, notes?: string) => void;
-  archiveOrder: (id: string) => void;
+  createOrder: (input: CreateOrderInput) => Promise<Order>;
+  updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
+  changeOrderStatus: (orderId: string, newStatus: OrderStatus, notes?: string) => Promise<void>;
+  archiveOrder: (id: string) => Promise<void>;
   getOrder: (id: string) => Order | undefined;
 
   // Payment actions
-  createPayment: (input: CreatePaymentInput) => Payment;
+  createPayment: (input: CreatePaymentInput) => Promise<Payment>;
   getOrderPayments: (orderId: string) => Payment[];
 
   // Expense actions
-  createExpense: (input: Omit<Expense, 'id' | 'workshop_id' | 'created_by' | 'created_at' | 'updated_at'>) => Expense;
-  deleteExpense: (id: string) => void;
+  createExpense: (input: Omit<Expense, 'id' | 'workshop_id' | 'created_by' | 'created_at' | 'updated_at'>) => Promise<Expense>;
+  deleteExpense: (id: string) => Promise<void>;
 
   // Member actions
   inviteMember: (input: { full_name: string; phone?: string; role: UserRole }) => WorkshopMember;
@@ -538,8 +296,11 @@ interface AppStore {
   clearError: () => void;
 }
 
-// ─── UUID generator ───────────────────────────────────────────
-// ─── Safe Storage (Browser localStorage + Node/SSR Memory fallback)
+function uid(): string {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+// ─── Safe Storage Helper ──────────────────────────────────────
 const memoryStorage = new Map<string, string>();
 const safeStorage = {
   getItem: (key: string) => (typeof window !== 'undefined' ? window.localStorage.getItem(key) : memoryStorage.get(key) ?? null),
@@ -553,15 +314,11 @@ const safeStorage = {
   },
 };
 
-function uid(): string {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
-
-// ─── Store ────────────────────────────────────────────────────
+// ─── Store Implementation ─────────────────────────────────────
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
-      // Initial auth state
+      // Initial state
       isAuthenticated: false,
       currentUserId: null,
       currentUserName: '',
@@ -569,7 +326,6 @@ export const useAppStore = create<AppStore>()(
       currentWorkshop: null,
       isOnboardingDone: false,
 
-      // Initial data
       customers: DEMO_CUSTOMERS,
       orders: DEMO_ORDERS,
       payments: DEMO_PAYMENTS,
@@ -582,6 +338,41 @@ export const useAppStore = create<AppStore>()(
 
       isLoading: false,
       error: null,
+
+      // ─── Supabase Full Synchronisation ──────────────────────────
+      syncWithSupabase: async (userId: string, fullName?: string) => {
+        if (!isSupabaseConfigured) return;
+
+        set({ isLoading: true, error: null });
+        try {
+          const { workshop, role } = await dbGetOrCreateUserWorkshop(userId, fullName);
+          const data = await dbFetchWorkshopFullData(workshop.id);
+
+          set({
+            isAuthenticated: true,
+            currentUserId: userId,
+            currentUserName: fullName || data.workshop.name,
+            currentUserRole: (role as UserRole) || 'OWNER',
+            currentWorkshop: data.workshop,
+            customers: data.customers,
+            orders: data.orders,
+            payments: data.payments,
+            measurementProfiles: data.measurementProfiles,
+            measurementTypes: data.measurementTypes.length > 0 ? data.measurementTypes : DEMO_MEASUREMENT_TYPES,
+            expenses: data.expenses,
+            members: data.members.length > 0 ? data.members : DEMO_MEMBERS,
+            notifications: data.notifications,
+            isOnboardingDone: true,
+            isLoading: false,
+          });
+        } catch (err: any) {
+          console.error('[Store] Sync Supabase Error:', err);
+          set({
+            isLoading: false,
+            error: err?.message || 'Erreur lors de la synchronisation Supabase',
+          });
+        }
+      },
 
       // ─── Auth ───────────────────────────────────────────────
       loginAsDemo: () => {
@@ -615,6 +406,7 @@ export const useAppStore = create<AppStore>()(
       },
 
       signOut: () => {
+        signOutUser().catch(() => {});
         set({
           isAuthenticated: false,
           currentUserId: null,
@@ -627,33 +419,38 @@ export const useAppStore = create<AppStore>()(
           measurementProfiles: [],
           measurementTypes: DEMO_MEASUREMENT_TYPES,
           expenses: [],
+          members: [],
         });
       },
 
-      completeOnboarding: (workshopData: Partial<Workshop>) => {
-        const workshop: Workshop = {
-          ...DEMO_WORKSHOP,
+      completeOnboarding: async (workshopData: Partial<Workshop>) => {
+        const { currentUserId, currentWorkshop } = get();
+        const updated: Workshop = {
+          ...(currentWorkshop || DEMO_WORKSHOP),
           ...workshopData,
-          id: uid(),
-          owner_id: get().currentUserId || uid(),
-          created_at: new Date().toISOString(),
+          id: currentWorkshop?.id || uid(),
+          owner_id: currentUserId || uid(),
           updated_at: new Date().toISOString(),
         };
-        // Update measurement types to new workshop_id
-        const types = DEMO_MEASUREMENT_TYPES.map(t => ({ ...t, workshop_id: workshop.id }));
+
         set({
-          currentWorkshop: workshop,
+          currentWorkshop: updated,
           isOnboardingDone: true,
-          measurementTypes: types,
         });
       },
 
       // ─── Customers ──────────────────────────────────────────
-      createCustomer: (input: CreateCustomerInput) => {
+      createCustomer: async (input: CreateCustomerInput) => {
         const { currentWorkshop, currentUserId, customers } = get();
         if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
 
-        const customer: Customer = {
+        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+          const dbCust = await dbCreateCustomer(currentWorkshop.id, input, currentUserId);
+          set({ customers: [dbCust, ...customers] });
+          return dbCust;
+        }
+
+        const localCustomer: Customer = {
           id: uid(),
           workshop_id: currentWorkshop.id,
           full_name: input.full_name.trim(),
@@ -671,31 +468,36 @@ export const useAppStore = create<AppStore>()(
           total_balance: 0,
         };
 
-        set({ customers: [customer, ...customers] });
-        addAuditLogInternal('CUSTOMER_CREATED', 'customer', customer.id, { name: customer.full_name });
-        return customer;
+        set({ customers: [localCustomer, ...customers] });
+        return localCustomer;
       },
 
-      updateCustomer: (id: string, input: Partial<CreateCustomerInput>) => {
+      updateCustomer: async (id: string, input: Partial<CreateCustomerInput>) => {
+        const { currentUserId } = get();
+        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+          const updated = await dbUpdateCustomer(id, input);
+          set((state) => ({
+            customers: state.customers.map((c) => (c.id === id ? { ...c, ...updated } : c)),
+          }));
+          return;
+        }
+
         set((state) => ({
           customers: state.customers.map((c) =>
-            c.id === id
-              ? { ...c, ...input, updated_at: new Date().toISOString() }
-              : c
+            c.id === id ? { ...c, ...input, updated_at: new Date().toISOString() } : c
           ),
         }));
-        addAuditLogInternal('CUSTOMER_UPDATED', 'customer', id);
       },
 
-      archiveCustomer: (id: string) => {
+      archiveCustomer: async (id: string) => {
+        const { currentUserId } = get();
+        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+          await dbDeleteCustomer(id);
+        }
+
         set((state) => ({
-          customers: state.customers.map((c) =>
-            c.id === id
-              ? { ...c, deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-              : c
-          ),
+          customers: state.customers.filter((c) => c.id !== id),
         }));
-        addAuditLogInternal('CUSTOMER_ARCHIVED', 'customer', id);
       },
 
       getCustomer: (id: string) => {
@@ -704,14 +506,14 @@ export const useAppStore = create<AppStore>()(
         if (!customer) return undefined;
 
         const customerOrders = orders.filter((o) => o.customer_id === id && !o.deleted_at);
-        const totalSpent = customerOrders.reduce((sum, o) => sum + o.total_amount, 0);
-        const totalPaid = customerOrders.reduce((sum, o) => sum + o.paid_amount, 0);
+        const totalSpent = customerOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+        const totalPaid = customerOrders.reduce((sum, o) => sum + Number(o.paid_amount || 0), 0);
 
         return {
           ...customer,
           total_orders: customerOrders.length,
           total_spent: totalSpent,
-          total_balance: totalSpent - totalPaid,
+          total_balance: Math.max(0, totalSpent - totalPaid),
           last_order_at: customerOrders[0]?.created_at,
         };
       },
@@ -721,16 +523,21 @@ export const useAppStore = create<AppStore>()(
       },
 
       // ─── Measurements ────────────────────────────────────────
-      createMeasurementProfile: (input: CreateMeasurementInput) => {
-        const { currentWorkshop, currentUserId, measurementProfiles, measurementTypes, customers } = get();
+      createMeasurementProfile: async (input: CreateMeasurementInput) => {
+        const { currentWorkshop, currentUserId, measurementProfiles } = get();
         if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
 
-        const types = measurementTypes;
-        const profile: MeasurementProfile = {
+        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+          const dbProf = await dbCreateMeasurementProfile(currentWorkshop.id, input);
+          set({ measurementProfiles: [dbProf, ...measurementProfiles] });
+          return dbProf;
+        }
+
+        const localProf: MeasurementProfile = {
           id: uid(),
           workshop_id: currentWorkshop.id,
           customer_id: input.customer_id,
-          label: input.label,
+          label: input.label || 'Mesures Standard',
           notes: input.notes,
           fabric_image_url: input.fabric_image_url,
           model_image_url: input.model_image_url,
@@ -745,37 +552,31 @@ export const useAppStore = create<AppStore>()(
             measurement_type_id: v.measurement_type_id,
             value: v.value,
             unit: v.unit,
-            measurement_type: types.find((t) => t.id === v.measurement_type_id),
           })),
         };
-        profile.values = profile.values!.map((v) => ({ ...v, profile_id: profile.id }));
 
-        set({ measurementProfiles: [profile, ...measurementProfiles] });
-        addAuditLogInternal('MEASUREMENT_CREATED', 'measurement_profile', profile.id);
-        return profile;
+        set({ measurementProfiles: [localProf, ...measurementProfiles] });
+        return localProf;
       },
 
-      deleteMeasurementProfile: (id: string) => {
+      deleteMeasurementProfile: async (id: string) => {
         const { measurementProfiles } = get();
         set({
           measurementProfiles: measurementProfiles.filter((p) => p.id !== id),
         });
-        addAuditLogInternal('MEASUREMENT_DELETED', 'measurement_profile', id);
       },
 
       getMeasurementProfiles: (customerId: string) => {
-        return get().measurementProfiles
-          .filter((p) => p.customer_id === customerId)
+        return get()
+          .measurementProfiles.filter((p) => p.customer_id === customerId)
           .sort((a, b) => new Date(b.taken_at).getTime() - new Date(a.taken_at).getTime());
       },
 
       addMeasurementType: (name: string, unit: string = 'cm') => {
         const { currentWorkshop, measurementTypes } = get();
-        if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
-
         const type: MeasurementType = {
           id: uid(),
-          workshop_id: currentWorkshop.id,
+          workshop_id: currentWorkshop?.id || 'demo-workshop-001',
           name: name.trim(),
           unit,
           sort_order: measurementTypes.length + 1,
@@ -787,39 +588,38 @@ export const useAppStore = create<AppStore>()(
       },
 
       // ─── Orders ──────────────────────────────────────────────
-      createOrder: (input: CreateOrderInput) => {
-        const { currentWorkshop, currentUserId, orders, customers, payments } = get();
+      createOrder: async (input: CreateOrderInput) => {
+        const { currentWorkshop, currentUserId, orders, payments, customers } = get();
         if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
 
-        const customer = customers.find((c) => c.id === input.customer_id);
-        if (!customer) throw new Error('Client introuvable');
-        if (customer.workshop_id !== currentWorkshop.id) {
-          throw new Error('Violation de sécurité : le client n\'appartient pas à cet atelier.');
+        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+          const { order, items, initialPayment } = await dbCreateOrder(currentWorkshop.id, input, currentUserId);
+          const cust = customers.find((c) => c.id === input.customer_id);
+          const enriched: Order = { ...order, customer: cust, items };
+
+          set({
+            orders: [enriched, ...orders],
+            payments: initialPayment ? [initialPayment, ...payments] : payments,
+          });
+          return enriched;
         }
 
-        // Generate order number
-        const year = new Date().getFullYear();
-        const yearOrders = orders.filter((o) => o.order_number.includes(`CMD-${year}`));
-        const sequence = yearOrders.length + 1;
-        const orderNumber = generateOrderNumber(year, sequence);
-
-        // Calculate total
-        const totalAmount = input.items.reduce(
-          (sum, item) => sum + item.unit_price * item.quantity,
-          0
-        );
-
+        const totalAmount = input.items.reduce((sum, item) => sum + item.unit_price * (item.quantity || 1), 0);
+        const paidAmount = input.initial_payment || 0;
+        const balance = Math.max(0, totalAmount - paidAmount);
         const orderId = uid();
-        const order: Order = {
+        const cust = customers.find((c) => c.id === input.customer_id);
+
+        const localOrder: Order = {
           id: orderId,
           workshop_id: currentWorkshop.id,
           customer_id: input.customer_id,
-          order_number: orderNumber,
+          order_number: generateOrderNumber(2026, orders.length + 1),
           status: 'NEW',
           priority: input.priority,
           total_amount: totalAmount,
-          paid_amount: 0,
-          balance: totalAmount,
+          paid_amount: paidAmount,
+          balance: balance,
           order_date: format(new Date(), 'yyyy-MM-dd'),
           due_date: input.due_date,
           assigned_to: input.assigned_to,
@@ -827,7 +627,7 @@ export const useAppStore = create<AppStore>()(
           created_by: currentUserId || undefined,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          customer,
+          customer: cust,
           items: input.items.map((item) => ({
             id: uid(),
             order_id: orderId,
@@ -841,64 +641,42 @@ export const useAppStore = create<AppStore>()(
             notes: item.notes,
             created_at: new Date().toISOString(),
           })),
-          status_history: [{
-            id: uid(),
-            order_id: orderId,
-            workshop_id: currentWorkshop.id,
-            old_status: undefined,
-            new_status: 'NEW',
-            changed_by: currentUserId || undefined,
-            changed_at: new Date().toISOString(),
-            notes: 'Commande créée',
-          }],
-          payments: [],
-          is_late: false,
         };
 
-        const newOrders = [order, ...orders];
-        set({ orders: newOrders });
+        const newOrders = [localOrder, ...orders];
+        let newPayments = payments;
 
-        // Add initial payment if provided
-        if (input.initial_payment && input.initial_payment > 0) {
-          get().createPayment({
+        if (paidAmount > 0) {
+          const localPayment: Payment = {
+            id: uid(),
+            workshop_id: currentWorkshop.id,
             order_id: orderId,
             customer_id: input.customer_id,
-            amount: input.initial_payment,
+            amount: paidAmount,
             method: input.initial_payment_method || input.payment_method || 'CASH',
+            status: 'CONFIRMED',
             payment_date: format(new Date(), 'yyyy-MM-dd'),
-          });
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          newPayments = [localPayment, ...payments];
         }
 
-        addAuditLogInternal('ORDER_CREATED', 'order', orderId, { order_number: orderNumber });
-        return get().orders.find((o) => o.id === orderId) || order;
+        set({ orders: newOrders, payments: newPayments });
+        return localOrder;
       },
 
-      updateOrder: (id: string, updates: Partial<Order>) => {
+      updateOrder: async (id: string, updates: Partial<Order>) => {
         set((state) => ({
-          orders: state.orders.map((o) =>
-            o.id === id
-              ? { ...o, ...updates, updated_at: new Date().toISOString() }
-              : o
-          ),
+          orders: state.orders.map((o) => (o.id === id ? { ...o, ...updates, updated_at: new Date().toISOString() } : o)),
         }));
-        addAuditLogInternal('ORDER_UPDATED', 'order', id);
       },
 
-      changeOrderStatus: (orderId: string, newStatus: OrderStatus, notes?: string) => {
-        const { orders, currentUserId, currentWorkshop } = get();
-        const order = orders.find((o) => o.id === orderId);
-        if (!order) return;
-
-        const historyEntry = {
-          id: uid(),
-          order_id: orderId,
-          workshop_id: currentWorkshop?.id || '',
-          old_status: order.status,
-          new_status: newStatus,
-          changed_by: currentUserId || undefined,
-          changed_at: new Date().toISOString(),
-          notes,
-        };
+      changeOrderStatus: async (orderId: string, newStatus: OrderStatus, notes?: string) => {
+        const { currentUserId } = get();
+        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+          await dbUpdateOrderStatus(orderId, newStatus);
+        }
 
         set((state) => ({
           orders: state.orders.map((o) =>
@@ -907,27 +685,21 @@ export const useAppStore = create<AppStore>()(
                   ...o,
                   status: newStatus,
                   updated_at: new Date().toISOString(),
-                  status_history: [...(o.status_history || []), historyEntry],
                 }
               : o
           ),
         }));
-
-        addAuditLogInternal('ORDER_STATUS_CHANGED', 'order', orderId, {
-          old_status: order.status,
-          new_status: newStatus,
-        });
       },
 
-      archiveOrder: (id: string) => {
+      archiveOrder: async (id: string) => {
+        const { currentUserId } = get();
+        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+          await dbDeleteOrder(id);
+        }
+
         set((state) => ({
-          orders: state.orders.map((o) =>
-            o.id === id
-              ? { ...o, deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-              : o
-          ),
+          orders: state.orders.filter((o) => o.id !== id),
         }));
-        addAuditLogInternal('ORDER_ARCHIVED', 'order', id);
       },
 
       getOrder: (id: string) => {
@@ -936,74 +708,59 @@ export const useAppStore = create<AppStore>()(
         if (!order) return undefined;
 
         const orderPayments = payments.filter((p) => p.order_id === id && p.status === 'CONFIRMED');
-        const paidAmount = orderPayments.reduce((sum, p) => sum + p.amount, 0);
+        const paidAmount = orderPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
         return {
           ...order,
           paid_amount: paidAmount,
-          balance: Math.max(0, order.total_amount - paidAmount),
+          balance: Math.max(0, Number(order.total_amount || 0) - paidAmount),
           payments: orderPayments,
           is_late: isDueDateLate(order.due_date, order.status),
         };
       },
 
       // ─── Payments ────────────────────────────────────────────
-      createPayment: (input: CreatePaymentInput) => {
+      createPayment: async (input: CreatePaymentInput) => {
         const { currentWorkshop, currentUserId, payments, orders } = get();
         if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
 
-        const order = orders.find((o) => o.id === input.order_id);
-        if (!order) throw new Error('Commande introuvable');
-        if (order.workshop_id !== currentWorkshop.id) {
-          throw new Error('Violation de sécurité : la commande n\'appartient pas à cet atelier.');
-        }
-        if (order.customer_id !== input.customer_id) {
-          throw new Error('Violation d\'intégrité : le client ne correspond pas à la commande.');
-        }
-
-        // Validate amount
-        const currentPaid = payments
-          .filter((p) => p.order_id === input.order_id && p.status === 'CONFIRMED')
-          .reduce((sum, p) => sum + p.amount, 0);
-        const remaining = order.total_amount - currentPaid;
-
-        if (input.amount <= 0) throw new Error('Le montant doit être supérieur à 0');
-        if (input.amount > remaining + 0.01) {
-          throw new Error(`Le montant saisi (${input.amount}) dépasse le reste à payer (${remaining})`);
+        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+          const { payment, updatedOrder } = await dbCreatePayment(currentWorkshop.id, input, currentUserId);
+          set((state) => ({
+            payments: [payment, ...state.payments],
+            orders: updatedOrder
+              ? state.orders.map((o) => (o.id === input.order_id ? { ...o, ...updatedOrder } : o))
+              : state.orders,
+          }));
+          return payment;
         }
 
-        const payment: Payment = {
+        const localPayment: Payment = {
           id: uid(),
           workshop_id: currentWorkshop.id,
           order_id: input.order_id,
           customer_id: input.customer_id,
           amount: input.amount,
-          method: input.method,
+          method: input.method || 'CASH',
           status: 'CONFIRMED',
           reference: input.reference,
           notes: input.notes,
-          payment_date: input.payment_date,
-          created_by: currentUserId || undefined,
+          payment_date: input.payment_date || format(new Date(), 'yyyy-MM-dd'),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
 
-        const newPayments = [payment, ...payments];
-        const newPaid = newPayments
-          .filter((p) => p.order_id === input.order_id && p.status === 'CONFIRMED')
-          .reduce((sum, p) => sum + p.amount, 0);
+        const updatedOrders = orders.map((o) => {
+          if (o.id === input.order_id) {
+            const newPaid = Number(o.paid_amount || 0) + Number(input.amount);
+            const newBalance = Math.max(0, Number(o.total_amount || 0) - newPaid);
+            return { ...o, paid_amount: newPaid, balance: newBalance };
+          }
+          return o;
+        });
 
-        set((state) => ({
-          payments: newPayments,
-          orders: state.orders.map((o) =>
-            o.id === input.order_id
-              ? { ...o, paid_amount: newPaid, balance: Math.max(0, o.total_amount - newPaid) }
-              : o
-          ),
-        }));
-
-        addAuditLogInternal('PAYMENT_CREATED', 'payment', payment.id, { amount: payment.amount });
-        return payment;
+        set({ payments: [localPayment, ...payments], orders: updatedOrders });
+        return localPayment;
       },
 
       getOrderPayments: (orderId: string) => {
@@ -1011,136 +768,139 @@ export const useAppStore = create<AppStore>()(
       },
 
       // ─── Expenses ────────────────────────────────────────────
-      createExpense: (input) => {
+      createExpense: async (input) => {
         const { currentWorkshop, currentUserId, expenses } = get();
         if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
 
-        const expense: Expense = {
+        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+          const dbExp = await dbCreateExpense(currentWorkshop.id, input, currentUserId);
+          set({ expenses: [dbExp, ...expenses] });
+          return dbExp;
+        }
+
+        const localExp: Expense = {
+          ...input,
           id: uid(),
           workshop_id: currentWorkshop.id,
           created_by: currentUserId || undefined,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          ...input,
         };
 
-        set({ expenses: [expense, ...expenses] });
-        return expense;
+        set({ expenses: [localExp, ...expenses] });
+        return localExp;
       },
 
-      deleteExpense: (id: string) => {
-        set({ expenses: get().expenses.filter((e) => e.id !== id) });
+      deleteExpense: async (id: string) => {
+        const { currentUserId, expenses } = get();
+        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+          await dbDeleteExpense(id);
+        }
+        set({ expenses: expenses.filter((e) => e.id !== id) });
       },
 
-      // ─── Team / Members ──────────────────────────────────────
-      inviteMember: (input: { full_name: string; phone?: string; role: UserRole }) => {
-        const { currentWorkshop, currentUserId, members } = get();
-        if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
-
-        const newUserId = uid();
-        const newMember: WorkshopMember = {
+      // ─── Members ─────────────────────────────────────────────
+      inviteMember: (input) => {
+        const { currentWorkshop, members } = get();
+        const member: WorkshopMember = {
           id: uid(),
-          workshop_id: currentWorkshop.id,
-          user_id: newUserId,
+          workshop_id: currentWorkshop?.id || 'demo-workshop-001',
+          user_id: uid(),
           role: input.role,
           status: 'ACTIVE',
-          invited_by: currentUserId || undefined,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           profile: {
-            id: newUserId,
+            id: uid(),
             full_name: input.full_name,
             phone: input.phone,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
         };
-
-        set({ members: [...members, newMember] });
-        addAuditLogInternal('MEMBER_INVITED', 'member', newMember.id, {
-          name: input.full_name,
-          role: input.role,
-        });
-        return newMember;
+        set({ members: [...members, member] });
+        return member;
       },
 
-      updateMemberRole: (memberId: string, role: UserRole) => {
-        const { members } = get();
-        set({
-          members: members.map((m) =>
-            m.id === memberId ? { ...m, role, updated_at: new Date().toISOString() } : m
-          ),
-        });
-        addAuditLogInternal('MEMBER_ROLE_CHANGED', 'member', memberId, { role });
-      },
-
-      toggleMemberStatus: (memberId: string) => {
-        const { members } = get();
-        set({
-          members: members.map((m) =>
-            m.id === memberId
-              ? {
-                  ...m,
-                  status: m.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
-                  updated_at: new Date().toISOString(),
-                }
-              : m
-          ),
-        });
-      },
-
-      removeMember: (memberId: string) => {
-        const { members } = get();
-        set({ members: members.filter((m) => m.id !== memberId) });
-        addAuditLogInternal('MEMBER_REMOVED', 'member', memberId);
-      },
-
-      // ─── Dashboard ───────────────────────────────────────────
-      getDashboardStats: (): DashboardStats => {
-        const { orders, payments, customers } = get();
-        const today = format(new Date(), 'yyyy-MM-dd');
-        const tomorrow = format(new Date(Date.now() + 86400000), 'yyyy-MM-dd');
-        const monthStart = format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
-
-        const activeOrders = orders.filter((o) => !o.deleted_at && o.status !== 'CANCELLED');
-
-        return {
-          ordersToday: activeOrders.filter((o) => o.order_date === today).length,
-          ordersDueToday: activeOrders.filter((o) => o.due_date === today && o.status !== 'DELIVERED').length,
-          ordersDueTomorrow: activeOrders.filter((o) => o.due_date === tomorrow && o.status !== 'DELIVERED').length,
-          ordersLate: activeOrders.filter((o) => isDueDateLate(o.due_date, o.status)).length,
-          ordersInProduction: activeOrders.filter((o) => ['CUTTING', 'SEWING', 'FINISHING', 'MEASURED'].includes(o.status)).length,
-          ordersReady: activeOrders.filter((o) => o.status === 'READY').length,
-          paymentsThisMonth: payments
-            .filter((p) => p.payment_date >= monthStart && p.status === 'CONFIRMED')
-            .reduce((sum, p) => sum + p.amount, 0),
-          balanceToRecover: activeOrders
-            .filter((o) => o.status !== 'DELIVERED')
-            .reduce((sum, o) => sum + (o.balance || 0), 0),
-          totalCustomers: customers.filter((c) => !c.deleted_at).length,
-          revenueThisMonth: payments
-            .filter((p) => p.payment_date >= monthStart && p.status === 'CONFIRMED')
-            .reduce((sum, p) => sum + p.amount, 0),
-        };
-      },
-
-      getRecentActivity: (): RecentActivity[] => {
-        const { auditLogs } = get();
-        return auditLogs.slice(0, 15).map((log) => ({
-          id: log.id,
-          type: (log.action.toLowerCase().replace('_', '_') as RecentActivity['type']) || 'order_created',
-          label: formatAuditLabel(log),
-          time: log.created_at,
-          entity_id: log.entity_id,
+      updateMemberRole: (memberId, role) => {
+        set((state) => ({
+          members: state.members.map((m) => (m.id === memberId ? { ...m, role } : m)),
         }));
       },
 
-      // ─── Utilities ───────────────────────────────────────────
+      toggleMemberStatus: (memberId) => {
+        set((state) => ({
+          members: state.members.map((m) =>
+            m.id === memberId ? { ...m, status: m.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' } : m
+          ),
+        }));
+      },
+
+      removeMember: (memberId) => {
+        set((state) => ({
+          members: state.members.filter((m) => m.id !== memberId),
+        }));
+      },
+
+      // ─── Dashboard Stats ─────────────────────────────────────
+      getDashboardStats: () => {
+        const { orders, payments, customers } = get();
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+        const activeOrders = orders.filter((o) => !o.deleted_at && o.status !== 'DELIVERED' && o.status !== 'CANCELLED');
+        const ordersReady = orders.filter((o) => !o.deleted_at && o.status === 'READY').length;
+        const ordersLate = activeOrders.filter((o) => isDueDateLate(o.due_date, o.status)).length;
+
+        const paymentsThisMonth = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+        const totalOrderAmount = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+        const balanceToRecover = Math.max(0, totalOrderAmount - paymentsThisMonth);
+
+        return {
+          ordersToday: orders.filter((o) => o.order_date === todayStr).length,
+          ordersDueToday: orders.filter((o) => o.due_date === todayStr && o.status !== 'DELIVERED').length,
+          ordersDueTomorrow: 0,
+          ordersLate,
+          ordersInProduction: activeOrders.length,
+          ordersReady,
+          paymentsThisMonth,
+          balanceToRecover,
+          totalCustomers: customers.filter((c) => !c.deleted_at).length,
+          revenueThisMonth: totalOrderAmount,
+        };
+      },
+
+      getRecentActivity: () => {
+        const { orders, payments, customers } = get();
+        const activities: RecentActivity[] = [];
+
+        orders.slice(0, 5).forEach((o) => {
+          activities.push({
+            id: `act-ord-${o.id}`,
+            type: 'order_created',
+            label: `Nouvelle commande ${o.order_number} (${o.customer?.full_name || 'Client'})`,
+            time: format(new Date(o.created_at), 'dd/MM/yyyy HH:mm'),
+            entity_id: o.id,
+          });
+        });
+
+        payments.slice(0, 5).forEach((p) => {
+          activities.push({
+            id: `act-pay-${p.id}`,
+            type: 'payment_added',
+            label: `Paiement ${Number(p.amount).toLocaleString()} FCFA reçu (${p.method})`,
+            time: format(new Date(p.payment_date), 'dd/MM/yyyy'),
+            entity_id: p.order_id,
+          });
+        });
+
+        return activities.sort((a, b) => b.id.localeCompare(a.id)).slice(0, 8);
+      },
+
       setError: (error: string | null) => set({ error }),
       clearError: () => set({ error: null }),
     }),
     {
-      name: 'atelierpro-store',
+      name: 'atelierpro_app_store_v2',
       storage: createJSONStorage(() => safeStorage),
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
@@ -1149,52 +909,7 @@ export const useAppStore = create<AppStore>()(
         currentUserRole: state.currentUserRole,
         currentWorkshop: state.currentWorkshop,
         isOnboardingDone: state.isOnboardingDone,
-        customers: state.customers,
-        orders: state.orders,
-        payments: state.payments,
-        measurementProfiles: state.measurementProfiles,
-        measurementTypes: state.measurementTypes,
-        expenses: state.expenses,
-        members: state.members,
-        auditLogs: state.auditLogs,
       }),
     }
   )
 );
-
-// ─── Internal audit log helper (called within store actions) ──
-function addAuditLogInternal(
-  action: string,
-  entityType: string,
-  entityId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  metadata?: any
-) {
-  const { currentWorkshop, currentUserId, auditLogs } = useAppStore.getState();
-  const log: AuditLog = {
-    id: Math.random().toString(36).slice(2),
-    workshop_id: currentWorkshop?.id,
-    user_id: currentUserId || undefined,
-    action,
-    entity_type: entityType,
-    entity_id: entityId,
-    metadata,
-    created_at: new Date().toISOString(),
-  };
-  useAppStore.setState({ auditLogs: [log, ...auditLogs].slice(0, 200) });
-}
-
-function formatAuditLabel(log: AuditLog): string {
-  const labels: Record<string, string> = {
-    CUSTOMER_CREATED: 'Nouveau client créé',
-    CUSTOMER_UPDATED: 'Client modifié',
-    CUSTOMER_ARCHIVED: 'Client archivé',
-    ORDER_CREATED: `Commande ${(log.metadata as {order_number?: string})?.order_number || ''} créée`,
-    ORDER_UPDATED: 'Commande modifiée',
-    ORDER_STATUS_CHANGED: `Statut mis à jour → ${(log.metadata as {new_status?: string})?.new_status || ''}`,
-    ORDER_DELIVERED: 'Commande livrée',
-    PAYMENT_CREATED: `Paiement de ${(log.metadata as {amount?: number})?.amount?.toLocaleString('fr-FR') || ''} FCFA enregistré`,
-    MEASUREMENT_CREATED: 'Mesures enregistrées',
-  };
-  return labels[log.action] || log.action;
-}
