@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
 
     // ─── Case 2: Customer Order Payment (Règlement commande client) ───
     if (payload.type === 'order_payment') {
-      // 1000 FCFA ~= 1.52 EUR
+      // 1000 FCFA ~= 1.52 EUR (taux fixe XOF -> EUR)
       const amountEur = Math.max(1, Math.round((payload.amount / 655.957) * 100)); // Cents EUR
 
       const session = await stripe.checkout.sessions.create({
@@ -124,10 +124,11 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Type de paiement non supporté' }, { status: 400 });
-  } catch (error: any) {
-    console.error('[Stripe Checkout Error]', error);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Erreur interne';
+    console.error('[Stripe Checkout Error]', message);
     return NextResponse.json(
-      { error: error?.message || 'Erreur lors de la création de la session Stripe' },
+      { error: 'Erreur lors de la création de la session de paiement sécurisée' },
       { status: 500 }
     );
   }
