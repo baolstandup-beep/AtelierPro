@@ -121,7 +121,7 @@ export function InvoicePDFModal({
                   <MapPin className="w-3 h-3 text-slate-400" /> {workshop?.address || 'Rue 12, Médina'}, {workshop?.city || 'Dakar'}
                 </p>
                 <p className="flex items-center gap-1.5">
-                  <Phone className="w-3 h-3 text-slate-400" /> {workshop?.phone || '+221 77 123 45 67'}
+                  <Phone className="w-3 h-3 text-slate-400" /> {workshop?.phone || '+221 77 303 31 96'}
                 </p>
               </div>
             </div>

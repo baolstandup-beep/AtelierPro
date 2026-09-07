@@ -1758,20 +1758,45 @@ export default function AtelierProOfficialLandingPage() {
               Contact & Assistance
             </h4>
             <div className="space-y-2.5 text-xs text-[#4B5563]">
-              <div className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5 text-[#0F3B32]" />
-                <span>+221 77 000 00 00</span>
-              </div>
+              <a
+                href="https://wa.me/221773033196?text=Bonjour%20AtelierPro%2C%20j%27aimerais%20avoir%20plus%20d%27informations."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-[#0F3B32] font-semibold transition-colors group"
+              >
+                <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                  <Phone className="w-3 h-3" />
+                </div>
+                <span>+221 77 303 31 96</span>
+              </a>
               <div className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-[#0F3B32]" />
-                <span>support@atelierpro.app</span>
+                <a href="mailto:support@atelierpro.app" className="hover:text-[#0F3B32]">
+                  support@atelierpro.app
+                </a>
               </div>
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#0F3B32]" />
-                <span>Espace chiffré & sauvegardé</span>
+                <span>Assistance Dédiée 7j/7</span>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Floating WhatsApp Support Button (Fixed Bottom-Right) */}
+        <div className="fixed bottom-6 right-6 z-40">
+          <motion.a
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.95 }}
+            href="https://wa.me/221773033196?text=Bonjour%20AtelierPro%2C%20j%27aimerais%20une%20d%C3%A9mo%20de%20l%27application."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2.5 px-4 py-3 rounded-full bg-[#25D366] text-white font-bold text-xs shadow-[0_10px_25px_rgba(37,211,102,0.4)] hover:bg-[#20bd5a] transition-all"
+            title="Contacter le support AtelierPro par WhatsApp"
+          >
+            <MessageCircle className="w-5 h-5 fill-white text-white" />
+            <span className="hidden sm:inline font-semibold">Assistance +221 77 303 31 96</span>
+          </motion.a>
         </div>
 
         <div className="max-w-6xl mx-auto pt-8 border-t border-[#EBE7DF] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">

@@ -29,7 +29,7 @@ import { format } from 'date-fns';
 const DEMO_WORKSHOP: Workshop = {
   id: 'demo-workshop-001',
   name: 'Atelier Couture Dakar',
-  phone: '+221 77 123 45 67',
+  phone: '+221 77 303 31 96',
   address: 'Rue 12, Médina',
   city: 'Dakar',
   currency: 'XOF',
