@@ -1,351 +1,461 @@
 'use client';
 
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
-import { Card, SectionHeader } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { formatCurrency, formatDate, formatTimeAgo } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import {
   ShoppingBag,
   Users,
   CreditCard,
   AlertTriangle,
-  CheckCircle,
-  Clock,
-  TrendingUp,
-  Plus,
-  UserPlus,
   Banknote,
   ArrowRight,
   Package,
-  Timer,
-  DollarSign,
   Ruler,
   Scissors,
   Sparkles,
   ChevronRight,
   Calendar,
+  Layers,
+  UserPlus,
+  Plus,
 } from 'lucide-react';
 
-export default function LuxuryDashboardPage() {
+export default function AtelierProLovableDashboardPage() {
   const router = useRouter();
-  const { getDashboardStats, orders, customers, measurementProfiles, auditLogs, currentWorkshop } = useAppStore();
+  const { getDashboardStats, orders, customers, measurementProfiles, currentWorkshop } = useAppStore();
   const stats = getDashboardStats();
   const ws = currentWorkshop;
 
-  // Recent orders (active, non-cancelled)
-  const recentOrders = orders
-    .filter((o) => !o.deleted_at && o.status !== 'CANCELLED')
-    .slice(0, 5);
+  // Active orders count
+  const activeOrdersCount = orders.filter(
+    (o) => !o.deleted_at && o.status !== 'DELIVERED' && o.status !== 'CANCELLED'
+  ).length;
 
-  // Late orders
-  const lateOrders = orders.filter((o) =>
-    !o.deleted_at && o.status !== 'DELIVERED' && o.status !== 'CANCELLED' &&
-    o.due_date && new Date(o.due_date) < new Date()
-  );
+  // Active upcoming orders (sorted by delivery date)
+  const upcomingDeliveries = orders
+    .filter((o) => !o.deleted_at && o.status !== 'DELIVERED' && o.status !== 'CANCELLED')
+    .sort((a, b) => {
+      const dateA = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+      const dateB = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+      return dateA - dateB;
+    })
+    .slice(0, 6);
+
+  // Recouvrement calculation (% collected)
+  const totalRevenue = stats.paymentsThisMonth + stats.balanceToRecover;
+  const recoveryRate = totalRevenue > 0 ? Math.round((stats.paymentsThisMonth / totalRevenue) * 100) : 0;
 
   // Recent measurements taken
   const recentMeasurements = measurementProfiles.slice(0, 4);
 
   return (
-    <div className="space-y-7 pb-10">
-      {/* ─── 1. Atelier Hero Banner (Matching Luxury Reference) ─── */}
-      <div className="relative rounded-[28px] overflow-hidden bg-gradient-to-br from-[#0B2B26] via-[#0F3B32] to-[#081F1B] text-white p-6 sm:p-8 lg:p-10 shadow-xl">
-        <div className="absolute -right-10 -bottom-10 w-60 h-60 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="space-y-8 pb-12">
+      
+      {/* ─── 1. LOVABLE-INSPIRED HERO HEADER (VOTRE ATELIER MESURÉ AU MILLIMÈTRE) ─── */}
+      <div className="relative rounded-[28px] overflow-hidden bg-gradient-to-br from-[#0B2B26] via-[#0F3B32] to-[#071F1B] text-white p-6 sm:p-10 shadow-2xl border border-white/10">
+        <div className="absolute -right-12 -bottom-12 w-72 h-72 bg-[#2E9D74]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -left-12 -top-12 w-72 h-72 bg-[#D97706]/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              Atelier Actif • {ws?.city || 'Dakar'}
+          <div className="space-y-2 max-w-2xl text-left">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/10 border border-white/15 text-[#A3E635] text-xs font-mono font-bold tracking-wide">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Bonjour, bon travail à l&apos;atelier</span>
             </div>
-            <h1 className="text-2xl sm:text-4xl font-black font-serif tracking-tight">
-              {ws?.name || 'Mon Atelier de Couture'}
+            
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold font-serif-luxury tracking-tight text-white leading-tight">
+              Votre atelier, mesuré au millimètre.
             </h1>
-            <p className="text-xs sm:text-sm text-slate-300 font-medium">
-              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-light">
+              Mesures, délais et acomptes réunis au même endroit — plus de carnet perdu.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Quick Action Navigation Buttons */}
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
             <Link
-              href="/measurements/new"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white text-[#0F3B32] hover:bg-slate-100 font-bold text-xs shadow-lg transition-all hover:scale-105"
+              href="/orders"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-[#0F3B32] hover:bg-slate-100 font-bold text-xs uppercase tracking-wider shadow-lg transition-all hover:scale-105"
+            >
+              <ShoppingBag className="w-4 h-4 text-[#2E9D74]" />
+              <span>Voir les commandes</span>
+            </Link>
+
+            <Link
+              href="/measurements"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#2E9D74] hover:bg-[#258562] text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-[#2E9D74]/30 transition-all hover:scale-105"
             >
               <Ruler className="w-4 h-4" />
-              <span>Prendre Mesures</span>
-            </Link>
-            <Link
-              href="/orders/new"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-all hover:scale-105"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Nouvelle Commande</span>
+              <span>Carnet de mesures</span>
             </Link>
           </div>
         </div>
       </div>
 
-      {/* ─── 2. Alert: Late Orders Notice ─── */}
+      {/* ─── 2. ALERT: URGENT / LATE ORDERS NOTICE ─── */}
       {stats.ordersLate > 0 && (
         <button
           onClick={() => router.push('/orders?filter=late')}
-          className="w-full bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 flex items-center justify-between gap-3 text-left hover:bg-amber-100/70 transition-all shadow-xs"
+          className="w-full bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between gap-3 text-left hover:bg-amber-500/15 transition-all shadow-sm cursor-pointer"
         >
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-sm font-bold text-amber-950">
+              <p className="text-sm font-bold text-amber-900 dark:text-amber-300">
                 {stats.ordersLate} commande{stats.ordersLate > 1 ? 's' : ''} nécessitant une attention urgente
               </p>
-              <p className="text-xs text-amber-800">Cliquez pour voir les commandes proches de la date limite.</p>
+              <p className="text-xs text-amber-800 dark:text-amber-400">Cliquez pour voir les commandes proches ou ayant dépassé la date d&apos;essayage.</p>
             </div>
           </div>
-          <ArrowRight className="h-4 w-4 text-amber-800 flex-shrink-0" />
+          <ArrowRight className="h-4 w-4 text-amber-800 dark:text-amber-300 flex-shrink-0" />
         </button>
       )}
 
-      {/* ─── 3. Major KPI Metrics (Luxury Cards) ─── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1 : Encaissements */}
-        <div
-          onClick={() => router.push('/payments')}
-          className="bg-white rounded-2xl p-5 border border-[#EBE7DF] shadow-sm hover:shadow-md transition-all cursor-pointer group"
+      {/* ─── 3. THE 4 PRIMARY METRIC CARDS (EXACT LOVABLE CARDS) ─── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* KPI 1 : Commandes en cours */}
+        <Link
+          href="/orders"
+          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md hover:border-[#2E9D74]/50 transition-all group flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Paiements du mois</span>
-            <div className="w-8 h-8 rounded-xl bg-[#E5EFEA] text-[#0F3B32] flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-4 h-4" />
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Commandes en cours</span>
+            <div className="w-8 h-8 rounded-xl bg-[#EBF7F1] dark:bg-[#0F3B32] text-[#2E9D74] flex items-center justify-center">
+              <ShoppingBag className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-xl sm:text-2xl font-black text-[#0F3B32] font-mono mt-2">
-            {formatCurrency(stats.paymentsThisMonth, ws?.currency_symbol)}
-          </p>
-          <span className="text-[10px] text-emerald-700 font-bold mt-1 inline-block">
-            ✓ Total encaissé en caisse
-          </span>
-        </div>
-
-        {/* Metric 2 : Reste à récupérer */}
-        <div
-          onClick={() => router.push('/payments')}
-          className="bg-white rounded-2xl p-5 border border-[#EBE7DF] shadow-sm hover:shadow-md transition-all cursor-pointer group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Reste à récupérer</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center flex-shrink-0">
-              <Banknote className="w-4 h-4" />
-            </div>
+          <div className="mt-4">
+            <p className="text-3xl sm:text-4xl font-black text-[#111827] dark:text-white font-mono">
+              {activeOrdersCount}
+            </p>
+            <span className="text-[11px] font-bold text-[#2E9D74] mt-1 inline-flex items-center gap-1 group-hover:underline">
+              <span>Voir la production</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </span>
           </div>
-          <p className="text-xl sm:text-2xl font-black text-amber-700 font-mono mt-2">
-            {formatCurrency(stats.balanceToRecover, ws?.currency_symbol)}
-          </p>
-          <span className="text-[10px] text-amber-700 font-bold mt-1 inline-block">
-            Acomptes & soldes à la livraison
-          </span>
-        </div>
+        </Link>
 
-        {/* Metric 3 : En production */}
-        <div
-          onClick={() => router.push('/production')}
-          className="bg-white rounded-2xl p-5 border border-[#EBE7DF] shadow-sm hover:shadow-md transition-all cursor-pointer group"
+        {/* KPI 2 : Clients suivis */}
+        <Link
+          href="/customers"
+          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md hover:border-[#2E9D74]/50 transition-all group flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">En production</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center flex-shrink-0">
-              <Package className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-xl sm:text-2xl font-black text-blue-900 font-mono mt-2">
-            {stats.ordersInProduction} tenues
-          </p>
-          <span className="text-[10px] text-blue-700 font-bold mt-1 inline-block">
-            {stats.ordersReady} prêtes • {stats.ordersDueToday} à livrer auj.
-          </span>
-        </div>
-
-        {/* Metric 4 : Total clients & Mesures */}
-        <div
-          onClick={() => router.push('/customers')}
-          className="bg-white rounded-2xl p-5 border border-[#EBE7DF] shadow-sm hover:shadow-md transition-all cursor-pointer group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Clients & Mesures</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Clients suivis</span>
+            <div className="w-8 h-8 rounded-xl bg-[#EBF7F1] dark:bg-[#0F3B32] text-[#2E9D74] flex items-center justify-center">
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-xl sm:text-2xl font-black text-purple-900 font-mono mt-2">
-            {stats.totalCustomers} clients
-          </p>
-          <span className="text-[10px] text-purple-700 font-bold mt-1 inline-block">
-            {measurementProfiles.length} fiches de mesures
-          </span>
-        </div>
+          <div className="mt-4">
+            <p className="text-3xl sm:text-4xl font-black text-[#111827] dark:text-white font-mono">
+              {customers.length || stats.totalCustomers}
+            </p>
+            <span className="text-[11px] font-bold text-[#2E9D74] mt-1 inline-flex items-center gap-1 group-hover:underline">
+              <span>Carnet de clients</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </span>
+          </div>
+        </Link>
+
+        {/* KPI 3 : Encaissé */}
+        <Link
+          href="/payments"
+          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md hover:border-[#2E9D74]/50 transition-all group flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Encaissé (Ce mois)</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-[#16A34A] flex items-center justify-center">
+              <CreditCard className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="text-2xl sm:text-3xl font-black text-[#0F3B32] dark:text-[#A3E635] font-mono">
+              {formatCurrency(stats.paymentsThisMonth, ws?.currency_symbol)}
+            </p>
+            <span className="text-[11px] font-bold text-[#16A34A] mt-1 inline-flex items-center gap-1">
+              ✓ Wave, OM & Espèces
+            </span>
+          </div>
+        </Link>
+
+        {/* KPI 4 : Reste à percevoir */}
+        <Link
+          href="/payments"
+          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md hover:border-[#D97706]/50 transition-all group flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Reste à percevoir</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-[#D97706] flex items-center justify-center">
+              <Banknote className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="text-2xl sm:text-3xl font-black text-[#D97706] font-mono">
+              {formatCurrency(stats.balanceToRecover, ws?.currency_symbol)}
+            </p>
+            <span className="text-[11px] font-bold text-[#D97706] mt-1 inline-flex items-center gap-1 group-hover:underline">
+              <span>Soldes à la livraison</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </span>
+          </div>
+        </Link>
       </div>
 
-      {/* ─── 4. Quick Actions Pills ─── */}
-      <div className="bg-white rounded-2xl p-4 border border-[#EBE7DF] shadow-xs">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3 px-1">
-          Actions rapides de l'atelier
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-          <Link
-            href="/customers/new"
-            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#FBF9F5] border border-[#EBE7DF] hover:border-[#0F3B32] text-slate-800 text-xs font-bold transition-all hover:shadow-xs active:scale-95"
-          >
-            <UserPlus className="w-4 h-4 text-blue-600" />
-            <span>Nouveau client</span>
-          </Link>
-          <Link
-            href="/measurements/new"
-            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#FBF9F5] border border-[#EBE7DF] hover:border-[#0F3B32] text-slate-800 text-xs font-bold transition-all hover:shadow-xs active:scale-95"
-          >
-            <Ruler className="w-4 h-4 text-amber-600" />
-            <span>Prendre mesures</span>
-          </Link>
-          <Link
-            href="/orders/new"
-            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#FBF9F5] border border-[#EBE7DF] hover:border-[#0F3B32] text-slate-800 text-xs font-bold transition-all hover:shadow-xs active:scale-95"
-          >
-            <ShoppingBag className="w-4 h-4 text-[#0F3B32]" />
-            <span>Nouvelle commande</span>
-          </Link>
-          <Link
-            href="/payments/new"
-            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#FBF9F5] border border-[#EBE7DF] hover:border-[#0F3B32] text-slate-800 text-xs font-bold transition-all hover:shadow-xs active:scale-95"
-          >
-            <CreditCard className="w-4 h-4 text-purple-600" />
-            <span>Encaisser paiement</span>
-          </Link>
-          <Link
-            href="/expenses"
-            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#FBF9F5] border border-[#EBE7DF] hover:border-[#0F3B32] text-slate-800 text-xs font-bold transition-all hover:shadow-xs active:scale-95"
-          >
-            <DollarSign className="w-4 h-4 text-red-600" />
-            <span>Nouvelle dépense</span>
-          </Link>
-        </div>
-      </div>
-
-      {/* ─── 5. Grid: Recent Orders & Recent Measurements ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Orders (2 Cols) */}
-        <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-[#EBE7DF] shadow-sm space-y-4">
+      {/* ─── 4. SPLIT SECTIONS: PROCHAINES LIVRAISONS & RECOUVREMENT (LOVABLE WIDGETS) ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* Left Column (8 cols): Prochaines Livraisons */}
+        <div className="lg:col-span-8 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-base font-bold text-slate-900 font-serif">Commandes Récentes</h2>
-              <p className="text-xs text-slate-500">Suivi en direct des tenues en cours</p>
+              <h2 className="text-lg font-bold font-serif-luxury text-[#111827] dark:text-white">
+                Prochaines livraisons & Essayages
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Commandes planifiées pour cette semaine
+              </p>
             </div>
             <Link
               href="/orders"
-              className="text-xs font-bold text-[#0F3B32] hover:underline flex items-center gap-1"
+              className="text-xs font-bold text-[#2E9D74] hover:underline inline-flex items-center gap-1"
             >
-              Voir tout ({orders.length}) <ChevronRight className="w-3.5 h-3.5" />
+              <span>Voir tout</span>
+              <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
-          {recentOrders.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 text-xs">
-              Aucune commande enregistrée. Créez votre première commande pour débuter.
-            </div>
-          ) : (
-            <div className="divide-y divide-[#EBE7DF]">
-              {recentOrders.map((order) => {
-                const cust = customers.find((c) => c.id === order.customer_id);
+          <div className="space-y-3">
+            {upcomingDeliveries.length === 0 ? (
+              <div className="p-8 rounded-3xl bg-white dark:bg-[#121A16] border border-slate-200 dark:border-white/10 text-center space-y-3">
+                <Package className="w-10 h-10 text-slate-300 mx-auto" />
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Aucune commande en attente</p>
+                <Link
+                  href="/orders/new"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2E9D74] text-white font-bold text-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Enregistrer une commande</span>
+                </Link>
+              </div>
+            ) : (
+              upcomingDeliveries.map((order) => {
+                const customer = customers.find((c) => c.id === order.customer_id);
+                const itemName = order.items?.[0]?.name || 'Tenue sur-mesure';
+
                 return (
                   <div
                     key={order.id}
                     onClick={() => router.push(`/orders/${order.id}`)}
-                    className="py-3.5 flex items-center justify-between gap-3 hover:bg-[#FBF9F5] px-2 rounded-xl transition-colors cursor-pointer"
+                    className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121A16] border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md hover:border-[#2E9D74]/40 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                   >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-900 truncate">
-                          {cust?.full_name || 'Client'}
-                        </span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                          {order.order_number}
-                        </span>
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-11 h-11 rounded-2xl bg-[#EBF7F1] dark:bg-[#0F3B32] text-[#0F3B32] dark:text-[#A3E635] flex items-center justify-center font-bold text-sm shrink-0">
+                        <Scissors className="w-5 h-5 -rotate-45" />
                       </div>
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                        {order.items?.map((i) => i.name).join(', ') || 'Tenue sur-mesure'}
-                        {order.due_date && ` • Livraison le ${formatDate(order.due_date)}`}
-                      </p>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-[#111827] dark:text-white">
+                            {customer?.full_name || 'Client Atelier'}
+                          </h4>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              order.status === 'READY'
+                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300'
+                                : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                            }`}
+                          >
+                            {order.status === 'READY' ? 'Prêt' : 'En Atelier'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          {itemName} • Réf: {order.order_number || order.id.slice(0, 8)}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-xs font-bold text-slate-900 font-mono">
-                        {formatCurrency(order.total_amount, ws?.currency_symbol)}
-                      </p>
-                      {order.balance > 0 ? (
-                        <span className="text-[10px] text-amber-700 font-semibold block">
-                          Reste {formatCurrency(order.balance, ws?.currency_symbol)}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-emerald-700 font-semibold block">
-                          Soldé ✓
-                        </span>
-                      )}
+                    <div className="flex items-center justify-between sm:justify-end gap-6 text-right">
+                      <div>
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200">
+                          <Calendar className="w-3.5 h-3.5 text-[#2E9D74]" />
+                          <span>{order.due_date ? formatDate(order.due_date) : 'Non planifié'}</span>
+                        </div>
+                        <p className="text-[11px] font-mono font-bold text-[#D97706] mt-0.5">
+                          Solde: {formatCurrency(order.balance || 0, ws?.currency_symbol)}
+                        </p>
+                      </div>
+
+                      <ChevronRight className="w-5 h-5 text-slate-400" />
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          )}
+              })
+            )}
+          </div>
         </div>
 
-        {/* Recent Measurements Quick Panel (1 Col) */}
-        <div className="bg-white rounded-3xl p-6 border border-[#EBE7DF] shadow-sm space-y-4">
+        {/* Right Column (4 cols): Recouvrement (Lovable Rate Widget) */}
+        <div className="lg:col-span-4 space-y-4">
           <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold font-serif-luxury text-[#111827] dark:text-white">
+              Recouvrement
+            </h2>
+            <span className="text-xs font-mono font-bold text-[#16A34A]">{recoveryRate}% encaissé</span>
+          </div>
+
+          <div className="p-6 rounded-3xl bg-white dark:bg-[#121A16] border border-slate-200 dark:border-white/10 shadow-sm space-y-6 text-left">
             <div>
-              <h2 className="text-base font-bold text-slate-900 font-serif">Carnet de Mesures</h2>
-              <p className="text-xs text-slate-500">Dernières prises</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Part des montants déjà encaissés.</p>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-4xl font-black font-mono text-[#0F3B32] dark:text-[#A3E635]">{recoveryRate}%</span>
+                <span className="text-xs font-semibold text-slate-400">du chiffre d&apos;affaires</span>
+              </div>
             </div>
+
+            {/* Visual Progress Bar */}
+            <div className="space-y-1.5">
+              <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-white/10 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#2E9D74] to-[#A3E635] rounded-full transition-all duration-1000"
+                  style={{ width: `${Math.min(100, Math.max(0, recoveryRate))}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                <span>0%</span>
+                <span>50%</span>
+                <span>100%</span>
+              </div>
+            </div>
+
+            {/* Financial Breakdown */}
+            <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-white/10">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#2E9D74]" />
+                  Total Encaissé
+                </span>
+                <span className="font-bold text-[#0F3B32] dark:text-white font-mono">
+                  {formatCurrency(stats.paymentsThisMonth, ws?.currency_symbol)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#D97706]" />
+                  Reste à Percevoir
+                </span>
+                <span className="font-bold text-[#D97706] font-mono">
+                  {formatCurrency(stats.balanceToRecover, ws?.currency_symbol)}
+                </span>
+              </div>
+            </div>
+
             <Link
-              href="/measurements"
-              className="text-xs font-bold text-[#0F3B32] hover:underline flex items-center gap-1"
+              href="/payments"
+              className="w-full py-3 rounded-2xl bg-[#EBF7F1] dark:bg-[#0F3B32] hover:bg-[#2E9D74] hover:text-white text-[#0F3B32] dark:text-[#A3E635] font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2"
             >
-              Ouvrir carnet <ChevronRight className="w-3.5 h-3.5" />
+              <span>Gérer les Paiements & Acomptes</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ─── 5. FAST SHORTCUTS & MEASUREMENT PROFILES ─── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Recent Measurements Taken */}
+        <div className="p-6 rounded-3xl bg-white dark:bg-[#121A16] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 text-left">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-[#111827] dark:text-white flex items-center gap-2">
+              <Ruler className="w-4 h-4 text-[#2E9D74]" />
+              <span>Dernières Mesures Enregistrées</span>
+            </h3>
+            <Link href="/measurements/new" className="text-xs font-bold text-[#2E9D74] hover:underline">
+              + Ajouter
             </Link>
           </div>
 
-          {recentMeasurements.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 text-xs">
-              Aucune mesure enregistrée.
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {recentMeasurements.map((p) => {
-                const cust = customers.find((c) => c.id === p.customer_id);
+          <div className="space-y-2.5">
+            {recentMeasurements.length === 0 ? (
+              <p className="text-xs text-slate-400 py-3">Aucune mesure encore enregistrée.</p>
+            ) : (
+              recentMeasurements.map((m) => {
+                const customer = customers.find((c) => c.id === m.customer_id);
                 return (
-                  <Link
-                    key={p.id}
-                    href="/measurements"
-                    className="block p-3 rounded-2xl bg-[#FBF9F5] border border-[#EBE7DF] hover:border-[#0F3B32] transition-all"
+                  <div
+                    key={m.id}
+                    onClick={() => router.push(`/customers/${m.customer_id}`)}
+                    className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-white/10 transition-all cursor-pointer"
                   >
-                    <div className="flex items-center justify-between">
-                      <strong className="text-xs font-bold text-slate-900 truncate">
-                        {cust?.full_name || 'Client'}
-                      </strong>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#E5EFEA] text-[#0F3B32] font-semibold">
-                        {p.label || 'Standard'}
-                      </span>
+                    <div>
+                      <p className="text-xs font-bold text-[#111827] dark:text-white">
+                        {customer?.full_name || m.label || 'Profil Mesure'}
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        {m.fabric_type || 'Sur-mesure'} • {formatDate(m.taken_at || m.created_at)}
+                      </p>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1">
-                      <span>{p.values?.length || 0} mensurations</span>
-                      <span>{formatDate(p.taken_at)}</span>
-                    </div>
-                  </Link>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </div>
                 );
-              })}
-            </div>
-          )}
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Quick Workshop Actions */}
+        <div className="p-6 rounded-3xl bg-white dark:bg-[#121A16] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 text-left">
+          <h3 className="text-sm font-bold text-[#111827] dark:text-white flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-[#D97706]" />
+            <span>Actions Rapides Atelier</span>
+          </h3>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Link
+              href="/orders/new"
+              className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 hover:border-[#2E9D74] hover:bg-[#EBF7F1]/30 transition-all text-left group"
+            >
+              <ShoppingBag className="w-5 h-5 text-[#2E9D74] mb-1 group-hover:scale-110 transition-transform" />
+              <p className="text-xs font-bold text-[#111827] dark:text-white">Nouvelle Commande</p>
+              <p className="text-[10px] text-slate-400">Modèle, tissu & acompte</p>
+            </Link>
+
+            <Link
+              href="/measurements/new"
+              className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 hover:border-[#2E9D74] hover:bg-[#EBF7F1]/30 transition-all text-left group"
+            >
+              <Ruler className="w-5 h-5 text-[#2E9D74] mb-1 group-hover:scale-110 transition-transform" />
+              <p className="text-xs font-bold text-[#111827] dark:text-white">Prendre Mesures</p>
+              <p className="text-[10px] text-slate-400">Gabarits Boubou, Kaftan</p>
+            </Link>
+
+            <Link
+              href="/customers/new"
+              className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 hover:border-[#2E9D74] hover:bg-[#EBF7F1]/30 transition-all text-left group"
+            >
+              <UserPlus className="w-5 h-5 text-[#2E9D74] mb-1 group-hover:scale-110 transition-transform" />
+              <p className="text-xs font-bold text-[#111827] dark:text-white">Nouveau Client</p>
+              <p className="text-[10px] text-slate-400">Fiche & contact WhatsApp</p>
+            </Link>
+
+            <Link
+              href="/production"
+              className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 hover:border-[#2E9D74] hover:bg-[#EBF7F1]/30 transition-all text-left group"
+            >
+              <Layers className="w-5 h-5 text-[#D97706] mb-1 group-hover:scale-110 transition-transform" />
+              <p className="text-xs font-bold text-[#111827] dark:text-white">Kanban Atelier</p>
+              <p className="text-[10px] text-slate-400">Suivi coupe & finitions</p>
+            </Link>
+          </div>
         </div>
       </div>
+
     </div>
   );
 }
