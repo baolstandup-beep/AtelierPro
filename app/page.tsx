@@ -373,9 +373,41 @@ export default function AtelierProOfficialLandingPage() {
           </div>
 
           {/* Right Column: 42% (5 cols in 12-col grid) */}
-          <div className="hidden lg:flex lg:col-span-5 relative self-end items-end justify-center z-10 pointer-events-none">
+          <div className="hidden lg:flex lg:col-span-5 relative self-end items-end justify-center z-10">
             {/* Soft Ambient Radial Halo behind Couple */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[380px] h-[480px] bg-gradient-to-t from-[#D97706]/18 via-[#F5E6D3]/40 to-transparent rounded-full blur-3xl -z-10" />
+
+            {/* Floating Micro-Badge Top Left: Gabarits Africains */}
+            <motion.div
+              initial={{ opacity: 0, y: 15, scale: 0.85 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.7, delay: 0.5, ease: 'easeOut' }}
+              className="absolute top-16 -left-4 xl:-left-8 z-20 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-[#EBE7DF] shadow-[0_12px_28px_rgba(15,59,50,0.12)] flex items-center gap-2.5 animate-float-1"
+            >
+              <div className="w-7 h-7 rounded-xl bg-[#0F3B32] text-white flex items-center justify-center shrink-0">
+                <Ruler className="w-3.5 h-3.5 text-[#D97706]" />
+              </div>
+              <div className="text-left">
+                <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#8A7A65]">Gabarits Africains</p>
+                <p className="text-xs font-black text-[#111827]">Boubou & Kaftan Sur-Mesure</p>
+              </div>
+            </motion.div>
+
+            {/* Floating Micro-Badge Bottom Right: Acomptes Wave */}
+            <motion.div
+              initial={{ opacity: 0, y: 15, scale: 0.85 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.7, delay: 0.65, ease: 'easeOut' }}
+              className="absolute bottom-24 -right-2 xl:-right-6 z-20 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-[#EBE7DF] shadow-[0_12px_28px_rgba(15,59,50,0.12)] flex items-center gap-2.5 animate-float-2"
+            >
+              <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#1BA8E9] to-[#0F3B32] text-white flex items-center justify-center shrink-0">
+                <CreditCard className="w-3.5 h-3.5 text-white" />
+              </div>
+              <div className="text-left">
+                <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700">Acomptes Sécurisés</p>
+                <p className="text-xs font-black text-[#111827]">Wave & Orange Money</p>
+              </div>
+            </motion.div>
 
             <motion.div
               initial={{ opacity: 0, x: 50, scale: 0.96 }}
