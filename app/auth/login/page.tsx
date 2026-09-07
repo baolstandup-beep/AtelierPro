@@ -48,6 +48,23 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // 1. Anti-Brute-Force Rate Limit Check (Max 5 attempts per IP)
+      const rateCheck = await fetch('/api/auth/rate-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'attempt' }),
+      });
+
+      if (rateCheck.status === 429) {
+        const data = await rateCheck.json().catch(() => ({}));
+        showError(
+          'Accès Bloqué (Force Brute Détectée)',
+          data.error || 'Trop de tentatives (5 max). Votre IP est temporairement bloquée pour 15 minutes.'
+        );
+        return;
+      }
+
+      // 2. Authentication flow
       if (isSupabaseConfigured) {
         await signInWithEmail(form.email, form.password);
       } else {
@@ -55,6 +72,14 @@ export default function LoginPage() {
         await new Promise((r) => setTimeout(r, 400));
         loginAsDemo();
       }
+
+      // Reset rate limit on valid login
+      fetch('/api/auth/rate-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'success' }),
+      }).catch(() => {});
+
       success('Bienvenue !', 'Connexion réussie');
       router.push('/dashboard');
     } catch {

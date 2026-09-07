@@ -58,6 +58,22 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      // 1. Anti-Brute-Force Rate Limit Check (Max 5 attempts per IP)
+      const rateCheck = await fetch('/api/auth/rate-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'attempt' }),
+      });
+
+      if (rateCheck.status === 429) {
+        const data = await rateCheck.json().catch(() => ({}));
+        showError(
+          'Inscription Bloquée',
+          data.error || 'Trop de tentatives (5 max). Votre IP est temporairement bloquée.'
+        );
+        return;
+      }
+
       if (isSupabaseConfigured) {
         await signUpWithEmail(form.email, form.password, form.name);
       } else {
@@ -65,6 +81,14 @@ export default function RegisterPage() {
         await new Promise((r) => setTimeout(r, 400));
         loginAsDemo();
       }
+
+      // Reset rate limit on valid registration
+      fetch('/api/auth/rate-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'success' }),
+      }).catch(() => {});
+
       success('Compte créé avec succès !', 'Bienvenue dans AtelierPro');
       router.push('/dashboard');
     } catch {
