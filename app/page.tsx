@@ -894,124 +894,75 @@ export default function AtelierProOfficialLandingPage() {
               </div>
             </div>
 
-            {/* Right Column: Realistic iPhone Smartphone Mockup matching Image 2 */}
-            <div className="lg:col-span-5 flex justify-center items-center">
+            {/* Right Column: High-Resolution Hand-Held Smartphone Mockup with Live Floating Badges */}
+            <div className="lg:col-span-5 flex flex-col items-center justify-center relative">
+              {/* Soft Ambient Radial Glow */}
+              <div className="absolute w-72 h-96 bg-gradient-to-tr from-[#D97706]/20 via-[#16A34A]/15 to-transparent rounded-full blur-3xl -z-10" />
+
               <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0, y: 25, scale: 0.96 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
-                className="w-[310px] sm:w-[328px] shrink-0 rounded-[44px] bg-[#1a1c20] p-2.5 shadow-[0_25px_60px_rgba(0,0,0,0.38)] border-[6px] border-[#2d3037] ring-1 ring-black/80 relative"
+                transition={{ duration: 0.6 }}
+                className="relative flex flex-col items-center max-w-[330px] sm:max-w-[380px] w-full"
               >
-                {/* Subtle side button notches */}
-                <div className="absolute -left-[8px] top-20 w-[3px] h-7 bg-[#2d3037] rounded-l" />
-                <div className="absolute -left-[8px] top-30 w-[3px] h-10 bg-[#2d3037] rounded-l" />
-                <div className="absolute -left-[8px] top-43 w-[3px] h-10 bg-[#2d3037] rounded-l" />
-                <div className="absolute -right-[8px] top-28 w-[3px] h-14 bg-[#2d3037] rounded-r" />
-
-                {/* Inner Screen */}
-                <div className="rounded-[36px] bg-gradient-to-b from-[#05221B] via-[#0E3A30] to-[#041B15] text-white p-4 sm:p-5 overflow-hidden relative border border-white/10 flex flex-col justify-between shadow-inner">
-                  
-                  {/* Top Status Bar + Dynamic Island */}
-                  <div className="relative z-10 mb-3.5">
-                    <div className="flex items-center justify-between text-[11px] font-semibold text-white/90 px-1 pt-0.5">
-                      <span>9:41</span>
-                      {/* Dynamic Island */}
-                      <div className="w-18 h-4 bg-black rounded-full mx-auto flex items-center justify-end px-1.5 gap-1 border border-white/10">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#1e293b]" />
-                        <div className="w-1 h-1 rounded-full bg-[#0a1a24]" />
-                      </div>
-                      <div className="flex items-center gap-1 text-white/90">
-                        <div className="flex items-end gap-0.5 h-2">
-                          <span className="w-0.5 h-1 bg-white rounded-sm" />
-                          <span className="w-0.5 h-1.5 bg-white rounded-sm" />
-                          <span className="w-0.5 h-2 bg-white rounded-sm" />
-                        </div>
-                        <span className="text-[9px] font-bold">5G</span>
-                        <div className="w-4 h-2 border border-white/80 rounded-2xs p-0.5 flex items-center">
-                          <div className="w-full h-full bg-[#16A34A] rounded-2xs" />
-                        </div>
-                      </div>
-                    </div>
+                {/* Floating Dynamic ROI Badge (Top Left) */}
+                <motion.div
+                  key={`roi-${roiMultiplier}`}
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="absolute -top-3 -left-3 sm:-left-6 z-20 bg-[#0F3B32] text-white px-3.5 py-2 rounded-2xl border border-white/20 shadow-[0_12px_28px_rgba(15,59,50,0.25)] flex items-center gap-2"
+                >
+                  <Star className="w-3.5 h-3.5 text-[#D97706] fill-[#D97706] shrink-0" />
+                  <div>
+                    <p className="text-[9px] uppercase tracking-wider text-slate-300 font-bold">Rentabilité</p>
+                    <p className="text-xs font-black text-[#D97706]">x{roiMultiplier} l&apos;abonnement</p>
                   </div>
+                </motion.div>
 
-                  {/* Ambient Glows */}
-                  <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-[#D97706]/20 blur-xl pointer-events-none" />
-                  <div className="absolute -bottom-12 -left-12 w-40 h-40 rounded-full bg-[#16A34A]/20 blur-xl pointer-events-none" />
-
-                  <div className="relative z-10">
-                    {/* ROI Badge */}
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D97706]/20 text-[#D97706] border border-[#D97706]/40 text-[10px] font-bold mb-3.5">
-                      <Star className="w-3 h-3 fill-[#D97706]" />
-                      <span>Rentabilité Estimée : x{roiMultiplier} l&apos;abonnement</span>
-                    </div>
-
-                    {/* Big Metric: Recovered Revenue */}
-                    <div className="mb-3.5">
-                      <span className="text-[10px] text-slate-300 uppercase tracking-wider font-bold">
-                        IMPAYÉS ÉVITÉS & ACOMPTES SÉCURISÉS
-                      </span>
-                      <div className="text-2xl sm:text-3xl font-extrabold text-[#D97706] font-serif-luxury mt-0.5 mb-0.5 tracking-tight">
-                        +{lostRevenuePrevented.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} <span className="text-xs text-white font-sans font-bold">FCFA / mois</span>
-                      </div>
-                      <p className="text-[10px] text-[#16A34A] font-semibold flex items-center gap-1">
-                        <TrendingUp className="w-3 h-3 shrink-0" />
-                        <span>Soit +{annualGain.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} FCFA / an</span>
-                      </p>
-                    </div>
-
-                    {/* Two Benefit Tiles */}
-                    <div className="grid grid-cols-2 gap-2 mb-3.5">
-                      <div className="p-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15">
-                        <div className="flex items-center gap-1 mb-0.5">
-                          <Clock className="w-3 h-3 text-[#D97706]" />
-                          <span className="text-[10px] font-bold text-white">Temps Gagné</span>
-                        </div>
-                        <p className="text-sm font-bold text-white font-serif-luxury">
-                          ~{hoursSaved}h / mois
-                        </p>
-                        <p className="text-[8.5px] text-slate-300">
-                          {daysSaved} jours libérés
-                        </p>
-                      </div>
-
-                      <div className="p-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15">
-                        <div className="flex items-center gap-1 mb-0.5">
-                          <ShieldCheck className="w-3 h-3 text-[#16A34A]" />
-                          <span className="text-[10px] font-bold text-white">Reçus WhatsApp</span>
-                        </div>
-                        <p className="text-sm font-bold text-white font-serif-luxury">
-                          98%
-                        </p>
-                        <p className="text-[8.5px] text-slate-300">
-                          Soldes réglés à temps
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Subscription Comparison Message */}
-                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-[10px] text-slate-200 leading-snug mb-3.5">
-                      💡 Pour un forfait <strong className="text-white">Starter à 2 900 FCFA</strong>, gain net de <strong className="text-[#D97706]">+{lostRevenuePrevented.toLocaleString()} FCFA</strong> dès le 1er mois !
-                    </div>
+                {/* Floating Live Gain Badge (Bottom Right) */}
+                <motion.div
+                  key={`gain-${lostRevenuePrevented}`}
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="absolute bottom-24 -right-3 sm:-right-6 z-20 bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-[#EBE7DF] shadow-[0_16px_35px_rgba(15,59,50,0.18)] flex items-center gap-2.5"
+                >
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#16A34A] to-[#0F3B32] text-white flex items-center justify-center font-bold text-xs">
+                    +
                   </div>
-
-                  {/* Action Button & Home Bar */}
-                  <div className="relative z-10 pt-1">
-                    <Link
-                      href="/auth/register"
-                      className="w-full text-center py-2.5 sm:py-3 rounded-full bg-gradient-to-r from-[#D97706] to-[#ea580c] hover:from-[#ea580c] hover:to-[#D97706] text-white font-extrabold text-[10.5px] uppercase tracking-wider shadow-[0_4px_20px_rgba(217,119,6,0.5)] transition-all flex items-center justify-center gap-1.5 hover:scale-[1.02]"
-                    >
-                      <span>Activer cette rentabilité</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                    <p className="text-[9px] text-slate-300 text-center mt-1.5">
-                      14j d&apos;essai gratuit • Prise en main en 2 min
+                  <div className="text-left">
+                    <p className="text-[9px] font-extrabold uppercase tracking-wider text-[#8A7A65]">Gain Net Estimé</p>
+                    <p className="text-xs font-black text-[#0F3B32]">
+                      +{lostRevenuePrevented.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} FCFA/m
                     </p>
-
-                    {/* Home Indicator Bar */}
-                    <div className="w-24 h-1 bg-white/30 rounded-full mx-auto mt-2.5" />
                   </div>
+                </motion.div>
 
+                {/* Image of the Hand Holding Smartphone with AtelierPro Interface */}
+                <div className="relative w-full rounded-[2.5rem] overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.32)] border-4 border-[#1E2024]/80">
+                  <Image
+                    src="/images/smartphone-hand-mockup.jpg"
+                    alt="Application AtelierPro sur smartphone en main"
+                    width={900}
+                    height={1200}
+                    priority
+                    sizes="(max-width: 768px) 90vw, 380px"
+                    className="w-full h-auto object-cover transform transition-transform duration-700 hover:scale-102"
+                  />
+                </div>
+
+                {/* Direct CTA under image */}
+                <div className="w-full mt-5">
+                  <Link
+                    href="/auth/register"
+                    className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#D97706] via-[#ea580c] to-[#D97706] hover:brightness-110 text-white font-extrabold text-xs uppercase tracking-wider shadow-[0_8px_25px_rgba(217,119,6,0.35)] transition-all flex items-center justify-center gap-2 hover:scale-[1.02]"
+                  >
+                    <span>Activer cette rentabilité pour mon atelier</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                  <p className="text-[10px] text-[#8A7A65] text-center mt-2 font-medium">
+                    14 jours d&apos;essai gratuit • Prise en main en 2 minutes
+                  </p>
                 </div>
               </motion.div>
             </div>
