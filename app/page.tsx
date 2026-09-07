@@ -242,110 +242,159 @@ export default function AtelierProOfficialLandingPage() {
         </AnimatePresence>
       </div>
 
-      {/* ─── 2. HERO SECTION (Haute-Confection Palette & Floating Micro-Animations) ─── */}
-      <section id="hero" className="relative pt-12 pb-16 sm:pt-20 sm:pb-24 px-4 sm:px-6 max-w-5xl mx-auto text-center">
+      {/* ─── 2. HERO SECTION (Haute-Confection Palette & 2-Column Desktop with African Couple) ─── */}
+      <section id="hero" className="relative pt-8 pb-12 sm:pt-14 sm:pb-16 lg:pt-16 lg:pb-0 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden">
         {/* Background Ambient Glows */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-[#0F3B32]/6 rounded-full blur-[100px] pointer-events-none -z-10" />
-        <div className="absolute top-1/3 right-10 w-72 h-72 bg-[#D97706]/8 rounded-full blur-[90px] pointer-events-none -z-10" />
+        <div className="absolute top-1/4 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[400px] bg-[#0F3B32]/5 rounded-full blur-[120px] pointer-events-none -z-10" />
+        <div className="absolute top-1/2 right-12 w-[450px] h-[450px] bg-[#D97706]/8 rounded-full blur-[110px] pointer-events-none -z-10" />
 
-        {/* Top Trust Pill */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-[#EBE7DF] text-[#0F3B32] text-xs sm:text-sm font-semibold shadow-sm mb-6"
-        >
-          <Sparkles className="w-4 h-4 text-[#D97706]" />
-          <span>La plateforme N°1 de gestion d&apos;ateliers de couture en Afrique</span>
-        </motion.div>
-
-        {/* Brand Colored Headline */}
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.1 }}
-          className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#111827] leading-[1.18] mb-6 font-serif-luxury"
-        >
-          Un seul outil pour{' '}
-          <span className="text-[#0F3B32] underline decoration-[#D97706]/40 decoration-wavy decoration-2">
-            gérer votre atelier,
-          </span>{' '}
-          <span className="text-[#D97706]">vos acomptes</span> et vos confections.
-        </motion.h1>
-
-        {/* Subtitle */}
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.2 }}
-          className="text-base sm:text-lg text-[#4B5563] max-w-3xl mx-auto mb-10 leading-relaxed"
-        >
-          Fini les carnets perdus, les contestations de mesures et les retards de livraison. AtelierPro
-          digitalise vos mensurations avec gabarits africains, sécurise vos paiements Wave & Orange Money
-          et organise le travail de vos couturiers.
-        </motion.p>
-
-        {/* App Download Badges & Web CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.3 }}
-          className="mb-8"
-        >
-          <AppDownloadButtons />
-        </motion.div>
-
-        {/* Dual Call To Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.35 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12"
-        >
-          <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.98 }}>
-            <Link
-              href="/auth/register"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full bg-[#0F3B32] hover:bg-[#185c4e] text-white font-bold text-xs uppercase tracking-wider shadow-[0_10px_30px_rgba(15,59,50,0.3)] transition-all"
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-end">
+          {/* Left Column: 58% (7 cols in 12-col grid) */}
+          <div className="lg:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-left z-10 pt-4 sm:pt-8 pb-4 lg:pb-16">
+            {/* 1. Badge */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-[#EBE7DF] text-[#0F3B32] text-xs sm:text-sm font-semibold shadow-xs mb-5 self-center lg:self-start"
             >
-              Inscrire mon atelier gratuitement <ArrowRight className="w-4 h-4 text-[#D97706]" />
-            </Link>
-          </motion.div>
+              <Sparkles className="w-4 h-4 text-[#D97706]" />
+              <span>La plateforme N°1 de gestion d&apos;ateliers de couture en Afrique</span>
+            </motion.div>
 
-          <motion.a
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.98 }}
-            href="#fonctionnalites"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-white hover:bg-[#FBF9F5] text-[#0F3B32] font-bold text-xs border border-[#EBE7DF] shadow-sm transition-all"
-          >
-            <Play className="w-3.5 h-3.5 text-[#D97706] fill-[#D97706]" />
-            Découvrir l&apos;application
-          </motion.a>
-        </motion.div>
+            {/* 2. Titre */}
+            <motion.h1
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.75, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+              className="text-3xl sm:text-4xl lg:text-5xl xl:text-[54px] font-extrabold tracking-tight text-[#111827] leading-[1.15] mb-5 font-serif-luxury max-w-2xl"
+            >
+              Un seul outil pour{' '}
+              <span className="text-[#0F3B32] underline decoration-[#D97706]/40 decoration-wavy decoration-2">
+                gérer votre atelier,
+              </span>{' '}
+              <span className="text-[#D97706]">vos acomptes</span> et vos confections.
+            </motion.h1>
 
-        {/* Trust Badges */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-xs sm:text-sm font-semibold text-[#4B5563]"
-        >
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
-            <span>100% sécurisé (Cloud)</span>
+            {/* 3. Description existante */}
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.75, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="text-sm sm:text-base lg:text-lg text-[#4B5563] max-w-2xl mb-7 leading-relaxed"
+            >
+              Fini les carnets perdus, les contestations de mesures et les retards de livraison. AtelierPro
+              digitalise vos mensurations avec gabarits africains, sécurise vos paiements Wave & Orange Money
+              et organise le travail de vos couturiers.
+            </motion.p>
+
+            {/* 4. Boutons App Store, Google Play et "Commencer sur le web" */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.75, delay: 0.3 }}
+              className="mb-6 w-full flex justify-center lg:justify-start"
+            >
+              <AppDownloadButtons />
+            </motion.div>
+
+            {/* 5. Boutons d'Action Principaux */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.75, delay: 0.35 }}
+              className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 mb-8 w-full sm:w-auto"
+            >
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
+                <Link
+                  href="/auth/register"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-[#0F3B32] hover:bg-[#185c4e] text-white font-bold text-xs uppercase tracking-wider shadow-[0_10px_25px_rgba(15,59,50,0.25)] transition-all"
+                >
+                  Inscrire mon atelier gratuitement <ArrowRight className="w-4 h-4 text-[#D97706]" />
+                </Link>
+              </motion.div>
+
+              <motion.a
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.98 }}
+                href="#fonctionnalites"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-white hover:bg-[#FBF9F5] text-[#0F3B32] font-bold text-xs border border-[#EBE7DF] shadow-xs transition-all"
+              >
+                <Play className="w-3.5 h-3.5 text-[#D97706] fill-[#D97706]" />
+                Découvrir l&apos;application
+              </motion.a>
+            </motion.div>
+
+            {/* On Mobile Only: Couple Photo appears between CTA and Trust Badges */}
+            <div className="lg:hidden w-full flex justify-center mb-8 relative">
+              <div className="absolute inset-0 bg-gradient-to-t from-[#D97706]/15 via-[#F5E6D3]/40 to-transparent rounded-full blur-2xl -z-10 transform scale-90" />
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8 }}
+                className="relative max-w-[340px] sm:max-w-[420px] w-full flex justify-center"
+              >
+                <Image
+                  src="/images/couple-atelierpro.png"
+                  alt="Couple africain en tenues traditionnelles, clients AtelierPro"
+                  width={888}
+                  height={1378}
+                  priority
+                  sizes="(max-width: 768px) 90vw, 420px"
+                  className="w-full h-auto object-contain drop-shadow-[0_15px_30px_rgba(15,59,50,0.18)]"
+                />
+              </motion.div>
+            </div>
+
+            {/* 6. Les quatre arguments de confiance */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-6 text-xs sm:text-sm font-semibold text-[#4B5563] pt-2 border-t border-[#EBE7DF]/80 w-full"
+            >
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-[#16A34A] shrink-0" />
+                <span>100% sécurisé (Cloud)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-[#16A34A] shrink-0" />
+                <span>Mobile, Tablette & PC</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-[#16A34A] shrink-0" />
+                <span>Wave & Orange Money</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-[#16A34A] shrink-0" />
+                <span>Sans carte bancaire</span>
+              </div>
+            </motion.div>
           </div>
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
-            <span>Mobile, Tablette & PC</span>
+
+          {/* Right Column: 42% (5 cols in 12-col grid) */}
+          <div className="hidden lg:flex lg:col-span-5 relative self-end items-end justify-center z-10 pointer-events-none">
+            {/* Soft Ambient Radial Halo behind Couple */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[380px] h-[480px] bg-gradient-to-t from-[#D97706]/18 via-[#F5E6D3]/40 to-transparent rounded-full blur-3xl -z-10" />
+
+            <motion.div
+              initial={{ opacity: 0, x: 50, scale: 0.96 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              transition={{ duration: 0.85, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="relative w-full max-w-[480px] xl:max-w-[540px] flex items-end justify-center"
+            >
+              <Image
+                src="/images/couple-atelierpro.png"
+                alt="Couple africain en tenues traditionnelles, clients AtelierPro"
+                width={888}
+                height={1378}
+                priority
+                sizes="(max-width: 1200px) 45vw, 540px"
+                className="w-auto max-h-[640px] xl:max-h-[720px] object-contain object-bottom drop-shadow-[0_25px_45px_rgba(15,59,50,0.22)]"
+              />
+            </motion.div>
           </div>
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
-            <span>Wave & Orange Money</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
-            <span>Sans carte bancaire</span>
-          </div>
-        </motion.div>
+        </div>
       </section>
 
       {/* ─── 3. STATS STRIP (Mon Atelier Luxury Green Ribbon) ─── */}
