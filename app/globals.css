@@ -211,4 +211,14 @@
   ::-webkit-scrollbar-thumb:hover {
     background: #D4AF37;
   }
+
+  /* PWA Safe Area & Standalone Support */
+  @supports (padding: max(0px)) {
+    body {
+      padding-top: max(0px, env(safe-area-inset-top));
+      padding-bottom: max(0px, env(safe-area-inset-bottom));
+      padding-left: max(0px, env(safe-area-inset-left));
+      padding-right: max(0px, env(safe-area-inset-right));
+    }
+  }
 }

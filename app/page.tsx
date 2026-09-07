@@ -288,7 +288,7 @@ export default function AtelierProOfficialLandingPage() {
               et organise le travail de vos couturiers.
             </motion.p>
 
-            {/* 4. Boutons App Store, Google Play et "Commencer sur le web" */}
+            {/* 4. Boutons d'installation PWA (Android, iPhone, Web) */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
