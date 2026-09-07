@@ -6,17 +6,39 @@ import { z } from 'zod';
 const SubscriptionCheckoutSchema = z.object({
   type: z.literal('subscription'),
   planId: z.enum(['FREE', 'STARTER', 'PRO', 'ENTERPRISE']),
-  workshopId: z.string().min(1, 'workshopId est requis').max(100),
-  customerEmail: z.string().email('Email invalide').optional().or(z.literal('')),
+  workshopId: z
+    .string()
+    .nullish()
+    .transform((val) => (val && val.trim().length > 0 ? val.trim() : 'workshop-default')),
+  customerEmail: z
+    .string()
+    .email('Email invalide')
+    .optional()
+    .or(z.literal(''))
+    .nullish()
+    .transform((val) => (val && val.trim().length > 0 ? val.trim() : undefined)),
 });
 
 const OrderPaymentCheckoutSchema = z.object({
   type: z.literal('order_payment'),
   orderId: z.string().min(1, 'orderId est requis').max(100),
-  workshopId: z.string().min(1, 'workshopId est requis').max(100),
-  customerEmail: z.string().email('Email invalide').optional().or(z.literal('')),
-  amount: z.number().positive('Le montant doit être strictement supérieur à 0').max(50000000, 'Montant trop élevé'),
-  orderNumber: z.string().max(50).optional(),
+  workshopId: z
+    .string()
+    .nullish()
+    .transform((val) => (val && val.trim().length > 0 ? val.trim() : 'workshop-default')),
+  customerEmail: z
+    .string()
+    .email('Email invalide')
+    .optional()
+    .or(z.literal(''))
+    .nullish()
+    .transform((val) => (val && val.trim().length > 0 ? val.trim() : undefined)),
+  amount: z
+    .coerce
+    .number()
+    .positive('Le montant doit être strictement supérieur à 0')
+    .max(50000000, 'Montant trop élevé'),
+  orderNumber: z.string().max(100).optional().nullish(),
 });
 
 const CheckoutPayloadSchema = z.discriminatedUnion('type', [
@@ -46,7 +68,22 @@ export async function POST(req: NextRequest) {
     }
 
     const payload = validationResult.data;
-    const stripe = getStripeServer();
+
+    let stripe;
+    try {
+      stripe = getStripeServer();
+    } catch (err: any) {
+      return NextResponse.json(
+        {
+          error:
+            err?.message ||
+            'Stripe n\'est pas configuré. Veuillez définir STRIPE_SECRET_KEY dans vos variables d\'environnement (.env.local).',
+          code: 'STRIPE_NOT_CONFIGURED',
+        },
+        { status: 503 }
+      );
+    }
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
     // ─── Case 1: Subscription Checkout (Abonnement SaaS) ───
@@ -128,7 +165,7 @@ export async function POST(req: NextRequest) {
     const message = error instanceof Error ? error.message : 'Erreur interne';
     console.error('[Stripe Checkout Error]', message);
     return NextResponse.json(
-      { error: 'Erreur lors de la création de la session de paiement sécurisée' },
+      { error: message || 'Erreur lors de la création de la session de paiement sécurisée' },
       { status: 500 }
     );
   }
