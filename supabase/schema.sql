@@ -1094,7 +1094,78 @@ CREATE TABLE IF NOT EXISTS webhook_events (
 );
 
 -- ============================================================
--- 18. SEED INITIAL DES PLANS SAAS
+-- 18. TISSUS, STOCKS & COUPONS (Isolation RLS Multi-Tenant)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS fabrics (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workshop_id UUID NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'BAZIN',
+  color_name TEXT,
+  color_hex TEXT,
+  pattern TEXT,
+  origin TEXT,
+  total_meters NUMERIC NOT NULL DEFAULT 0 CHECK (total_meters >= 0),
+  available_meters NUMERIC NOT NULL DEFAULT 0 CHECK (available_meters >= 0),
+  reserved_meters NUMERIC NOT NULL DEFAULT 0 CHECK (reserved_meters >= 0),
+  price_per_meter NUMERIC NOT NULL DEFAULT 0 CHECK (price_per_meter >= 0),
+  supplier TEXT,
+  location_shelf TEXT,
+  low_stock_threshold NUMERIC NOT NULL DEFAULT 5,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE fabrics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fabrics FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY "Fabrics: lecture pour membres de l'atelier"
+  ON fabrics FOR SELECT
+  USING (public.user_is_member_of(workshop_id));
+
+CREATE POLICY "Fabrics: modification pour tailleurs et gestionnaires"
+  ON fabrics FOR ALL
+  USING (public.user_is_member_of(workshop_id))
+  WITH CHECK (
+    public.user_is_member_of(workshop_id)
+    AND public.user_has_role(workshop_id, ARRAY['OWNER', 'MANAGER', 'TAILOR', 'CUTTER']::user_role[])
+  );
+
+-- ============================================================
+-- 19. RENDEZ-VOUS & ESSAYAGES D'ATELIER (Isolation RLS)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS fitting_appointments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workshop_id UUID NOT NULL REFERENCES workshops(id) ON DELETE CASCADE,
+  customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
+  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  appointment_type TEXT NOT NULL DEFAULT 'PREMIER_ESSAYAGE',
+  appointment_date DATE NOT NULL,
+  appointment_time TIME NOT NULL,
+  assigned_tailor_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'CONFIRMED' CHECK (status IN ('PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED')),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE fitting_appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fitting_appointments FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY "Appointments: lecture membres"
+  ON fitting_appointments FOR SELECT
+  USING (public.user_is_member_of(workshop_id));
+
+CREATE POLICY "Appointments: gestion membres atelier"
+  ON fitting_appointments FOR ALL
+  USING (public.user_is_member_of(workshop_id))
+  WITH CHECK (public.user_is_member_of(workshop_id));
+
+-- ============================================================
+-- 20. SEED INITIAL DES PLANS SAAS
 -- ============================================================
 
 INSERT INTO plans (name, price, billing_period, max_members, max_orders, max_storage_mb, features)
