@@ -138,19 +138,26 @@ export default function OrdersPage() {
                       {order.due_date && (
                         <> · Livr. {formatDate(order.due_date)}</>
                       )}
+                      {order.assignee_name && (
+                        <> · Resp. {order.assignee_name}</>
+                      )}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-sm font-semibold text-gray-900">
-                      {formatCurrency(order.total_amount, ws?.currency_symbol)}
+                      Total: {formatCurrency(order.total_amount, ws?.currency_symbol)}
                     </p>
-                    {order.balance > 0 && (
+                    {order.paid_amount > 0 && (
+                      <p className="text-xs text-emerald-600 font-medium">
+                        Acompte: {formatCurrency(order.paid_amount, ws?.currency_symbol)}
+                      </p>
+                    )}
+                    {order.balance > 0 ? (
                       <p className="text-xs text-orange-600 font-medium">
                         Reste: {formatCurrency(order.balance, ws?.currency_symbol)}
                       </p>
-                    )}
-                    {order.balance === 0 && (
-                      <p className="text-xs text-green-600">✓ Soldé</p>
+                    ) : (
+                      <p className="text-xs text-green-600 font-bold">✓ Soldé</p>
                     )}
                   </div>
                   <ChevronRight className="h-4 w-4 text-gray-300 flex-shrink-0" />

@@ -120,8 +120,8 @@ DROP POLICY IF EXISTS "WorkshopMembers: gestion par propriétaire" ON workshop_m
 CREATE POLICY "WorkshopMembers: gestion par propriétaire"
   ON workshop_members FOR ALL
   TO authenticated
-  USING (public.user_is_member_of(workshop_id))
-  WITH CHECK (public.user_is_member_of(workshop_id));
+  USING (EXISTS (SELECT 1 FROM public.workshop_members WHERE workshop_id = workshop_members.workshop_id AND user_id = auth.uid() AND role IN ('OWNER', 'MANAGER')))
+  WITH CHECK (EXISTS (SELECT 1 FROM public.workshop_members WHERE workshop_id = workshop_members.workshop_id AND user_id = auth.uid() AND role IN ('OWNER', 'MANAGER')));
 
 -- ── Customers (Clients) ──
 DROP POLICY IF EXISTS "Customers: isolation par atelier" ON customers;

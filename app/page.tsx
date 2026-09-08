@@ -253,77 +253,151 @@ export default function AtelierProOfficialLandingPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-end">
           {/* Left Column: 58% (7 cols in 12-col grid) */}
           <div className="lg:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-left z-10 pt-4 sm:pt-8 pb-4 lg:pb-16">
-            {/* 1. Badge */}
+
+            {/* Badge N°1 — Premium Pill */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.92, y: -10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-[#EBE7DF] text-[#0F3B32] text-xs sm:text-sm font-semibold shadow-xs mb-5 self-center lg:self-start"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-gradient-to-r from-[#0F3B32]/10 to-[#D97706]/10 border border-[#D97706]/25 text-[#0F3B32] text-xs font-bold mb-6 shadow-sm"
             >
-              <Sparkles className="w-4 h-4 text-[#D97706]" />
-              <span>La plateforme N°1 de gestion d&apos;ateliers de couture en Afrique</span>
+              <span className="flex items-center gap-1">
+                <span className="text-[#D97706] text-sm">★</span>
+                <span className="text-[#D97706] text-sm">★</span>
+                <span className="text-[#D97706] text-sm">★</span>
+                <span className="text-[#D97706] text-sm">★</span>
+                <span className="text-[#D97706] text-sm">★</span>
+              </span>
+              <span className="text-[#0F3B32]/80 font-semibold">La plateforme <strong className="text-[#0F3B32]">N°1</strong> de gestion d&apos;ateliers de couture en Afrique</span>
             </motion.div>
 
             {/* 2. Titre */}
             <motion.h1
-              initial={{ opacity: 0, y: 22 }}
+              initial={{ opacity: 1, y: 0 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.75, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
               className="text-3xl sm:text-4xl lg:text-5xl xl:text-[54px] font-extrabold tracking-tight text-[#111827] leading-[1.15] mb-5 font-serif-luxury max-w-2xl"
             >
-              Un seul outil pour{' '}
+              Gérez votre atelier de couture avec{' '}
               <span className="text-[#0F3B32] underline decoration-[#D97706]/40 decoration-wavy decoration-2">
-                gérer votre atelier,
-              </span>{' '}
-              <span className="text-[#D97706]">vos acomptes</span> et vos confections.
+                précision.
+              </span>
             </motion.h1>
 
-            {/* 3. Description existante */}
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
+            {/* 3. Description */}
+            <motion.div
+              initial={{ opacity: 1, y: 0 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.75, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="text-sm sm:text-base lg:text-lg text-[#4B5563] max-w-2xl mb-7 leading-relaxed"
+              className="max-w-xl mb-8"
             >
-              Fini les carnets perdus, les contestations de mesures et les retards de livraison. AtelierPro
-              digitalise vos mensurations avec gabarits africains, sécurise vos paiements Wave & Orange Money
-              et organise le travail de vos couturiers.
-            </motion.p>
-
-            {/* 4. Boutons d'installation PWA (Android, iPhone, Web) */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.75, delay: 0.3 }}
-              className="mb-6 w-full flex justify-center lg:justify-start"
-            >
-              <AppDownloadButtons />
+              <p className="text-sm sm:text-base lg:text-[17px] text-[#374151] leading-relaxed font-semibold mb-2">
+                Un seul outil pour gérer votre atelier, vos acomptes et vos confections.
+              </p>
+              <p className="text-sm sm:text-[15px] text-[#6B7280] leading-relaxed">
+                Fini les carnets perdus, les contestations de mesures et les retards de livraison.
+                AtelierPro digitalise vos mensurations avec gabarits africains, sécurise vos paiements
+                Wave &amp; Orange Money et organise le travail de vos couturiers.
+              </p>
             </motion.div>
 
-            {/* 5. Boutons d'Action Principaux */}
+            {/* 5. CTA Buttons — Primary Row */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 1, y: 0 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.75, delay: 0.35 }}
-              className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 mb-8 w-full sm:w-auto"
+              className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-3 mb-8 w-full sm:w-auto"
             >
-              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} className="w-full sm:w-auto">
                 <Link
                   href="/auth/register"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-[#0F3B32] hover:bg-[#185c4e] text-white font-bold text-xs uppercase tracking-wider shadow-[0_10px_25px_rgba(15,59,50,0.25)] transition-all"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-2xl bg-[#0F3B32] hover:bg-[#185c4e] text-white font-bold text-sm shadow-[0_8px_30px_rgba(15,59,50,0.3)] hover:shadow-[0_12px_35px_rgba(15,59,50,0.4)] transition-all duration-200"
                 >
-                  Inscrire mon atelier gratuitement <ArrowRight className="w-4 h-4 text-[#D97706]" />
+                  Créer mon atelier gratuitement
+                  <ArrowRight className="w-4 h-4 text-[#D97706]" />
                 </Link>
               </motion.div>
 
               <motion.a
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
                 href="#fonctionnalites"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-white hover:bg-[#FBF9F5] text-[#0F3B32] font-bold text-xs border border-[#EBE7DF] shadow-xs transition-all"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-white hover:bg-[#FBF9F5] text-[#0F3B32] font-bold text-sm border border-[#DDD8CF] shadow-sm hover:shadow-md transition-all duration-200"
               >
-                <Play className="w-3.5 h-3.5 text-[#D97706] fill-[#D97706]" />
-                Découvrir l&apos;application
+                <Play className="w-4 h-4 text-[#D97706] fill-[#D97706]" />
+                Découvrir les fonctionnalités
+              </motion.a>
+            </motion.div>
+
+            {/* Separator */}
+            <div className="flex items-center gap-4 w-full max-w-sm lg:max-w-none justify-center lg:justify-start mb-5">
+              <div className="flex-1 h-px bg-[#E7E2D8]" />
+              <span className="text-[11px] font-semibold text-[#9CA3AF] tracking-widest uppercase whitespace-nowrap">Disponible sur</span>
+              <div className="flex-1 h-px bg-[#E7E2D8]" />
+            </div>
+
+            {/* 6. PWA Store Badges — côte à côte, style App Store */}
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.55 }}
+              className="flex flex-row items-center justify-center lg:justify-start gap-3 w-full"
+            >
+              {/* iOS Badge */}
+              <motion.a
+                href="#"
+                whileHover={{ scale: 1.04, y: -1 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={(e) => { e.preventDefault(); (window as any).__atelierProInstallIOS?.(); }}
+                className="group flex items-center gap-3 pl-3.5 pr-5 py-2.5 rounded-2xl bg-[#0A0A0A] hover:bg-[#111] text-white shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:shadow-[0_6px_25px_rgba(0,0,0,0.35)] border border-white/[0.06] transition-all duration-200"
+              >
+                {/* Apple Logo SVG */}
+                <svg className="w-7 h-7 fill-white shrink-0" viewBox="0 0 814 1000" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 376.7 0 248.7 0 127.3 0 57.3 20.6 45.6 0 0 0 0 59.7 48 103.4 48c79.7 0 134.2-57 154.2-57 57.6 0 102.1 44.5 139.9 44.5 21.2 0 64.7-34.6 124.7-34.6 48.7 0 138.2 25.5 188.2 101.1zm-209.4-109.9c12.8-29.8 23.2-82.4 23.2-131.8 0-3.5-.3-7-.6-10.5-41.1 2.7-103.3 47.3-122.5 91.6-11.9 27.9-22.1 80.3-22.1 126.1 0 3.9.6 7.8 1.2 11.7 4.5.3 9.1.6 13.7.6 43.5 0 102.7-29.4 107.1-87.7z"/>
+                </svg>
+                <div className="text-left leading-none">
+                  <p className="text-[10px] text-white/50 font-medium mb-0.5">Application Web</p>
+                  <p className="text-[15px] font-bold tracking-tight">Installer sur iPhone</p>
+                </div>
+              </motion.a>
+
+              {/* Android Badge */}
+              <motion.a
+                href="#"
+                whileHover={{ scale: 1.04, y: -1 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={(e) => { e.preventDefault(); (window as any).__atelierProInstallAndroid?.(); }}
+                className="group flex items-center gap-3 pl-3.5 pr-5 py-2.5 rounded-2xl bg-[#0A0A0A] hover:bg-[#111] text-white shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:shadow-[0_6px_25px_rgba(0,0,0,0.35)] border border-white/[0.06] transition-all duration-200"
+              >
+                {/* Android / Google Play Logo SVG */}
+                <svg className="w-7 h-7 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="playGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#00C4FF"/>
+                      <stop offset="100%" stopColor="#00B0FF"/>
+                    </linearGradient>
+                    <linearGradient id="playGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#FFD740"/>
+                      <stop offset="100%" stopColor="#FF8C00"/>
+                    </linearGradient>
+                    <linearGradient id="playGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#FF4058"/>
+                      <stop offset="100%" stopColor="#D50032"/>
+                    </linearGradient>
+                    <linearGradient id="playGrad4" x1="0%" y1="100%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#00E676"/>
+                      <stop offset="100%" stopColor="#00B248"/>
+                    </linearGradient>
+                  </defs>
+                  <path fill="url(#playGrad1)" d="M3.18 23.76c.32.17.67.24 1.04.18L16 12.46 12.46 8.9 3.18 23.76z"/>
+                  <path fill="url(#playGrad2)" d="M21.79 10.08l-3.15-1.8-3.82 3.82 3.82 3.83 3.18-1.83c.9-.52.9-1.56-.03-2.02z"/>
+                  <path fill="url(#playGrad3)" d="M4.22.24C3.85.18 3.5.25 3.18.41L12.46 9.7l3.54-3.54L4.22.24z"/>
+                  <path fill="url(#playGrad4)" d="M3.18.41C2.4.84 1.88 1.73 1.88 2.96v18.08c0 1.23.52 2.12 1.3 2.55L12.46 12.1 3.18.41z"/>
+                </svg>
+                <div className="text-left leading-none">
+                  <p className="text-[10px] text-white/50 font-medium mb-0.5">Application Web</p>
+                  <p className="text-[15px] font-bold tracking-tight">Installer sur Android</p>
+                </div>
               </motion.a>
             </motion.div>
 
@@ -331,7 +405,7 @@ export default function AtelierProOfficialLandingPage() {
             <div className="lg:hidden w-full flex justify-center mb-8 relative">
               <div className="absolute inset-0 bg-gradient-to-t from-[#D97706]/15 via-[#F5E6D3]/40 to-transparent rounded-full blur-2xl -z-10 transform scale-90" />
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 1, y: 0 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8 }}
                 className="relative max-w-[340px] sm:max-w-[420px] w-full flex justify-center"
@@ -348,30 +422,7 @@ export default function AtelierProOfficialLandingPage() {
               </motion.div>
             </div>
 
-            {/* 6. Les quatre arguments de confiance */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-6 text-xs sm:text-sm font-semibold text-[#4B5563] pt-2 border-t border-[#EBE7DF]/80 w-full"
-            >
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#16A34A] shrink-0" />
-                <span>100% sécurisé (Cloud)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#16A34A] shrink-0" />
-                <span>Mobile, Tablette & PC</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#16A34A] shrink-0" />
-                <span>Wave & Orange Money</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-[#16A34A] shrink-0" />
-                <span>Sans carte bancaire</span>
-              </div>
-            </motion.div>
+
           </div>
 
           {/* Right Column: 42% (5 cols in 12-col grid) */}
@@ -381,7 +432,7 @@ export default function AtelierProOfficialLandingPage() {
 
             {/* Floating Micro-Badge Top Left: Gabarits Africains */}
             <motion.div
-              initial={{ opacity: 0, y: 15, scale: 0.85 }}
+              initial={{ opacity: 1, y: 0, scale: 1 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.7, delay: 0.5, ease: 'easeOut' }}
               className="absolute top-16 -left-4 xl:-left-8 z-20 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-[#EBE7DF] shadow-[0_12px_28px_rgba(15,59,50,0.12)] flex items-center gap-2.5 animate-float-1"
@@ -397,7 +448,7 @@ export default function AtelierProOfficialLandingPage() {
 
             {/* Floating Micro-Badge Bottom Right: Acomptes Wave */}
             <motion.div
-              initial={{ opacity: 0, y: 15, scale: 0.85 }}
+              initial={{ opacity: 1, y: 0, scale: 1 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.7, delay: 0.65, ease: 'easeOut' }}
               className="absolute bottom-24 -right-2 xl:-right-6 z-20 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-[#EBE7DF] shadow-[0_12px_28px_rgba(15,59,50,0.12)] flex items-center gap-2.5 animate-float-2"
@@ -412,7 +463,7 @@ export default function AtelierProOfficialLandingPage() {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, x: 50, scale: 0.96 }}
+              initial={{ opacity: 1, x: 0, scale: 1 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               transition={{ duration: 0.85, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
               className="relative w-full max-w-[480px] xl:max-w-[540px] flex items-end justify-center"
@@ -431,57 +482,7 @@ export default function AtelierProOfficialLandingPage() {
         </div>
       </section>
 
-      {/* ─── 3. STATS STRIP (Mon Atelier Luxury Green Ribbon) ─── */}
-      <section className="bg-[#0F3B32] text-white py-5 px-4 sm:px-6 shadow-inner relative overflow-hidden">
-        <div className="absolute inset-0 bg-grain opacity-10 pointer-events-none" />
-        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-around gap-6 text-center sm:text-left relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#185c4e] flex items-center justify-center text-[#D97706]">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-slate-300">Ateliers & Tailleurs</p>
-              <p className="text-base font-bold text-white font-serif-luxury">+500 Ateliers Actifs</p>
-            </div>
-          </div>
 
-          <div className="hidden md:block w-px h-10 bg-white/10" />
-
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#185c4e] flex items-center justify-center text-[#D97706]">
-              <Ruler className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-slate-300">Mensurations enregistrées</p>
-              <p className="text-base font-bold text-white font-serif-luxury">+48 000 Mesures</p>
-            </div>
-          </div>
-
-          <div className="hidden md:block w-px h-10 bg-white/10" />
-
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#185c4e] flex items-center justify-center text-[#D97706]">
-              <CreditCard className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-slate-300">Paiements Mobile Money</p>
-              <p className="text-base font-bold text-white font-serif-luxury">Wave & Orange Money</p>
-            </div>
-          </div>
-
-          <div className="hidden md:block w-px h-10 bg-white/10" />
-
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#185c4e] flex items-center justify-center text-[#D97706]">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-slate-300">Sécurité & Sauvegarde</p>
-              <p className="text-base font-bold text-white font-serif-luxury">Zéro Perte de Données</p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ─── 4. INTERACTIVE LIVE FEATURE SHOWCASE (Tabs + Animated Mockup) ─── */}
       <section id="fonctionnalites" className="py-16 sm:py-24 px-4 sm:px-6 max-w-6xl mx-auto">
@@ -660,10 +661,10 @@ export default function AtelierProOfficialLandingPage() {
                 <Ruler className="w-5 h-5 text-[#0F3B32]" />
               </div>
               <h3 className="text-base font-bold text-[#0F3B32] mb-2 font-serif-luxury">
-                Zéro perte de mesures
+                Mesures sécurisées
               </h3>
               <p className="text-xs text-[#4B5563] leading-relaxed mb-5">
-                Fini les cahiers tachés ou égarés. Toutes vos mensurations sont sécurisées et accessibles en 1 clic.
+                Fini les cahiers tachés ou égarés. Toutes vos mensurations sont stockées en ligne et accessibles en 1 clic.
               </p>
             </div>
 
@@ -674,7 +675,7 @@ export default function AtelierProOfficialLandingPage() {
               </div>
               <div className="flex items-start gap-1.5 text-[#16A34A]">
                 <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                <span>AtelierPro : Cloud sécurisé 24h/24.</span>
+                <span>AtelierPro : Sauvegarde en ligne.</span>
               </div>
             </div>
           </motion.div>
@@ -692,7 +693,7 @@ export default function AtelierProOfficialLandingPage() {
                 Paiements incontestables
               </h3>
               <p className="text-xs text-[#4B5563] leading-relaxed mb-5">
-                Acomptes Wave/OM et solde restant calculés automatiquement avec reçus WhatsApp officiels.
+                Acomptes Wave/OM et solde restant calculés automatiquement avec reçus professionnels WhatsApp.
               </p>
             </div>
 
@@ -703,7 +704,7 @@ export default function AtelierProOfficialLandingPage() {
               </div>
               <div className="flex items-start gap-1.5 text-[#16A34A]">
                 <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                <span>AtelierPro : Reçu WhatsApp certifié.</span>
+                <span>AtelierPro : Reçu professionnel partageable sur WhatsApp.</span>
               </div>
             </div>
           </motion.div>
@@ -718,10 +719,10 @@ export default function AtelierProOfficialLandingPage() {
                 <Kanban className="w-5 h-5 text-[#0F3B32]" />
               </div>
               <h3 className="text-base font-bold text-[#0F3B32] mb-2 font-serif-luxury">
-                Zéro retard de livraison
+                Suivi des livraisons
               </h3>
               <p className="text-xs text-[#4B5563] leading-relaxed mb-5">
-                Sachez quelle tenue est chez quel couturier. Ne manquez plus jamais une date de fête ou mariage.
+                Sachez quelle tenue est chez quel couturier pour mieux organiser vos dates de livraison.
               </p>
             </div>
 
@@ -890,7 +891,7 @@ export default function AtelierProOfficialLandingPage() {
               {/* Benchmark Note */}
               <div className="mt-6 pt-4 border-t border-[#EBE7DF] flex items-center gap-2 text-xs text-[#8A7A65]">
                 <Sparkles className="w-4 h-4 text-[#D97706] shrink-0" />
-                <span>Basé sur les données réelles de plus de 500 ateliers partenaires.</span>
+                <span>Basé sur les standards de gestion d'ateliers partenaires.</span>
               </div>
             </div>
 
@@ -1562,7 +1563,9 @@ export default function AtelierProOfficialLandingPage() {
         >
           <div className="flex items-center gap-4 text-left">
             <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-[#25D366] text-white flex items-center justify-center shrink-0 shadow-[0_8px_20px_rgba(37,211,102,0.35)]">
-              <MessageCircle className="w-7 h-7 fill-white" />
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-white">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+              </svg>
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-bold text-[#0F3B32] font-serif-luxury">
@@ -1580,7 +1583,9 @@ export default function AtelierProOfficialLandingPage() {
             rel="noopener noreferrer"
             className="shrink-0 inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-[#25D366] hover:bg-[#1ebd5a] text-white font-bold text-xs uppercase tracking-wider shadow-[0_8px_25px_rgba(37,211,102,0.35)] transition-all hover:scale-105"
           >
-            <MessageCircle className="w-4 h-4 fill-white" />
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-white">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+            </svg>
             <span>Discuter avec l&apos;Agent IA AtelierPro</span>
           </a>
         </motion.div>
@@ -1598,7 +1603,7 @@ export default function AtelierProOfficialLandingPage() {
               Modernisez votre atelier dès aujourd&apos;hui
             </span>
             <h2 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold font-serif-luxury mb-6 leading-tight">
-              Rejoignez plus de 500 ateliers de couture en Afrique.
+              Rejoignez les ateliers de couture professionnels.
             </h2>
             <p className="text-slate-200 text-sm sm:text-base mb-10 leading-relaxed">
               Inscription en 2 minutes. Vos premières mensurations et fiches clients enregistrées dès aujourd&apos;hui.
@@ -1617,6 +1622,21 @@ export default function AtelierProOfficialLandingPage() {
             <p className="text-xs text-slate-300 mt-4">
               Gratuit • Sans carte bancaire • Prise en main instantanée
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── 10. SECTION INSTALLATION PWA ─── */}
+      <section className="py-12 sm:py-16 px-4 sm:px-6 bg-[#0F3B32] text-white">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-2xl sm:text-3xl font-extrabold mb-4 font-serif-luxury">
+            Installez AtelierPro sur votre téléphone
+          </h2>
+          <p className="text-sm sm:text-base text-slate-300 mb-8 max-w-2xl mx-auto">
+            Gérez votre atelier de couture depuis n&apos;importe où. L&apos;application s&apos;installe directement sans passer par les stores.
+          </p>
+          <div className="flex justify-center w-full">
+            <AppDownloadButtons />
           </div>
         </div>
       </section>
@@ -1742,18 +1762,21 @@ export default function AtelierProOfficialLandingPage() {
 
         <div className="max-w-6xl mx-auto pt-8 border-t border-[#EBE7DF] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <p>© {new Date().getFullYear()} AtelierPro. Tous droits réservés.</p>
-          <div className="flex items-center gap-6">
-            <Link href="/blog" className="hover:text-[#0F3B32]">
-              Blog Mode
-            </Link>
+          <div className="flex flex-wrap items-center gap-6">
             <Link href="/auth/login" className="hover:text-[#0F3B32]">
               Espace Client
             </Link>
-            <Link href="/auth/login" className="hover:text-[#0F3B32]">
-              Conditions d&apos;utilisation
+            <Link href="/legal/conditions" className="hover:text-[#0F3B32]">
+              CGU
             </Link>
-            <Link href="/auth/login" className="hover:text-[#0F3B32]">
+            <Link href="/legal/confidentialite" className="hover:text-[#0F3B32]">
               Confidentialité
+            </Link>
+            <Link href="/legal/mentions-legales" className="hover:text-[#0F3B32]">
+              Mentions légales
+            </Link>
+            <Link href="/legal/suppression-compte" className="hover:text-[#0F3B32]">
+              Supprimer mon compte
             </Link>
           </div>
         </div>

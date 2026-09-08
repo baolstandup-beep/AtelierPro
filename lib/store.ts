@@ -742,7 +742,7 @@ export const useAppStore = create<AppStore>()(
           customer_id: input.customer_id,
           amount: input.amount,
           method: input.method || 'CASH',
-          status: 'CONFIRMED',
+          status: (input.method === 'WAVE' || input.method === 'ORANGE_MONEY') ? 'PENDING' : 'CONFIRMED',
           reference: input.reference,
           notes: input.notes,
           payment_date: input.payment_date || format(new Date(), 'yyyy-MM-dd'),
@@ -751,7 +751,7 @@ export const useAppStore = create<AppStore>()(
         };
 
         const updatedOrders = orders.map((o) => {
-          if (o.id === input.order_id) {
+          if (o.id === input.order_id && localPayment.status === 'CONFIRMED') {
             const newPaid = Number(o.paid_amount || 0) + Number(input.amount);
             const newBalance = Math.max(0, Number(o.total_amount || 0) - newPaid);
             return { ...o, paid_amount: newPaid, balance: newBalance };

@@ -433,7 +433,7 @@ export async function dbCreatePayment(
       customer_id: input.customer_id,
       amount: input.amount,
       payment_method: input.method || 'CASH',
-      status: 'CONFIRMED',
+      status: (input.method === 'WAVE' || input.method === 'ORANGE_MONEY') ? 'PENDING' : 'CONFIRMED',
       reference: input.reference || null,
       notes: input.notes || null,
       payment_date: input.payment_date || new Date().toISOString(),
@@ -452,7 +452,7 @@ export async function dbCreatePayment(
     .eq('id', input.order_id)
     .single();
 
-  if (orderData) {
+  if (orderData && payData.status === 'CONFIRMED') {
     const newPaid = Number(orderData.paid_amount || 0) + Number(input.amount);
     const newBalance = Math.max(0, Number(orderData.total_amount || 0) - newPaid);
 

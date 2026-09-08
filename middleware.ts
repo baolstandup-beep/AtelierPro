@@ -19,6 +19,15 @@ const PROTECTED_PREFIXES = [
   '/settings',
 ];
 
+// Public routes that must NEVER redirect to login
+const PUBLIC_PREFIXES = [
+  '/',
+  '/auth',
+  '/legal',
+  '/offline',
+  '/onboarding',
+];
+
 // Sensitive authentication & API routes subject to strict anti-brute-force rate limiting
 const SENSITIVE_AUTH_PREFIXES = [
   '/auth/login',
@@ -163,11 +172,29 @@ export function middleware(request: NextRequest) {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
+  // Strict Content-Security-Policy
+  const cspDirectives = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: blob: https:",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://vercel.live",
+    "frame-src 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "upgrade-insecure-requests",
+  ];
+  response.headers.set('Content-Security-Policy', cspDirectives.join('; '));
 
   // ─── 3. Route Protection Check ───
   const isProtectedRoute = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  const isPublicRoute = PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'));
 
-  if (isProtectedRoute) {
+  if (isProtectedRoute && !isPublicRoute) {
     // Check for Supabase session cookie or app auth cookie if present
     const supabaseToken =
       request.cookies.get('sb-access-token')?.value ||

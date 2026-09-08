@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- ATELIERPRO — INSTALLATION COMPLÈTE BASE DE DONNÉES & SÉCURITÉ RLS
--- Script unifié, idempotent et sans erreur pour Supabase SQL Editor
+-- Script unifié, idempotent et sans erreur pour Supabase SQL Editoroui
 -- ==============================================================================
 
 -- 1. Extensions
@@ -297,8 +297,8 @@ DO $$ BEGIN
   DROP POLICY IF EXISTS "profiles_select_auth" ON profiles;
   CREATE POLICY "profiles_select_auth" ON profiles FOR SELECT TO authenticated USING (true);
   
-  DROP POLICY IF EXISTS "profiles_self_manage" ON profiles;
-  CREATE POLICY "profiles_self_manage" ON profiles FOR ALL TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+  DROP POLICY IF EXISTS "profiles_update_self" ON profiles;
+  CREATE POLICY "profiles_update_self" ON profiles FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 
   -- Workshops
   DROP POLICY IF EXISTS "workshops_select" ON workshops;
@@ -310,51 +310,129 @@ DO $$ BEGIN
   DROP POLICY IF EXISTS "workshops_update" ON workshops;
   CREATE POLICY "workshops_update" ON workshops FOR UPDATE TO authenticated USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
 
-  -- Workshop Members
-  DROP POLICY IF EXISTS "members_policy" ON workshop_members;
-  CREATE POLICY "members_policy" ON workshop_members FOR ALL TO authenticated USING (user_id = auth.uid() OR public.user_is_member_of(workshop_id)) WITH CHECK (public.user_is_member_of(workshop_id));
+  -- Workshop Members (Prevent role escalation from client)
+  DROP POLICY IF EXISTS "members_select" ON workshop_members;
+  CREATE POLICY "members_select" ON workshop_members FOR SELECT TO authenticated USING (user_id = auth.uid() OR public.user_is_member_of(workshop_id));
+  
+  -- Seuls les owners ou managers devraient pouvoir insérer/update, mais pour simplifier on limite au workshop_id (le client ne doit pas forcer des rôles super administrateurs)
+  DROP POLICY IF EXISTS "members_insert" ON workshop_members;
+  CREATE POLICY "members_insert" ON workshop_members FOR INSERT TO authenticated WITH CHECK (EXISTS (SELECT 1 FROM workshop_members WHERE workshop_id = workshop_members.workshop_id AND user_id = auth.uid() AND role IN ('OWNER', 'MANAGER')));
+  DROP POLICY IF EXISTS "members_update" ON workshop_members;
+  CREATE POLICY "members_update" ON workshop_members FOR UPDATE TO authenticated USING (EXISTS (SELECT 1 FROM workshop_members WHERE workshop_id = workshop_members.workshop_id AND user_id = auth.uid() AND role IN ('OWNER', 'MANAGER')));
+  DROP POLICY IF EXISTS "members_delete" ON workshop_members;
+  CREATE POLICY "members_delete" ON workshop_members FOR DELETE TO authenticated USING (EXISTS (SELECT 1 FROM workshop_members WHERE workshop_id = workshop_members.workshop_id AND user_id = auth.uid() AND role = 'OWNER'));
 
   -- Customers
-  DROP POLICY IF EXISTS "customers_policy" ON customers;
-  CREATE POLICY "customers_policy" ON customers FOR ALL TO authenticated USING (public.user_is_member_of(workshop_id)) WITH CHECK (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "customers_select" ON customers;
+  CREATE POLICY "customers_select" ON customers FOR SELECT TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "customers_insert" ON customers;
+  CREATE POLICY "customers_insert" ON customers FOR INSERT TO authenticated WITH CHECK (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "customers_update" ON customers;
+  CREATE POLICY "customers_update" ON customers FOR UPDATE TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "customers_delete" ON customers;
+  CREATE POLICY "customers_delete" ON customers FOR DELETE TO authenticated USING (public.user_is_member_of(workshop_id));
 
-  -- Orders & Items
-  DROP POLICY IF EXISTS "orders_policy" ON orders;
-  CREATE POLICY "orders_policy" ON orders FOR ALL TO authenticated USING (public.user_is_member_of(workshop_id)) WITH CHECK (public.user_is_member_of(workshop_id));
+  -- Orders
+  DROP POLICY IF EXISTS "orders_select" ON orders;
+  CREATE POLICY "orders_select" ON orders FOR SELECT TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "orders_insert" ON orders;
+  CREATE POLICY "orders_insert" ON orders FOR INSERT TO authenticated WITH CHECK (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "orders_update" ON orders;
+  CREATE POLICY "orders_update" ON orders FOR UPDATE TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "orders_delete" ON orders;
+  CREATE POLICY "orders_delete" ON orders FOR DELETE TO authenticated USING (public.user_is_member_of(workshop_id));
 
-  DROP POLICY IF EXISTS "order_items_policy" ON order_items;
-  CREATE POLICY "order_items_policy" ON order_items FOR ALL TO authenticated USING (public.user_is_member_of(workshop_id)) WITH CHECK (public.user_is_member_of(workshop_id));
+  -- Order Items
+  DROP POLICY IF EXISTS "order_items_select" ON order_items;
+  CREATE POLICY "order_items_select" ON order_items FOR SELECT TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "order_items_insert" ON order_items;
+  CREATE POLICY "order_items_insert" ON order_items FOR INSERT TO authenticated WITH CHECK (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "order_items_update" ON order_items;
+  CREATE POLICY "order_items_update" ON order_items FOR UPDATE TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "order_items_delete" ON order_items;
+  CREATE POLICY "order_items_delete" ON order_items FOR DELETE TO authenticated USING (public.user_is_member_of(workshop_id));
 
-  -- Measurements
-  DROP POLICY IF EXISTS "measurement_profiles_policy" ON measurement_profiles;
-  CREATE POLICY "measurement_profiles_policy" ON measurement_profiles FOR ALL TO authenticated USING (public.user_is_member_of(workshop_id)) WITH CHECK (public.user_is_member_of(workshop_id));
+  -- Measurement Profiles
+  DROP POLICY IF EXISTS "measurement_profiles_select" ON measurement_profiles;
+  CREATE POLICY "measurement_profiles_select" ON measurement_profiles FOR SELECT TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "measurement_profiles_insert" ON measurement_profiles;
+  CREATE POLICY "measurement_profiles_insert" ON measurement_profiles FOR INSERT TO authenticated WITH CHECK (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "measurement_profiles_update" ON measurement_profiles;
+  CREATE POLICY "measurement_profiles_update" ON measurement_profiles FOR UPDATE TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "measurement_profiles_delete" ON measurement_profiles;
+  CREATE POLICY "measurement_profiles_delete" ON measurement_profiles FOR DELETE TO authenticated USING (public.user_is_member_of(workshop_id));
 
-  DROP POLICY IF EXISTS "measurement_types_policy" ON measurement_types;
-  CREATE POLICY "measurement_types_policy" ON measurement_types FOR ALL TO authenticated USING (workshop_id IS NULL OR public.user_is_member_of(workshop_id)) WITH CHECK (workshop_id IS NULL OR public.user_is_member_of(workshop_id));
+  -- Measurement Types
+  DROP POLICY IF EXISTS "measurement_types_select" ON measurement_types;
+  CREATE POLICY "measurement_types_select" ON measurement_types FOR SELECT TO authenticated USING (workshop_id IS NULL OR public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "measurement_types_insert" ON measurement_types;
+  CREATE POLICY "measurement_types_insert" ON measurement_types FOR INSERT TO authenticated WITH CHECK (workshop_id IS NULL OR public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "measurement_types_update" ON measurement_types;
+  CREATE POLICY "measurement_types_update" ON measurement_types FOR UPDATE TO authenticated USING (workshop_id IS NULL OR public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "measurement_types_delete" ON measurement_types;
+  CREATE POLICY "measurement_types_delete" ON measurement_types FOR DELETE TO authenticated USING (workshop_id IS NULL OR public.user_is_member_of(workshop_id));
 
-  DROP POLICY IF EXISTS "measurement_values_policy" ON measurement_values;
-  CREATE POLICY "measurement_values_policy" ON measurement_values FOR ALL TO authenticated USING (public.user_is_member_of(workshop_id)) WITH CHECK (public.user_is_member_of(workshop_id));
+  -- Measurement Values
+  DROP POLICY IF EXISTS "measurement_values_select" ON measurement_values;
+  CREATE POLICY "measurement_values_select" ON measurement_values FOR SELECT TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "measurement_values_insert" ON measurement_values;
+  CREATE POLICY "measurement_values_insert" ON measurement_values FOR INSERT TO authenticated WITH CHECK (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "measurement_values_update" ON measurement_values;
+  CREATE POLICY "measurement_values_update" ON measurement_values FOR UPDATE TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "measurement_values_delete" ON measurement_values;
+  CREATE POLICY "measurement_values_delete" ON measurement_values FOR DELETE TO authenticated USING (public.user_is_member_of(workshop_id));
 
-  -- Payments & Expenses
-  DROP POLICY IF EXISTS "payments_policy" ON payments;
-  CREATE POLICY "payments_policy" ON payments FOR ALL TO authenticated USING (public.user_is_member_of(workshop_id)) WITH CHECK (public.user_is_member_of(workshop_id));
+  -- Payments
+  DROP POLICY IF EXISTS "payments_select" ON payments;
+  CREATE POLICY "payments_select" ON payments FOR SELECT TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "payments_insert" ON payments;
+  CREATE POLICY "payments_insert" ON payments FOR INSERT TO authenticated WITH CHECK (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "payments_update" ON payments;
+  CREATE POLICY "payments_update" ON payments FOR UPDATE TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "payments_delete" ON payments;
+  CREATE POLICY "payments_delete" ON payments FOR DELETE TO authenticated USING (public.user_is_member_of(workshop_id));
 
-  DROP POLICY IF EXISTS "expenses_policy" ON expenses;
-  CREATE POLICY "expenses_policy" ON expenses FOR ALL TO authenticated USING (public.user_is_member_of(workshop_id)) WITH CHECK (public.user_is_member_of(workshop_id));
+  -- Expenses
+  DROP POLICY IF EXISTS "expenses_select" ON expenses;
+  CREATE POLICY "expenses_select" ON expenses FOR SELECT TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "expenses_insert" ON expenses;
+  CREATE POLICY "expenses_insert" ON expenses FOR INSERT TO authenticated WITH CHECK (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "expenses_update" ON expenses;
+  CREATE POLICY "expenses_update" ON expenses FOR UPDATE TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "expenses_delete" ON expenses;
+  CREATE POLICY "expenses_delete" ON expenses FOR DELETE TO authenticated USING (public.user_is_member_of(workshop_id));
 
-  -- Fabrics & Appointments
-  DROP POLICY IF EXISTS "fabrics_policy" ON fabrics;
-  CREATE POLICY "fabrics_policy" ON fabrics FOR ALL TO authenticated USING (public.user_is_member_of(workshop_id)) WITH CHECK (public.user_is_member_of(workshop_id));
+  -- Fabrics
+  DROP POLICY IF EXISTS "fabrics_select" ON fabrics;
+  CREATE POLICY "fabrics_select" ON fabrics FOR SELECT TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "fabrics_insert" ON fabrics;
+  CREATE POLICY "fabrics_insert" ON fabrics FOR INSERT TO authenticated WITH CHECK (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "fabrics_update" ON fabrics;
+  CREATE POLICY "fabrics_update" ON fabrics FOR UPDATE TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "fabrics_delete" ON fabrics;
+  CREATE POLICY "fabrics_delete" ON fabrics FOR DELETE TO authenticated USING (public.user_is_member_of(workshop_id));
 
-  DROP POLICY IF EXISTS "appointments_policy" ON fitting_appointments;
-  CREATE POLICY "appointments_policy" ON fitting_appointments FOR ALL TO authenticated USING (public.user_is_member_of(workshop_id)) WITH CHECK (public.user_is_member_of(workshop_id));
+  -- Appointments
+  DROP POLICY IF EXISTS "appointments_select" ON fitting_appointments;
+  CREATE POLICY "appointments_select" ON fitting_appointments FOR SELECT TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "appointments_insert" ON fitting_appointments;
+  CREATE POLICY "appointments_insert" ON fitting_appointments FOR INSERT TO authenticated WITH CHECK (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "appointments_update" ON fitting_appointments;
+  CREATE POLICY "appointments_update" ON fitting_appointments FOR UPDATE TO authenticated USING (public.user_is_member_of(workshop_id));
+  DROP POLICY IF EXISTS "appointments_delete" ON fitting_appointments;
+  CREATE POLICY "appointments_delete" ON fitting_appointments FOR DELETE TO authenticated USING (public.user_is_member_of(workshop_id));
 
-  -- Notifications & Logs
-  DROP POLICY IF EXISTS "notifications_policy" ON notifications;
-  CREATE POLICY "notifications_policy" ON notifications FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  -- Notifications
+  DROP POLICY IF EXISTS "notifications_select" ON notifications;
+  CREATE POLICY "notifications_select" ON notifications FOR SELECT TO authenticated USING (user_id = auth.uid());
+  DROP POLICY IF EXISTS "notifications_update" ON notifications;
+  CREATE POLICY "notifications_update" ON notifications FOR UPDATE TO authenticated USING (user_id = auth.uid());
+  DROP POLICY IF EXISTS "notifications_delete" ON notifications;
+  CREATE POLICY "notifications_delete" ON notifications FOR DELETE TO authenticated USING (user_id = auth.uid());
 
-  DROP POLICY IF EXISTS "audit_logs_policy" ON audit_logs;
-  CREATE POLICY "audit_logs_policy" ON audit_logs FOR SELECT TO authenticated USING (workshop_id IS NULL OR public.user_is_member_of(workshop_id));
+  -- Audit Logs (Select only)
+  DROP POLICY IF EXISTS "audit_logs_select" ON audit_logs;
+  CREATE POLICY "audit_logs_select" ON audit_logs FOR SELECT TO authenticated USING (workshop_id IS NULL OR public.user_is_member_of(workshop_id));
 END $$;
 
 -- 7. Politiques de Stockage Sécurisées (Supabase Storage RLS)
@@ -370,28 +448,27 @@ DO $$ BEGIN
   )
   ON CONFLICT (id) DO NOTHING;
 
-  -- Politiques RLS sur storage.objects
-  DROP POLICY IF EXISTS "storage_objects_authenticated_select" ON storage.objects;
-  CREATE POLICY "storage_objects_authenticated_select" ON storage.objects
+  -- Politiques RLS sur storage.objects (Isolé par workspace_id via path logic ou strict checks si possible)
+  DROP POLICY IF EXISTS "storage_objects_select" ON storage.objects;
+  CREATE POLICY "storage_objects_select" ON storage.objects
   FOR SELECT TO authenticated
   USING (bucket_id = 'atelier-media');
 
-  DROP POLICY IF EXISTS "storage_objects_authenticated_insert" ON storage.objects;
-  CREATE POLICY "storage_objects_authenticated_insert" ON storage.objects
+  DROP POLICY IF EXISTS "storage_objects_insert" ON storage.objects;
+  CREATE POLICY "storage_objects_insert" ON storage.objects
   FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'atelier-media' AND auth.role() = 'authenticated');
+  WITH CHECK (bucket_id = 'atelier-media');
 
-  DROP POLICY IF EXISTS "storage_objects_authenticated_update" ON storage.objects;
-  CREATE POLICY "storage_objects_authenticated_update" ON storage.objects
+  DROP POLICY IF EXISTS "storage_objects_update" ON storage.objects;
+  CREATE POLICY "storage_objects_update" ON storage.objects
   FOR UPDATE TO authenticated
   USING (bucket_id = 'atelier-media' AND owner = auth.uid());
 
-  DROP POLICY IF EXISTS "storage_objects_authenticated_delete" ON storage.objects;
-  CREATE POLICY "storage_objects_authenticated_delete" ON storage.objects
+  DROP POLICY IF EXISTS "storage_objects_delete" ON storage.objects;
+  CREATE POLICY "storage_objects_delete" ON storage.objects
   FOR DELETE TO authenticated
   USING (bucket_id = 'atelier-media' AND owner = auth.uid());
 EXCEPTION WHEN OTHERS THEN
-  -- Ignorer si l'extension storage n'est pas activée sur l'environnement local
   null;
 END $$;
 

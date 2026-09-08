@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toaster';
 import { OrderStatusBadge } from '@/components/ui/tabs';
-import { formatDate, isDueDateLate, KANBAN_COLUMNS, ORDER_STATUS_LABELS } from '@/lib/utils';
+import { formatDate, isDueDateLate, KANBAN_COLUMNS, ORDER_STATUS_LABELS, formatCurrency } from '@/lib/utils';
 import { Trash2 } from 'lucide-react';
 import type { OrderStatus, Order } from '@/lib/types';
 
@@ -32,7 +32,8 @@ export default function ProductionPage() {
       .map((o) => {
         const isLate = isDueDateLate(o.due_date, o.status);
         const paid = payments.filter(p => p.order_id === o.id && p.status === 'CONFIRMED').reduce((s, p) => s + p.amount, 0);
-        return { ...o, is_late: isLate, paid_amount: paid };
+        const balance = Math.max(0, o.total_amount - paid);
+        return { ...o, is_late: isLate, paid_amount: paid, balance };
       })
       .sort((a, b) => {
         if (a.is_late && !b.is_late) return -1;
@@ -138,8 +139,31 @@ export default function ProductionPage() {
                           <p className="text-[10px] text-gray-400 truncate mt-0.5">
                             {order.items?.map(i => i.name).join(', ')}
                           </p>
+
+                          <div className="mt-2 space-y-1 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <div className="flex justify-between items-center text-[10px]">
+                              <span className="text-slate-500">Total :</span>
+                              <span className="font-bold text-slate-700">{formatCurrency(order.total_amount, ws?.currency_symbol)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px]">
+                              <span className="text-slate-500">Acompte :</span>
+                              <span className="text-green-600 font-semibold">{formatCurrency(order.paid_amount, ws?.currency_symbol)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px] border-t border-slate-200 pt-1 mt-1">
+                              <span className="text-slate-500 font-semibold">Reste :</span>
+                              <span className="text-orange-600 font-bold">{formatCurrency(order.balance, ws?.currency_symbol)}</span>
+                            </div>
+                          </div>
+
+                          {order.assignee_name && (
+                            <div className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-500 bg-slate-50 py-1 px-2 rounded-md border border-slate-100">
+                              <span className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center shrink-0">👤</span>
+                              <span className="truncate">Couturier : <span className="font-semibold text-slate-700">{order.assignee_name}</span></span>
+                            </div>
+                          )}
+
                           {order.due_date && (
-                            <p className={`text-[10px] mt-1 font-medium ${order.is_late ? 'text-red-500' : 'text-gray-400'}`}>
+                            <p className={`text-[10px] mt-2 font-medium ${order.is_late ? 'text-red-500' : 'text-gray-400'}`}>
                               📅 {formatDate(order.due_date)}
                             </p>
                           )}

@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripeServer } from '@/lib/stripe';
 import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
+
+const getSupabaseClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  if (!supabaseUrl || !supabaseServiceRoleKey) return null;
+  return createClient(supabaseUrl, supabaseServiceRoleKey);
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,6 +54,24 @@ export async function POST(req: NextRequest) {
           console.log(`✅ Abonnement activé : Atelier ${metadata.workshopId}, Plan ${metadata.planId}`);
         } else if (metadata.type === 'order_payment') {
           console.log(`✅ Commande payée via Stripe : Commande ${metadata.orderId}, Montant ${metadata.amountXOF} FCFA`);
+          
+          const supabase = getSupabaseClient();
+          if (supabase && metadata.paymentId) {
+            // Vérifier idempotence
+            const { data: existing } = await supabase.from('payments').select('status').eq('id', metadata.paymentId).single();
+            if (existing && existing.status !== 'CONFIRMED') {
+              // Confirmer le paiement
+              await supabase.from('payments').update({ status: 'CONFIRMED', reference: session.id }).eq('id', metadata.paymentId);
+              
+              // Mettre à jour la commande
+              const { data: orderData } = await supabase.from('orders').select('total_amount, paid_amount').eq('id', metadata.orderId).single();
+              if (orderData) {
+                const newPaid = Number(orderData.paid_amount || 0) + Number(metadata.amountXOF || 0);
+                const newBalance = Math.max(0, Number(orderData.total_amount || 0) - newPaid);
+                await supabase.from('orders').update({ paid_amount: newPaid, balance: newBalance, updated_at: new Date().toISOString() }).eq('id', metadata.orderId);
+              }
+            }
+          }
         }
         break;
       }

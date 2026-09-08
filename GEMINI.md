@@ -1,7 +1,7 @@
 # GEMINI.md — Project Intelligence & AI Development Guide
 
 Last analyzed: 2026-09-07  
-Project: AtelierPro (`atelierpro`)
+Project: AtelierPro (``)
 
 > This document is the persistent technical memory of this project.  
 > Any AI agent working on this repository should read this document before making architectural or significant code changes.
