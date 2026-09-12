@@ -104,17 +104,33 @@ export default function LoginPage() {
     try {
       if (isSupabaseConfigured) {
         await signInWithGoogle();
+        // La redirection OAuth se fait automatiquement — pas besoin de push
       } else {
-        // Mode Démo
+        // Mode Démo (Supabase non configuré)
         await new Promise((r) => setTimeout(r, 400));
         loginAsDemo();
-        success('Connexion réussie !', 'Bienvenue dans AtelierPro');
+        success('Connexion réussie !', 'Bienvenue dans AtelierPro (Mode Démo)');
         router.push('/dashboard');
       }
-    } catch {
-      loginAsDemo();
-      success('Connexion réussie !', 'Bienvenue dans AtelierPro');
-      router.push('/dashboard');
+    } catch (err: any) {
+      const msg: string = err?.message || '';
+      if (
+        msg.includes('provider is not enabled') ||
+        msg.includes('Unsupported provider') ||
+        msg.includes('not enabled')
+      ) {
+        showError(
+          'Google non activé',
+          'La connexion Google n\'est pas encore activée sur ce projet. Utilisez l\'e-mail/mot de passe ou testez la démo.'
+        );
+      } else if (msg.includes('popup_closed') || msg.includes('cancelled')) {
+        showError('Connexion annulée', 'La fenêtre Google a été fermée. Réessayez.');
+      } else {
+        showError(
+          'Erreur Google',
+          msg || 'Une erreur est survenue lors de la connexion avec Google.'
+        );
+      }
     } finally {
       setGoogleLoading(false);
     }
@@ -236,7 +252,7 @@ export default function LoginPage() {
               type="button"
               onClick={handleGoogleSignIn}
               disabled={googleLoading || loading}
-              className="w-full flex items-center justify-center gap-3 py-3 px-5 rounded-2xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs sm:text-sm font-bold shadow-sm transition-all hover:shadow-md cursor-pointer mb-4"
+              className="w-full flex items-center justify-center gap-3 py-3 px-5 rounded-2xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs sm:text-sm font-bold shadow-sm transition-all hover:shadow-md cursor-pointer mb-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {googleLoading ? (
                 <div className="w-5 h-5 border-2 border-[#0F3B32] border-t-transparent rounded-full animate-spin" />
@@ -264,6 +280,10 @@ export default function LoginPage() {
                 </>
               )}
             </button>
+            {/* Notice Google OAuth */}
+            <p className="text-[11px] text-center text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3">
+              ⚠️ Google OAuth doit être activé dans le dashboard Supabase pour fonctionner.
+            </p>
 
             {/* Divider */}
             <div className="flex items-center gap-4 my-6">

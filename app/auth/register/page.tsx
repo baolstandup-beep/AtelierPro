@@ -282,11 +282,11 @@ export default function RegisterPage() {
                 </div>
                 <span className="text-xs text-slate-700 leading-snug">
                   J&apos;accepte les{' '}
-                  <Link href="/terms" className="text-[#0F3B32] font-semibold underline underline-offset-2">
+                  <Link href="/legal/conditions" className="text-[#0F3B32] font-semibold underline underline-offset-2">
                     Conditions d&apos;utilisation
                   </Link>{' '}
                   et la{' '}
-                  <Link href="/privacy" className="text-[#0F3B32] font-semibold underline underline-offset-2">
+                  <Link href="/legal/confidentialite" className="text-[#0F3B32] font-semibold underline underline-offset-2">
                     Politique de confidentialité
                   </Link>
                 </span>

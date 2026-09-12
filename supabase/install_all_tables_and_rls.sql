@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- ATELIERPRO — INSTALLATION COMPLÈTE BASE DE DONNÉES & SÉCURITÉ RLS
--- Script unifié, idempotent et sans erreur pour Supabase SQL Editoroui
+-- Script unifié, idempotent et sans erreur pour Supabase SQL Editor
 -- ==============================================================================
 
 -- 1. Extensions

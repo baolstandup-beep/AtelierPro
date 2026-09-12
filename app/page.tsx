@@ -1,5 +1,6 @@
 'use client';
 
+
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -170,6 +171,10 @@ export default function AtelierProOfficialLandingPage() {
               </Link>
             ) : (
               <div className="flex items-center gap-2">
+                <Link href="/ateliers" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold text-[#0F3B32] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors mr-1">
+                  <Scissors className="w-3.5 h-3.5 text-[#D97706]" />
+                  <span>Trouver un Atelier</span>
+                </Link>
                 <Link
                   href="/auth/login"
                   className="hidden sm:inline-flex text-xs font-bold uppercase tracking-wider text-[#4B5563] hover:text-[#0F3B32] px-3 py-2 transition-colors"
@@ -635,7 +640,7 @@ export default function AtelierProOfficialLandingPage() {
       </section>
 
       {/* ─── 5. SECTION "POURQUOI ABANDONNER LES CAHIERS" (Mon Atelier Comparison Cards) ─── */}
-      <section id="comparatif" className="py-16 sm:py-24 px-4 sm:px-6 max-w-6xl mx-auto">
+            <section id="comparatif" className="py-16 sm:py-24 px-4 sm:px-6 max-w-6xl mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <span className="px-4 py-1.5 rounded-full bg-[#FEF3C7] text-[#D97706] font-bold text-xs uppercase tracking-wider border border-[#D97706]/20">
             Comparatif d&apos;Atelier
@@ -1763,6 +1768,9 @@ export default function AtelierProOfficialLandingPage() {
         <div className="max-w-6xl mx-auto pt-8 border-t border-[#EBE7DF] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <p>© {new Date().getFullYear()} AtelierPro. Tous droits réservés.</p>
           <div className="flex flex-wrap items-center gap-6">
+            <Link href="/ateliers" className="hover:text-[#0F3B32] font-bold text-[#0F3B32]">
+              Trouver un Atelier
+            </Link>
             <Link href="/auth/login" className="hover:text-[#0F3B32]">
               Espace Client
             </Link>
