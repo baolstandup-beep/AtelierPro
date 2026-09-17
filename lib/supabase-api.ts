@@ -39,89 +39,41 @@ export async function dbGetOrCreateUserWorkshop(userId: string, userFullName?: s
     throw new Error('Supabase non configuré');
   }
 
-  // 1. Chercher si l'utilisateur est propriétaire ou membre d'un atelier
-  const { data: memberRows, error: memberErr } = await supabase
-    .from('workshop_members')
-    .select('role, workshops (*)')
-    .eq('user_id', userId)
-    .limit(1);
+  let attempt = 0;
+  const maxAttempts = 4;
+  const delays = [300, 600, 1000, 2000];
 
-  if (!memberErr && memberRows && memberRows.length > 0 && memberRows[0].workshops) {
-    const ws = memberRows[0].workshops as unknown as Workshop;
-    return { workshop: ws, role: memberRows[0].role || 'OWNER' };
+  while (attempt < maxAttempts) {
+    const { data: memberRows, error: memberErr } = await supabase
+      .from('workshop_members')
+      .select('role, workshops (*)')
+      .eq('user_id', userId)
+      .limit(1);
+
+    if (!memberErr && memberRows && memberRows.length > 0 && memberRows[0].workshops) {
+      const ws = memberRows[0].workshops as unknown as Workshop;
+      
+            return { workshop: ws, role: memberRows[0].role || 'OWNER' };
+    }
+
+    const { data: ownedWorkshops, error: ownErr } = await supabase
+      .from('workshops')
+      .select('*')
+      .eq('owner_id', userId)
+      .limit(1);
+
+    if (!ownErr && ownedWorkshops && ownedWorkshops.length > 0) {
+      const ws = ownedWorkshops[0] as Workshop;
+      return { workshop: ws, role: 'OWNER' };
+    }
+
+    if (attempt < maxAttempts - 1) {
+      await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+    }
+    attempt++;
   }
 
-  // 2. Chercher si l'utilisateur est propriétaire direct dans workshops
-  const { data: ownedWorkshops, error: ownErr } = await supabase
-    .from('workshops')
-    .select('*')
-    .eq('owner_id', userId)
-    .limit(1);
-
-  if (!ownErr && ownedWorkshops && ownedWorkshops.length > 0) {
-    const ws = ownedWorkshops[0] as Workshop;
-    return { workshop: ws, role: 'OWNER' };
-  }
-
-  // 3. Si aucun atelier n'existe pour cet utilisateur, on en crée un automatiquement
-  const workshopName = userFullName
-    ? `Atelier ${userFullName.trim()}`
-    : 'Mon Atelier de Couture';
-
-  const { data: newWorkshop, error: createWsErr } = await supabase
-    .from('workshops')
-    .insert({
-      name: workshopName,
-      owner_id: userId,
-      currency: 'XOF',
-      currency_symbol: 'FCFA',
-      is_active: true,
-    })
-    .select()
-    .single();
-
-  if (createWsErr || !newWorkshop) {
-    console.error('[Supabase] Erreur création workshop:', createWsErr);
-    throw new Error(createWsErr?.message || 'Impossible de créer votre atelier.');
-  }
-
-  // Ajouter l'utilisateur comme OWNER dans workshop_members
-  await supabase.from('workshop_members').insert({
-    workshop_id: newWorkshop.id,
-    user_id: userId,
-    role: 'OWNER',
-    status: 'ACTIVE',
-  });
-
-  // Insérer les types de mesures par défaut pour ce nouvel atelier
-  const DEFAULT_TYPES = [
-    { name: 'Tour de cou', unit: 'cm', sort_order: 1 },
-    { name: 'Épaule', unit: 'cm', sort_order: 2 },
-    { name: 'Poitrine', unit: 'cm', sort_order: 3 },
-    { name: 'Taille', unit: 'cm', sort_order: 4 },
-    { name: 'Hanche', unit: 'cm', sort_order: 5 },
-    { name: 'Bassin', unit: 'cm', sort_order: 6 },
-    { name: 'Longueur manches', unit: 'cm', sort_order: 7 },
-    { name: 'Tour de bras', unit: 'cm', sort_order: 8 },
-    { name: 'Longueur boubou', unit: 'cm', sort_order: 9 },
-    { name: 'Longueur pantalon', unit: 'cm', sort_order: 10 },
-    { name: 'Cuisse', unit: 'cm', sort_order: 11 },
-    { name: 'Genou', unit: 'cm', sort_order: 12 },
-    { name: 'Bas de pantalon', unit: 'cm', sort_order: 13 },
-    { name: 'Longueur chemise', unit: 'cm', sort_order: 14 },
-  ];
-
-  await supabase.from('measurement_types').insert(
-    DEFAULT_TYPES.map((t) => ({
-      workshop_id: newWorkshop.id,
-      name: t.name,
-      unit: t.unit,
-      sort_order: t.sort_order,
-      is_custom: false,
-    }))
-  );
-
-  return { workshop: newWorkshop as Workshop, role: 'OWNER' };
+  throw new Error('Profil atelier introuvable après création. Le backend Supabase (trigger) a peut-être échoué.');
 }
 
 /**

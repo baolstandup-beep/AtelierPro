@@ -32,7 +32,7 @@ async function runTests() {
   const testPin = '1980';
   const testFullName = 'Cheikh Diop';
   const testWorkshop = 'Diop Création';
-  const internalEmail = `user${testPhone.replace('+', '')}@atelierpro-internal.com`;
+  const internalEmail = `user${testPhone.replace('+', '')}@gmail.com`;
   const securePassword = `${testPin}_${PIN_SECRET}`;
 
   // Nettoyage initial
@@ -47,21 +47,13 @@ async function runTests() {
 
   // --- TEST 1 : Création d'un compte ---
   console.log('\n--- TEST 1 : Création d\'un compte ---');
-  let signUpRes = await supabase.auth.signUp({
-    email: internalEmail,
-    password: securePassword,
-    options: { data: { full_name: testFullName, phone: testPhone, workshop_name: testWorkshop } }
-  });
-  
-  if (signUpRes.data?.user?.id) {
-    await supabaseAdmin.from('profiles').update({ phone: testPhone }).eq('id', signUpRes.data.user.id);
-  }
-  assert(!signUpRes.error && !!signUpRes.data?.user, 'Test 1 - Création de compte', signUpRes.error?.message);
+  const { data: signUpData, error: signUpError } = await registerWithPin(testPhone, testPin, testFullName, testWorkshop);
+  assert(!signUpError, 'Test 1 - Création de compte', signUpError ? signUpError : '');
 
   // --- TEST 2 : Même numéro une deuxième fois ---
   console.log('\n--- TEST 2 : Même numéro une deuxième fois ---');
-  const existingCheck = await supabaseAdmin.from('profiles').select('id').eq('phone', testPhone).limit(1);
-  const exists = existingCheck.data && existingCheck.data.length > 0;
+  const { error: duplicateError } = await registerWithPin(testPhone, testPin, 'Test Doublon', 'Atelier 2');
+  const exists = duplicateError === 'Un compte existe déjà avec ce numéro de téléphone.';
   assert(exists, 'Test 2 - Inscription refusée (le numéro existe dans profiles)');
 
   // --- TEST 3 : PIN = 123 ---

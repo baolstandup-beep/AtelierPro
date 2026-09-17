@@ -1,7 +1,6 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   Workshop,
   WorkshopMember,
@@ -41,183 +40,21 @@ import {
 } from './supabase-api';
 
 // ─── Demo data ────────────────────────────────────────────────
-const DEMO_WORKSHOP: Workshop = {
-  id: 'demo-workshop-001',
-  name: 'Atelier Couture Dakar',
-  phone: '+221 77 303 31 96',
-  address: 'Rue 12, Médina',
-  city: 'Dakar',
-  currency: 'XOF',
-  currency_symbol: 'FCFA',
-  owner_id: 'demo-user-001',
-  is_active: true,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-};
+const DEMO_WORKSHOP: Workshop | null = null;
 
-const DEMO_MEASUREMENT_TYPES: MeasurementType[] = [
-  { id: 'mt-01', workshop_id: 'demo-workshop-001', name: 'Tour de cou', unit: 'cm', sort_order: 1, is_custom: false, created_at: new Date().toISOString() },
-  { id: 'mt-02', workshop_id: 'demo-workshop-001', name: 'Épaule', unit: 'cm', sort_order: 2, is_custom: false, created_at: new Date().toISOString() },
-  { id: 'mt-03', workshop_id: 'demo-workshop-001', name: 'Poitrine', unit: 'cm', sort_order: 3, is_custom: false, created_at: new Date().toISOString() },
-  { id: 'mt-04', workshop_id: 'demo-workshop-001', name: 'Taille', unit: 'cm', sort_order: 4, is_custom: false, created_at: new Date().toISOString() },
-  { id: 'mt-05', workshop_id: 'demo-workshop-001', name: 'Hanche', unit: 'cm', sort_order: 5, is_custom: false, created_at: new Date().toISOString() },
-  { id: 'mt-06', workshop_id: 'demo-workshop-001', name: 'Bassin', unit: 'cm', sort_order: 6, is_custom: false, created_at: new Date().toISOString() },
-  { id: 'mt-07', workshop_id: 'demo-workshop-001', name: 'Longueur manches', unit: 'cm', sort_order: 7, is_custom: false, created_at: new Date().toISOString() },
-  { id: 'mt-08', workshop_id: 'demo-workshop-001', name: 'Tour de bras', unit: 'cm', sort_order: 8, is_custom: false, created_at: new Date().toISOString() },
-  { id: 'mt-09', workshop_id: 'demo-workshop-001', name: 'Longueur boubou', unit: 'cm', sort_order: 9, is_custom: false, created_at: new Date().toISOString() },
-  { id: 'mt-10', workshop_id: 'demo-workshop-001', name: 'Longueur pantalon', unit: 'cm', sort_order: 10, is_custom: false, created_at: new Date().toISOString() },
-  { id: 'mt-11', workshop_id: 'demo-workshop-001', name: 'Cuisse', unit: 'cm', sort_order: 11, is_custom: false, created_at: new Date().toISOString() },
-  { id: 'mt-12', workshop_id: 'demo-workshop-001', name: 'Genou', unit: 'cm', sort_order: 12, is_custom: false, created_at: new Date().toISOString() },
-  { id: 'mt-13', workshop_id: 'demo-workshop-001', name: 'Bas de pantalon', unit: 'cm', sort_order: 13, is_custom: false, created_at: new Date().toISOString() },
-  { id: 'mt-14', workshop_id: 'demo-workshop-001', name: 'Longueur chemise', unit: 'cm', sort_order: 14, is_custom: false, created_at: new Date().toISOString() },
-];
+const DEMO_MEASUREMENT_TYPES: MeasurementType[] = [];
 
-const DEMO_MEMBERS: WorkshopMember[] = [
-  {
-    id: 'member-01',
-    workshop_id: 'demo-workshop-001',
-    user_id: 'demo-user-001',
-    role: 'OWNER',
-    status: 'ACTIVE',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    profile: {
-      id: 'demo-user-001',
-      full_name: 'Mamadou Diallo',
-      phone: '+221 77 123 45 67',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  },
-  {
-    id: 'member-02',
-    workshop_id: 'demo-workshop-001',
-    user_id: 'demo-user-002',
-    role: 'TAILOR',
-    status: 'ACTIVE',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    profile: {
-      id: 'demo-user-002',
-      full_name: 'Fatou Sow',
-      phone: '+221 78 234 56 78',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  },
-];
+const DEMO_MEMBERS: WorkshopMember[] = [];
 
-const DEMO_CUSTOMERS: Customer[] = [
-  {
-    id: 'cust-001',
-    workshop_id: 'demo-workshop-001',
-    full_name: 'Aïssatou Diallo',
-    phone: '+221 77 654 32 10',
-    email: 'aissatou.diallo@gmail.com',
-    city: 'Dakar',
-    address: 'Plateau, Rue Carnot',
-    notes: 'Cliente VIP fidèle. Préfère les broderies fil d\'or sur bazin riche.',
-    created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'cust-002',
-    workshop_id: 'demo-workshop-001',
-    full_name: 'Ousmane Sonko (Client)',
-    phone: '+221 76 543 21 09',
-    city: 'Dakar',
-    address: 'Almadies',
-    notes: 'Costumes traditionnels 3 pièces, col officier',
-    created_at: new Date(Date.now() - 25 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
+const DEMO_CUSTOMERS: Customer[] = [];
 
-const DEMO_ORDERS: Order[] = [
-  {
-    id: 'ord-001',
-    workshop_id: 'demo-workshop-001',
-    customer_id: 'cust-001',
-    order_number: 'CMD-2026-001',
-    status: 'SEWING',
-    priority: 'HIGH',
-    total_amount: 85000,
-    paid_amount: 50000,
-    balance: 35000,
-    order_date: format(new Date(Date.now() - 5 * 86400000), 'yyyy-MM-dd'),
-    due_date: format(new Date(Date.now() + 2 * 86400000), 'yyyy-MM-dd'),
-    assigned_to: 'demo-user-002',
-    notes: 'Grand Boubou Bazin Riche blanc cassé avec broderie dorée au col.',
-    created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-    items: [
-      {
-        id: 'item-01',
-        order_id: 'ord-001',
-        workshop_id: 'demo-workshop-001',
-        name: 'Grand Boubou 3 pièces Bazin Riche',
-        garment_type: 'BOUBOU',
-        fabric: 'Bazin Riche Getzner',
-        color: 'Blanc cassé',
-        quantity: 1,
-        unit_price: 85000,
-        notes: 'Broderie point de croix fil or',
-        created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
-      },
-    ],
-  },
-];
+const DEMO_ORDERS: Order[] = [];
 
-const DEMO_PAYMENTS: Payment[] = [
-  {
-    id: 'pay-001',
-    workshop_id: 'demo-workshop-001',
-    order_id: 'ord-001',
-    customer_id: 'cust-001',
-    amount: 50000,
-    method: 'WAVE',
-    status: 'CONFIRMED',
-    reference: 'WAV-2026-001',
-    notes: 'Acompte 58% versé à la commande via Wave',
-    payment_date: format(new Date(Date.now() - 5 * 86400000), 'yyyy-MM-dd'),
-    created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
+const DEMO_PAYMENTS: Payment[] = [];
 
-const DEMO_MEASUREMENT_PROFILES: MeasurementProfile[] = [
-  {
-    id: 'prof-001',
-    workshop_id: 'demo-workshop-001',
-    customer_id: 'cust-001',
-    label: 'Mesures Grand Boubou Bazin',
-    notes: 'Coupe ample sénégalaise',
-    fabric_type: 'Bazin Riche',
-    taken_at: new Date(Date.now() - 30 * 86400000).toISOString(),
-    created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
-    values: [
-      { id: 'v1', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-01', value: 38, unit: 'cm' },
-      { id: 'v2', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-02', value: 42, unit: 'cm' },
-      { id: 'v3', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-03', value: 92, unit: 'cm' },
-      { id: 'v4', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-04', value: 76, unit: 'cm' },
-      { id: 'v5', profile_id: 'prof-001', workshop_id: 'demo-workshop-001', measurement_type_id: 'mt-09', value: 145, unit: 'cm' },
-    ],
-  },
-];
+const DEMO_MEASUREMENT_PROFILES: MeasurementProfile[] = [];
 
-const DEMO_EXPENSES: Expense[] = [
-  {
-    id: 'exp-01',
-    workshop_id: 'demo-workshop-001',
-    category: 'TISSU',
-    description: 'Bazin riche Getzner 10m',
-    amount: 45000,
-    expense_date: format(new Date(), 'yyyy-MM-dd'),
-    payment_method: 'WAVE',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
+const DEMO_EXPENSES: Expense[] = [];
 
 // ─── Store interface ──────────────────────────────────────────
 export interface AppStore {
@@ -316,8 +153,7 @@ const safeStorage = {
 
 // ─── Store Implementation ─────────────────────────────────────
 export const useAppStore = create<AppStore>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       // Initial state
       isAuthenticated: false,
       currentUserId: null,
@@ -343,7 +179,21 @@ export const useAppStore = create<AppStore>()(
       syncWithSupabase: async (userId: string, fullName?: string) => {
         if (!isSupabaseConfigured) return;
 
-        set({ isLoading: true, error: null });
+        // Clear existing data to prevent leaking previous tenant state while loading
+        set({
+          isLoading: true,
+          error: null,
+          currentUserId: userId,
+          currentWorkshop: null,
+          customers: [],
+          orders: [],
+          payments: [],
+          measurementProfiles: [],
+          expenses: [],
+          members: [],
+          notifications: [],
+        });
+        
         try {
           const { workshop, role } = await dbGetOrCreateUserWorkshop(userId, fullName);
           const data = await dbFetchWorkshopFullData(workshop.id);
@@ -381,7 +231,7 @@ export const useAppStore = create<AppStore>()(
           currentUserId: 'demo-user-001',
           currentUserName: 'Mamadou Diallo',
           currentUserRole: 'OWNER',
-          currentWorkshop: DEMO_WORKSHOP,
+          currentWorkshop: null,
           isOnboardingDone: true,
           customers: DEMO_CUSTOMERS,
           orders: DEMO_ORDERS,
@@ -400,7 +250,7 @@ export const useAppStore = create<AppStore>()(
           currentUserId: uid(),
           currentUserName: name || email.split('@')[0],
           currentUserRole: 'OWNER',
-          currentWorkshop: currentWorkshop || DEMO_WORKSHOP,
+          currentWorkshop: currentWorkshop || null,
           isOnboardingDone: true,
         });
       },
@@ -425,13 +275,13 @@ export const useAppStore = create<AppStore>()(
 
       completeOnboarding: async (workshopData: Partial<Workshop>) => {
         const { currentUserId, currentWorkshop } = get();
-        const updated: Workshop = {
-          ...(currentWorkshop || DEMO_WORKSHOP),
+        const updated = {
+          ...(currentWorkshop || {}),
           ...workshopData,
           id: currentWorkshop?.id || uid(),
           owner_id: currentUserId || uid(),
           updated_at: new Date().toISOString(),
-        };
+        } as Workshop;
 
         set({
           currentWorkshop: updated,
@@ -444,7 +294,7 @@ export const useAppStore = create<AppStore>()(
         const { currentWorkshop, currentUserId, customers } = get();
         if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
 
-        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+        if (isSupabaseConfigured && currentUserId && currentUserId !== null) {
           const dbCust = await dbCreateCustomer(currentWorkshop.id, input, currentUserId);
           set({ customers: [dbCust, ...customers] });
           return dbCust;
@@ -474,7 +324,7 @@ export const useAppStore = create<AppStore>()(
 
       updateCustomer: async (id: string, input: Partial<CreateCustomerInput>) => {
         const { currentUserId } = get();
-        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+        if (isSupabaseConfigured && currentUserId && currentUserId !== null) {
           const updated = await dbUpdateCustomer(id, input);
           set((state) => ({
             customers: state.customers.map((c) => (c.id === id ? { ...c, ...updated } : c)),
@@ -491,7 +341,7 @@ export const useAppStore = create<AppStore>()(
 
       archiveCustomer: async (id: string) => {
         const { currentUserId } = get();
-        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+        if (isSupabaseConfigured && currentUserId && currentUserId !== null) {
           await dbDeleteCustomer(id);
         }
 
@@ -527,7 +377,7 @@ export const useAppStore = create<AppStore>()(
         const { currentWorkshop, currentUserId, measurementProfiles } = get();
         if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
 
-        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+        if (isSupabaseConfigured && currentUserId && currentUserId !== null) {
           const dbProf = await dbCreateMeasurementProfile(currentWorkshop.id, input);
           set({ measurementProfiles: [dbProf, ...measurementProfiles] });
           return dbProf;
@@ -592,7 +442,7 @@ export const useAppStore = create<AppStore>()(
         const { currentWorkshop, currentUserId, orders, payments, customers } = get();
         if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
 
-        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+        if (isSupabaseConfigured && currentUserId && currentUserId !== null) {
           const { order, items, initialPayment } = await dbCreateOrder(currentWorkshop.id, input, currentUserId);
           const cust = customers.find((c) => c.id === input.customer_id);
           const enriched: Order = { ...order, customer: cust, items };
@@ -674,7 +524,7 @@ export const useAppStore = create<AppStore>()(
 
       changeOrderStatus: async (orderId: string, newStatus: OrderStatus, notes?: string) => {
         const { currentUserId } = get();
-        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+        if (isSupabaseConfigured && currentUserId && currentUserId !== null) {
           await dbUpdateOrderStatus(orderId, newStatus);
         }
 
@@ -693,7 +543,7 @@ export const useAppStore = create<AppStore>()(
 
       archiveOrder: async (id: string) => {
         const { currentUserId } = get();
-        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+        if (isSupabaseConfigured && currentUserId && currentUserId !== null) {
           await dbDeleteOrder(id);
         }
 
@@ -724,7 +574,7 @@ export const useAppStore = create<AppStore>()(
         const { currentWorkshop, currentUserId, payments, orders } = get();
         if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
 
-        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+        if (isSupabaseConfigured && currentUserId && currentUserId !== null) {
           const { payment, updatedOrder } = await dbCreatePayment(currentWorkshop.id, input, currentUserId);
           set((state) => ({
             payments: [payment, ...state.payments],
@@ -772,7 +622,7 @@ export const useAppStore = create<AppStore>()(
         const { currentWorkshop, currentUserId, expenses } = get();
         if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
 
-        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+        if (isSupabaseConfigured && currentUserId && currentUserId !== null) {
           const dbExp = await dbCreateExpense(currentWorkshop.id, input, currentUserId);
           set({ expenses: [dbExp, ...expenses] });
           return dbExp;
@@ -793,7 +643,7 @@ export const useAppStore = create<AppStore>()(
 
       deleteExpense: async (id: string) => {
         const { currentUserId, expenses } = get();
-        if (isSupabaseConfigured && currentUserId && currentUserId !== 'demo-user-001') {
+        if (isSupabaseConfigured && currentUserId && currentUserId !== null) {
           await dbDeleteExpense(id);
         }
         set({ expenses: expenses.filter((e) => e.id !== id) });
@@ -898,18 +748,5 @@ export const useAppStore = create<AppStore>()(
 
       setError: (error: string | null) => set({ error }),
       clearError: () => set({ error: null }),
-    }),
-    {
-      name: 'atelierpro_app_store_v2',
-      storage: createJSONStorage(() => safeStorage),
-      partialize: (state) => ({
-        isAuthenticated: state.isAuthenticated,
-        currentUserId: state.currentUserId,
-        currentUserName: state.currentUserName,
-        currentUserRole: state.currentUserRole,
-        currentWorkshop: state.currentWorkshop,
-        isOnboardingDone: state.isOnboardingDone,
-      }),
-    }
-  )
+  })
 );

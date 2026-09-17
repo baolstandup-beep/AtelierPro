@@ -34,9 +34,7 @@ export function SupabaseAuthSync() {
           syncWithSupabase(session.user.id, fullName);
         }
       } else if (event === 'SIGNED_OUT') {
-        if (currentUserId && currentUserId !== 'demo-user-001') {
-          signOut();
-        }
+        signOut();
       }
     });
 

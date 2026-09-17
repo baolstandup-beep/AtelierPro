@@ -22,7 +22,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 export async function loginWithPin(phone: string, pin: string) {
   try {
     const cleanPhone = phone.replace('+', '');
-    const internalEmail = `user${cleanPhone}@atelierpro-internal.com`;
+    const internalEmail = `user${cleanPhone}@gmail.com`;
     const securePassword = `${pin}_${PIN_SECRET}`;
 
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -57,20 +57,32 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
     }
 
     const cleanPhone = phone.replace('+', '');
-    const internalEmail = `user${cleanPhone}@atelierpro-internal.com`;
+    const internalEmail = `user${cleanPhone}@gmail.com`;
     const securePassword = `${pin}_${PIN_SECRET}`;
 
-    const { data, error } = await supabase.auth.signUp({
+    const { data: newUser, error } = await supabaseAdmin.auth.admin.createUser({
       email: internalEmail,
       password: securePassword,
-      options: {
-        data: {
-          full_name: fullName,
-          phone: phone,
-          workshop_name: workshopName, // Conservé dans metadata
-        },
+      email_confirm: true, // Auto-confirm to skip email verification
+      user_metadata: {
+        full_name: fullName,
+        phone: phone,
+        workshop_name: workshopName,
       },
     });
+
+    let sessionData = null;
+    if (!error && newUser.user) {
+      // Connecter l'utilisateur fraîchement créé
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: internalEmail,
+        password: securePassword,
+      });
+      if (signInError) {
+        return { error: 'Compte créé, mais erreur de connexion automatique.' };
+      }
+      sessionData = signInData;
+    }
 
     if (error) {
       if (error.message.includes('User already registered') || error.message.includes('already exists')) {
@@ -79,12 +91,9 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
       return { error: error.message };
     }
 
-    // Mettre à jour la table profiles avec le téléphone pour être sûr (le trigger crée la ligne initiale)
-    if (data?.user?.id) {
-       await supabaseAdmin.from('profiles').update({ phone }).eq('id', data.user.id);
-    }
+    // Le trigger handle_new_user sur Supabase s'occupe de créer le profil, l'atelier et l'association membre automatiquement.
 
-    return { data };
+    return { data: sessionData };
   } catch (err: any) {
     return { error: err.message || 'Erreur serveur' };
   }
