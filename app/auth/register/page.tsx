@@ -63,6 +63,8 @@ export default function RegisterPage() {
     setErrors({});
     setLoading(true);
 
+    console.log("[REGISTER] 1 - formulaire validé");
+
     try {
       let normalizedPhone = form.phone.replace(/\s+/g, '');
       if (!normalizedPhone.startsWith('+221') && normalizedPhone.length === 9) {
@@ -88,6 +90,7 @@ export default function RegisterPage() {
         }
 
         if (data?.user) {
+          console.log("[REGISTER] 5 - profil créé (ou session établie)");
           await syncWithSupabase(data.user.id, form.name);
         }
       } else {
@@ -96,10 +99,16 @@ export default function RegisterPage() {
       }
 
       success('Compte créé avec succès.', 'Bienvenue dans AtelierPro');
+      console.log("[REGISTER] 6 - redirection dashboard");
       router.push('/dashboard');
     } catch (err: any) {
-      console.error('Registration Exception:', err);
-      showError('Erreur inattendue', 'Impossible de créer votre compte pour le moment. Réessayez.');
+      console.error("REGISTER ERROR RAW:", err);
+      console.error("REGISTER ERROR NAME:", err?.name);
+      console.error("REGISTER ERROR MESSAGE:", err?.message);
+      console.error("REGISTER ERROR STATUS:", err?.status);
+      console.error("REGISTER ERROR CODE:", err?.code);
+      console.error("REGISTER ERROR CAUSE:", err?.cause);
+      showError('Erreur d\'inscription', err?.message || 'Impossible de créer votre compte pour le moment. Réessayez.');
     } finally {
       setLoading(false);
     }

@@ -62,18 +62,26 @@ export async function loginWithPin(phone: string, pin: string) {
 
 export async function registerWithPin(phone: string, pin: string, fullName: string, workshopName: string) {
   try {
-    // 1. Validations Serveur strictes
+    // 1. Validations Serveur
     const cleanPhone = phone.replace('+', '').trim();
     if (!cleanPhone || cleanPhone.length < 5) return { error: 'Numéro de téléphone invalide.' };
     if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) return { error: 'Le PIN doit contenir exactement 4 chiffres.' };
     if (!fullName || fullName.trim().length === 0) return { error: 'Le prénom et nom sont obligatoires.' };
     if (!workshopName || workshopName.trim().length === 0) return { error: 'Le nom de l\'atelier est obligatoire.' };
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+      return { error: 'Configuration Supabase incomplète sur le serveur.' };
+    }
+
     const supabaseAdmin = getServerSupabaseAdmin();
     const supabase = getServerSupabase();
 
-    // 2. Vérification d'existence de profil (pour un retour rapide sans erreur obscure de Auth)
-    const { data: existingProfiles, error: lookupError } = await supabaseAdmin
+    // Vérifier si un profil existe déjà avec ce téléphone
+    const { data: existingProfiles } = await supabaseAdmin
       .from('profiles')
       .select('id')
       .eq('phone', phone)
@@ -83,57 +91,135 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
       return { error: 'Un compte existe déjà avec ce numéro de téléphone.' };
     }
 
-    // 3. Inscription via Admin API (car l'inscription Email classique est désactivée dans le projet)
     const internalEmail = `user${cleanPhone}@gmail.com`;
     const securePassword = `${pin}_${PIN_SECRET}`;
 
-    console.log(`[DEBUG] Tentative d'inscription (Admin API) pour: ${cleanPhone}`);
+    // [REGISTER] 2 - appel Auth
+    console.log("[REGISTER] 2 - appel Auth");
 
-    const { data: newUser, error } = await supabaseAdmin.auth.admin.createUser({
-      email: internalEmail,
-      password: securePassword,
-      email_confirm: true,
-      user_metadata: {
-        full_name: fullName.trim(),
-        phone: phone.trim(),
-        workshop_name: workshopName.trim(),
-      }
+    // Utilisation directe du endpoint admin pour garantir la lecture du corps d'erreur HTTP même sur les 500
+    const authEndpoint = `${supabaseUrl}/auth/v1/admin/users`;
+    const authResponse = await fetch(authEndpoint, {
+      method: 'POST',
+      headers: {
+        'apikey': supabaseServiceKey,
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: internalEmail,
+        password: securePassword,
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName.trim(),
+          phone: phone.trim(),
+          workshop_name: workshopName.trim(),
+        },
+      }),
     });
 
-    if (error) {
-      console.error(`[Supabase Auth Error] Message: ${error.message}, Status: ${error.status}, Code: ${(error as any).code}`);
-      
+    const responseText = await authResponse.text();
+    let authJson: any = null;
+    try {
+      authJson = JSON.parse(responseText);
+    } catch {
+      authJson = { message: responseText };
+    }
+
+    if (!authResponse.ok) {
+      const error = {
+        name: 'SupabaseAuthError',
+        status: authResponse.status,
+        code: authJson?.code,
+        message: authJson?.message || authJson?.error_description || responseText || 'Erreur d\'authentification',
+        cause: authJson?.detail || authJson,
+      };
+
+      console.error("REGISTER ERROR RAW:", error);
+      console.error("REGISTER ERROR NAME:", error?.name);
+      console.error("REGISTER ERROR MESSAGE:", error?.message);
+      console.error("REGISTER ERROR STATUS:", error?.status);
+      console.error("REGISTER ERROR CODE:", error?.code);
+      console.error("REGISTER ERROR CAUSE:", error?.cause);
+
       if (error.message.includes('User already registered') || error.message.includes('already exists')) {
-         return { error: 'Un compte existe déjà avec ce numéro de téléphone.' };
+        return { error: 'Un compte existe déjà avec ce numéro de téléphone.' };
       }
-      if (error.message.includes('FetchError') || error.status === undefined) {
-          return { error: 'Problème de connexion au serveur d\'authentification. Réessayez plus tard.' };
-      }
-      return { error: `Impossible de créer le compte : ${error.message}` };
+
+      const detailInfo = error.cause && typeof error.cause === 'string' ? ` (${error.cause})` : '';
+      return { error: `Impossible de créer le compte Auth (HTTP ${error.status}) : ${error.message}${detailInfo}` };
     }
 
-    if (!newUser || !newUser.user) {
-        return { error: 'La création du compte a échoué (réponse vide).' };
+    const user = authJson;
+    const userId = user?.id;
+
+    if (!userId) {
+      return { error: 'La création du compte a échoué (aucun identifiant utilisateur retourné).' };
     }
 
-    console.log(`[DEBUG] Inscription réussie. UID: ${newUser.user.id}`);
+    // [REGISTER] 3 - Auth réussi
+    console.log("[REGISTER] 3 - Auth réussi", userId);
 
-    // Connecter l'utilisateur pour lui fournir une session active
-    let sessionData = null;
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+    // [REGISTER] 4 - création profil
+    console.log("[REGISTER] 4 - création profil");
+
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!existingProfile) {
+      // Création de l'atelier dans la table 'ateliers'
+      const { data: newAtelier, error: atelierError } = await supabaseAdmin
+        .from('ateliers')
+        .insert({
+          name: workshopName.trim(),
+          phone: phone.trim(),
+        })
+        .select('id')
+        .single();
+
+      const atelierId = newAtelier?.id;
+
+      // Création du profil lié
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: userId,
+          atelier_id: atelierId,
+          full_name: fullName.trim(),
+          phone: phone.trim(),
+          role: 'owner',
+        });
+
+      if (profileError) {
+        console.error("REGISTER ERROR (PROFILE):", profileError.message);
+      }
+    }
+
+    // [REGISTER] 5 - profil créé
+    console.log("[REGISTER] 5 - profil créé");
+
+    // Connexion pour fournir la session active
+    const { data: sessionData, error: signInError } = await supabase.auth.signInWithPassword({
       email: internalEmail,
       password: securePassword,
     });
-    
+
     if (signInError) {
       console.error(`[Supabase Sign-In Error] ${signInError.message}`);
       return { error: 'Compte créé, mais erreur de connexion automatique.' };
     }
-    sessionData = signInData;
 
     return { data: sessionData };
   } catch (err: any) {
-    console.error(`[Exception Interceptée] Msg: ${err?.message}, Name: ${err?.name}`);
-    return { error: 'Erreur inattendue du serveur lors de l\'inscription.' };
+    console.error("REGISTER ERROR RAW:", err);
+    console.error("REGISTER ERROR NAME:", err?.name);
+    console.error("REGISTER ERROR MESSAGE:", err?.message);
+    console.error("REGISTER ERROR STATUS:", err?.status);
+    console.error("REGISTER ERROR CODE:", err?.code);
+    console.error("REGISTER ERROR CAUSE:", err?.cause);
+    return { error: `Erreur inattendue du serveur lors de l'inscription : ${err?.message || 'Erreur inconnue'}` };
   }
 }
