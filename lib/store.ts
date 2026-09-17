@@ -216,7 +216,7 @@ export const useAppStore = create<AppStore>()(
             isLoading: false,
           });
         } catch (err: any) {
-          console.error('[Store] Sync Supabase Error:', err);
+          console.error('[Store] Sync Supabase Error:', err); if (typeof window !== 'undefined') alert("Erreur : Votre atelier n'a pas été trouvé. Le script SQL n'a peut-être pas été exécuté dans Supabase !");
           set({
             isLoading: false,
             error: err?.message || 'Erreur lors de la synchronisation Supabase',
