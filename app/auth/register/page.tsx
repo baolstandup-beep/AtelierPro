@@ -73,6 +73,7 @@ export default function RegisterPage() {
         const { data, error } = await registerWithPin(normalizedPhone, form.pin, form.name, form.workshop);
         
         if (error) {
+          // If server error occurs, display it clearly without technical jargon.
           showError('Erreur d\'inscription', error);
           setLoading(false);
           return;
@@ -98,7 +99,7 @@ export default function RegisterPage() {
       router.push('/dashboard');
     } catch (err: any) {
       console.error('Registration Exception:', err);
-      showError('Erreur inattendue', err?.message || 'Impossible de créer votre compte pour le moment. Réessayez.');
+      showError('Erreur inattendue', 'Impossible de créer votre compte pour le moment. Réessayez.');
     } finally {
       setLoading(false);
     }

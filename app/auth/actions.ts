@@ -5,23 +5,40 @@ import { createClient } from '@supabase/supabase-js';
 // Utiliser une variable d'environnement avec fallback sécurisé pour le développement
 const PIN_SECRET = process.env.PIN_SECRET || 'AtelierPro_Secure_Salt_2024';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// Fonction d'instanciation locale différée pour s'assurer que le runtime a bien lu les variables d'environnement
+function getServerSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Instance Supabase côté serveur (sans persistance)
-const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: { persistSession: false },
-});
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Configuration Supabase manquante dans l'environnement serveur.");
+    throw new Error("Erreur de configuration interne (Supabase URL/Key manquante).");
+  }
 
-// Instance Admin (Service Role) pour mettre à jour les tables (ex: profiles) après l'inscription
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: { persistSession: false },
-});
+  // Option persistSession: false indispensable pour les actions serveur (sinon fetch warning)
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { persistSession: false },
+  });
+}
+
+function getServerSupabaseAdmin() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error("Configuration Supabase Service Role manquante dans l'environnement serveur.");
+    throw new Error("Erreur de configuration interne (Service Key manquante).");
+  }
+
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false },
+  });
+}
 
 export async function loginWithPin(phone: string, pin: string) {
   try {
-    const cleanPhone = phone.replace('+', '');
+    const supabase = getServerSupabase();
+    const cleanPhone = phone.replace('+', '').trim();
     const internalEmail = `user${cleanPhone}@gmail.com`;
     const securePassword = `${pin}_${PIN_SECRET}`;
 
@@ -34,18 +51,28 @@ export async function loginWithPin(phone: string, pin: string) {
       if (error.message.includes('Invalid login credentials')) {
         return { error: 'Numéro de téléphone ou code PIN incorrect.' };
       }
-      return { error: error.message };
+      return { error: 'Erreur lors de la connexion. Veuillez réessayer.' };
     }
 
     return { data };
   } catch (err: any) {
-    return { error: err.message || 'Erreur serveur' };
+    return { error: 'Erreur inattendue du serveur lors de la connexion.' };
   }
 }
 
 export async function registerWithPin(phone: string, pin: string, fullName: string, workshopName: string) {
   try {
-    // Vérifier si le profil existe déjà avec ce téléphone (pour bloquer avant même la création auth)
+    // 1. Validations Serveur strictes
+    const cleanPhone = phone.replace('+', '').trim();
+    if (!cleanPhone || cleanPhone.length < 5) return { error: 'Numéro de téléphone invalide.' };
+    if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) return { error: 'Le PIN doit contenir exactement 4 chiffres.' };
+    if (!fullName || fullName.trim().length === 0) return { error: 'Le prénom et nom sont obligatoires.' };
+    if (!workshopName || workshopName.trim().length === 0) return { error: 'Le nom de l\'atelier est obligatoire.' };
+
+    const supabaseAdmin = getServerSupabaseAdmin();
+    const supabase = getServerSupabase();
+
+    // 2. Vérification d'existence de profil (pour un retour rapide sans erreur obscure de Auth)
     const { data: existingProfiles, error: lookupError } = await supabaseAdmin
       .from('profiles')
       .select('id')
@@ -56,47 +83,57 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
       return { error: 'Un compte existe déjà avec ce numéro de téléphone.' };
     }
 
-    const cleanPhone = phone.replace('+', '');
+    // 3. Inscription via Admin API (car l'inscription Email classique est désactivée dans le projet)
     const internalEmail = `user${cleanPhone}@gmail.com`;
     const securePassword = `${pin}_${PIN_SECRET}`;
+
+    console.log(`[DEBUG] Tentative d'inscription (Admin API) pour: ${cleanPhone}`);
 
     const { data: newUser, error } = await supabaseAdmin.auth.admin.createUser({
       email: internalEmail,
       password: securePassword,
-      email_confirm: true, // Auto-confirm to skip email verification
+      email_confirm: true,
       user_metadata: {
-        full_name: fullName,
-        phone: phone,
-        workshop_name: workshopName,
-      },
+        full_name: fullName.trim(),
+        phone: phone.trim(),
+        workshop_name: workshopName.trim(),
+      }
     });
 
-    let sessionData = null;
-    if (!error && newUser.user) {
-      // Connecter l'utilisateur fraîchement créé
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: internalEmail,
-        password: securePassword,
-      });
-      if (signInError) {
-        return { error: 'Compte créé, mais erreur de connexion automatique.' };
-      }
-      sessionData = signInData;
-    }
-
     if (error) {
-      if (error.message && (error.message.includes('User already registered') || error.message.includes('already exists'))) {
+      console.error(`[Supabase Auth Error] Message: ${error.message}, Status: ${error.status}, Code: ${(error as any).code}`);
+      
+      if (error.message.includes('User already registered') || error.message.includes('already exists')) {
          return { error: 'Un compte existe déjà avec ce numéro de téléphone.' };
       }
-      const debugInfo = `Msg: ${error.message}, Name: ${error.name}, Keys: ${Object.keys(error).join(',')}, Code: ${(error as any).code}`;
-      return { error: `Erreur Supabase Auth: ${debugInfo}` };
+      if (error.message.includes('FetchError') || error.status === undefined) {
+          return { error: 'Problème de connexion au serveur d\'authentification. Réessayez plus tard.' };
+      }
+      return { error: `Impossible de créer le compte : ${error.message}` };
     }
 
-    // Le trigger handle_new_user sur Supabase s'occupe de créer le profil, l'atelier et l'association membre automatiquement.
+    if (!newUser || !newUser.user) {
+        return { error: 'La création du compte a échoué (réponse vide).' };
+    }
+
+    console.log(`[DEBUG] Inscription réussie. UID: ${newUser.user.id}`);
+
+    // Connecter l'utilisateur pour lui fournir une session active
+    let sessionData = null;
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: internalEmail,
+      password: securePassword,
+    });
+    
+    if (signInError) {
+      console.error(`[Supabase Sign-In Error] ${signInError.message}`);
+      return { error: 'Compte créé, mais erreur de connexion automatique.' };
+    }
+    sessionData = signInData;
 
     return { data: sessionData };
   } catch (err: any) {
-    const debugInfo = `Msg: ${err?.message}, Name: ${err?.name}, Keys: ${err ? Object.keys(err).join(',') : 'null'}`;
-    return { error: `Exception Interceptée: ${debugInfo}` };
+    console.error(`[Exception Interceptée] Msg: ${err?.message}, Name: ${err?.name}`);
+    return { error: 'Erreur inattendue du serveur lors de l\'inscription.' };
   }
 }
