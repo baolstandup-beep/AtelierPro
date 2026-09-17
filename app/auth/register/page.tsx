@@ -26,7 +26,7 @@ import { registerWithPin } from '@/app/auth/actions';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { loginAsDemo, syncWithSupabase } = useAppStore();
+  const { syncWithSupabase } = useAppStore();
   const { success, error: showError } = useToast();
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -91,7 +91,7 @@ export default function RegisterPage() {
         }
       } else {
         await new Promise((r) => setTimeout(r, 300));
-        loginAsDemo();
+        throw new Error('Supabase n\'est pas configuré. Veuillez vérifier les variables d\'environnement.');
       }
 
       success('Compte créé avec succès.', 'Bienvenue dans AtelierPro');
@@ -115,14 +115,10 @@ export default function RegisterPage() {
         await signInWithGoogle();
       } else {
         await new Promise((r) => setTimeout(r, 400));
-        loginAsDemo();
-        success('Inscription réussie !', 'Bienvenue dans AtelierPro');
-        router.push('/dashboard');
+        throw new Error('Supabase non configuré');
       }
     } catch {
-      loginAsDemo();
-      success('Inscription réussie !', 'Bienvenue dans AtelierPro');
-      router.push('/dashboard');
+      showError('Erreur', 'Impossible de se connecter avec Google.');
     } finally {
       setGoogleLoading(false);
     }

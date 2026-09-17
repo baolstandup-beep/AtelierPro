@@ -25,7 +25,7 @@ import { loginWithPin } from '@/app/auth/actions';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { loginAsDemo, syncWithSupabase } = useAppStore();
+  const { syncWithSupabase } = useAppStore();
   const { success, error: showError } = useToast();
 
   const [form, setForm] = useState({ phone: '', pin: '' });
@@ -78,7 +78,7 @@ export default function LoginPage() {
         }
       } else {
         await new Promise((r) => setTimeout(r, 300));
-        loginAsDemo();
+        throw new Error('Supabase n\'est pas configuré. Veuillez vérifier les variables d\'environnement.');
       }
 
       success('Bienvenue !', 'Connexion réussie');
@@ -97,9 +97,7 @@ export default function LoginPage() {
         await signInWithGoogle();
       } else {
         await new Promise((r) => setTimeout(r, 400));
-        loginAsDemo();
-        success('Connexion réussie !', 'Bienvenue dans AtelierPro (Mode Démo)');
-        router.push('/dashboard');
+        throw new Error('Supabase non configuré');
       }
     } catch (err: any) {
       showError(

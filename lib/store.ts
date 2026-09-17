@@ -39,22 +39,7 @@ import {
   dbDeleteExpense,
 } from './supabase-api';
 
-// ─── Demo data ────────────────────────────────────────────────
-const DEMO_WORKSHOP: Workshop | null = null;
-
-const DEMO_MEASUREMENT_TYPES: MeasurementType[] = [];
-
-const DEMO_MEMBERS: WorkshopMember[] = [];
-
-const DEMO_CUSTOMERS: Customer[] = [];
-
-const DEMO_ORDERS: Order[] = [];
-
-const DEMO_PAYMENTS: Payment[] = [];
-
-const DEMO_MEASUREMENT_PROFILES: MeasurementProfile[] = [];
-
-const DEMO_EXPENSES: Expense[] = [];
+// ─── No Demo data ────────────────────────────────────────────────
 
 // ─── Store interface ──────────────────────────────────────────
 export interface AppStore {
@@ -86,7 +71,7 @@ export interface AppStore {
 
   // Auth actions
   signIn: (email: string, name: string) => void;
-  loginAsDemo: () => void;
+
   signOut: () => void;
   completeOnboarding: (workshopData: Partial<Workshop>) => Promise<void>;
 
@@ -162,13 +147,13 @@ export const useAppStore = create<AppStore>()(
       currentWorkshop: null,
       isOnboardingDone: false,
 
-      customers: DEMO_CUSTOMERS,
-      orders: DEMO_ORDERS,
-      payments: DEMO_PAYMENTS,
-      measurementProfiles: DEMO_MEASUREMENT_PROFILES,
-      measurementTypes: DEMO_MEASUREMENT_TYPES,
-      expenses: DEMO_EXPENSES,
-      members: DEMO_MEMBERS,
+      customers: [],
+      orders: [],
+      payments: [],
+      measurementProfiles: [],
+      measurementTypes: [],
+      expenses: [],
+      members: [],
       notifications: [],
       auditLogs: [],
 
@@ -208,9 +193,9 @@ export const useAppStore = create<AppStore>()(
             orders: data.orders,
             payments: data.payments,
             measurementProfiles: data.measurementProfiles,
-            measurementTypes: data.measurementTypes.length > 0 ? data.measurementTypes : DEMO_MEASUREMENT_TYPES,
+            measurementTypes: data.measurementTypes.length > 0 ? data.measurementTypes : [],
             expenses: data.expenses,
-            members: data.members.length > 0 ? data.members : DEMO_MEMBERS,
+            members: data.members.length > 0 ? data.members : [],
             notifications: data.notifications,
             isOnboardingDone: true,
             isLoading: false,
@@ -224,24 +209,7 @@ export const useAppStore = create<AppStore>()(
         }
       },
 
-      // ─── Auth ───────────────────────────────────────────────
-      loginAsDemo: () => {
-        set({
-          isAuthenticated: true,
-          currentUserId: 'demo-user-001',
-          currentUserName: 'Mamadou Diallo',
-          currentUserRole: 'OWNER',
-          currentWorkshop: null,
-          isOnboardingDone: true,
-          customers: DEMO_CUSTOMERS,
-          orders: DEMO_ORDERS,
-          payments: DEMO_PAYMENTS,
-          measurementProfiles: DEMO_MEASUREMENT_PROFILES,
-          measurementTypes: DEMO_MEASUREMENT_TYPES,
-          expenses: DEMO_EXPENSES,
-          members: DEMO_MEMBERS,
-        });
-      },
+
 
       signIn: (email: string, name: string) => {
         const { currentWorkshop } = get();
@@ -267,7 +235,7 @@ export const useAppStore = create<AppStore>()(
           orders: [],
           payments: [],
           measurementProfiles: [],
-          measurementTypes: DEMO_MEASUREMENT_TYPES,
+          measurementTypes: [],
           expenses: [],
           members: [],
         });
