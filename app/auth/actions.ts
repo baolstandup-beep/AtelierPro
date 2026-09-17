@@ -85,16 +85,16 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
     }
 
     if (error) {
-      if (error.message.includes('User already registered') || error.message.includes('already exists')) {
+      if (error.message && (error.message.includes('User already registered') || error.message.includes('already exists'))) {
          return { error: 'Un compte existe déjà avec ce numéro de téléphone.' };
       }
-      return { error: error.message };
+      return { error: error.message || JSON.stringify(error) || 'Erreur inconnue lors de la création Auth' };
     }
 
     // Le trigger handle_new_user sur Supabase s'occupe de créer le profil, l'atelier et l'association membre automatiquement.
 
     return { data: sessionData };
   } catch (err: any) {
-    return { error: err.message || 'Erreur serveur' };
+    return { error: err?.message || JSON.stringify(err) || 'Erreur serveur inattendue' };
   }
 }
