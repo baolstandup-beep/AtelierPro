@@ -47,11 +47,25 @@ export function proxy(request: NextRequest) {
     SENSITIVE_AUTH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
   if (isSensitiveAuthRoute) {
-    // Check rate limit: 5 attempts per IP with a 15-minute window
-    const rateLimit = checkRateLimit(ip, 'auth', 5, 15 * 60 * 1000);
+    // Check rate limit: 20 attempts per IP with a 15-minute window for test comfort
+    const rateLimit = checkRateLimit(ip, 'auth', 20, 15 * 60 * 1000);
 
     if (!rateLimit.isAllowed) {
       const isApi = pathname.startsWith('/api/');
+      const isServerAction = request.headers.has('next-action') || request.headers.has('rsc');
+
+      if (isServerAction) {
+        return new NextResponse(
+          'Trop de tentatives d\'inscription. Votre adresse IP est temporairement limitée par mesure de sécurité. Réessayez dans 15 minutes.',
+          {
+            status: 429,
+            headers: {
+              'Content-Type': 'text/plain; charset=utf-8',
+              'Retry-After': String(rateLimit.retryAfterSeconds),
+            },
+          }
+        );
+      }
 
       if (isApi) {
         return NextResponse.json(

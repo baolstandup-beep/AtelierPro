@@ -212,7 +212,23 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
       return { error: 'Compte créé, mais erreur de connexion automatique.' };
     }
 
-    return { data: sessionData };
+    // Retourner un objet purement sérialisable en RSC (sans symboles ni méthodes Supabase internes)
+    return {
+      data: {
+        user: {
+          id: sessionData.user?.id,
+          email: sessionData.user?.email,
+          phone: sessionData.user?.phone,
+        },
+        session: sessionData.session ? {
+          access_token: sessionData.session.access_token,
+          refresh_token: sessionData.session.refresh_token,
+          expires_at: sessionData.session.expires_at,
+          expires_in: sessionData.session.expires_in,
+          token_type: sessionData.session.token_type,
+        } : null,
+      },
+    };
   } catch (err: any) {
     console.error("REGISTER ERROR RAW:", err);
     console.error("REGISTER ERROR NAME:", err?.name);
