@@ -201,7 +201,14 @@ export const useAppStore = create<AppStore>()(
             isLoading: false,
           });
         } catch (err: any) {
-          console.error('[Store] Sync Supabase Error:', err); if (typeof window !== 'undefined') alert("Erreur : Votre atelier n'a pas été trouvé. Le script SQL n'a peut-être pas été exécuté dans Supabase !");
+          console.error('[Store] Sync Supabase Error:', err);
+          if (typeof window !== 'undefined') {
+             if (err?.message?.includes('TIMEOUT')) {
+               alert("PROFILE_CREATION_TIMEOUT : La création de votre profil prend plus de temps que prévu. Veuillez rafraîchir la page dans quelques instants.");
+             } else {
+               alert(`ATELIER_NOT_FOUND : Erreur lors de la récupération de votre atelier. ${err?.message || ''}`);
+             }
+          }
           set({
             isLoading: false,
             error: err?.message || 'Erreur lors de la synchronisation Supabase',

@@ -73,7 +73,7 @@ export async function dbGetOrCreateUserWorkshop(userId: string, userFullName?: s
     attempt++;
   }
 
-  throw new Error('Profil atelier introuvable après création. Le backend Supabase (trigger) a peut-être échoué.');
+  throw new Error('TIMEOUT: Profil atelier introuvable après création. Le backend Supabase (trigger) a peut-être échoué.');
 }
 
 /**
