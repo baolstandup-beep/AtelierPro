@@ -22,7 +22,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 export async function loginWithPin(phone: string, pin: string) {
   try {
     const cleanPhone = phone.replace('+', '');
-    const internalEmail = `${cleanPhone}@atelierpro.internal`;
+    const internalEmail = `user${cleanPhone}@atelierpro-internal.com`;
     const securePassword = `${pin}_${PIN_SECRET}`;
 
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -57,7 +57,7 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
     }
 
     const cleanPhone = phone.replace('+', '');
-    const internalEmail = `${cleanPhone}@atelierpro.internal`;
+    const internalEmail = `user${cleanPhone}@atelierpro-internal.com`;
     const securePassword = `${pin}_${PIN_SECRET}`;
 
     const { data, error } = await supabase.auth.signUp({
