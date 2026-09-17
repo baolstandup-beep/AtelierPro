@@ -17,7 +17,11 @@ export function SupabaseAuthSync() {
           session.user.user_metadata?.full_name ||
           session.user.user_metadata?.name ||
           session.user.email?.split('@')[0];
-        syncWithSupabase(session.user.id, fullName);
+        
+        // Prevent re-syncing if it's the same user
+        if (currentUserId !== session.user.id) {
+            syncWithSupabase(session.user.id, fullName);
+        }
       }
     });
 
@@ -31,7 +35,16 @@ export function SupabaseAuthSync() {
             session.user.user_metadata?.full_name ||
             session.user.user_metadata?.name ||
             session.user.email?.split('@')[0];
-          syncWithSupabase(session.user.id, fullName);
+            
+          // If the user changed, we might have leftover state
+          if (currentUserId !== session.user.id && currentUserId !== null) {
+              signOut(); // Wipe everything synchronously
+              setTimeout(() => {
+                  syncWithSupabase(session.user.id, fullName);
+              }, 100);
+          } else if (currentUserId !== session.user.id) {
+              syncWithSupabase(session.user.id, fullName);
+          }
         }
       } else if (event === 'SIGNED_OUT') {
         signOut();

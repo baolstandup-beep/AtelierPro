@@ -97,7 +97,8 @@ export default function RegisterPage() {
       success('Compte créé avec succès.', 'Bienvenue dans AtelierPro');
       router.push('/dashboard');
     } catch (err: any) {
-      showError('Erreur serveur', 'Impossible de créer votre compte pour le moment. Réessayez.');
+      console.error('Registration Exception:', err);
+      showError('Erreur inattendue', err?.message || 'Impossible de créer votre compte pour le moment. Réessayez.');
     } finally {
       setLoading(false);
     }

@@ -232,10 +232,18 @@ export const useAppStore = create<AppStore>()(
 
       signOut: () => {
         signOutUser().catch(() => {});
+        // S'assurer que le stockage local est entièrement vidé
+        if (typeof window !== 'undefined') {
+          window.localStorage.clear();
+          window.sessionStorage.clear();
+        }
+        memoryStorage.clear();
+
         set({
           isAuthenticated: false,
           currentUserId: null,
           currentUserName: '',
+          currentUserRole: 'OWNER',
           currentWorkshop: null,
           isOnboardingDone: false,
           customers: [],
@@ -245,7 +253,16 @@ export const useAppStore = create<AppStore>()(
           measurementTypes: [],
           expenses: [],
           members: [],
+          notifications: [],
+          auditLogs: [],
+          isLoading: false,
+          error: null,
         });
+
+        // Forcer la redirection propre et le déchargement mémoire
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
       },
 
       completeOnboarding: async (workshopData: Partial<Workshop>) => {

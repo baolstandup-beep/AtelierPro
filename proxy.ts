@@ -37,7 +37,7 @@ const SENSITIVE_AUTH_PREFIXES = [
   '/api/stripe',
 ];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const ip = getClientIp(request.headers);
 

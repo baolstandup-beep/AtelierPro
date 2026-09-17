@@ -130,6 +130,8 @@ export default function ReportsPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  }
+
   // Export Excel
   async function handleExportExcel() {
     const XLSX = await import('xlsx');
@@ -160,7 +162,7 @@ export default function ReportsPage() {
       Client: p.customer?.full_name || 'Inconnu',
       Montant: p.amount,
       Devise: sym,
-      Méthode: p.payment_method,
+      Méthode: p.method,
       Statut: p.status,
       Référence: p.reference
     }));
