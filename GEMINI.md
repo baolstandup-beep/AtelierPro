@@ -312,7 +312,7 @@ Les futurs agents doivent respecter impérativement les règles suivantes :
 
 ### 🟢 AMÉLIORATION :
 1. ✅ **Reçus WhatsApp API directe (Cloud API)** : Une intégration WhatsApp Business Cloud API directe a été implémentée (`app/api/whatsapp/send/route.ts`) pour permettre des envois de notifications automatiques via Meta.
-2. **Export Comptable Excel étendu** : Le bouton d'export dans `reports/page.tsx` génère un rapport de synthèse. Ajouter l'export `.xlsx` natif des écritures comptables journalières.
+2. ✅ **Export Comptable Excel étendu** : Le bouton d'export dans `reports/page.tsx` génère désormais un fichier `.xlsx` natif contenant la synthèse globale, l'historique des écritures comptables (paiements) et des dépenses de l'atelier, avec l'utilisation de la librairie `xlsx`.
 
 ---
 
