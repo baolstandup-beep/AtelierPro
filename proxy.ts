@@ -55,16 +55,8 @@ export function proxy(request: NextRequest) {
       const isServerAction = request.headers.has('next-action') || request.headers.has('rsc');
 
       if (isServerAction) {
-        return new NextResponse(
-          'Trop de tentatives d\'inscription. Votre adresse IP est temporairement limitée par mesure de sécurité. Réessayez dans 15 minutes.',
-          {
-            status: 429,
-            headers: {
-              'Content-Type': 'text/plain; charset=utf-8',
-              'Retry-After': String(rateLimit.retryAfterSeconds),
-            },
-          }
-        );
+        // Laisser les Server Actions gérer leur propre rate limiting avec un payload POJO propre
+        return NextResponse.next();
       }
 
       if (isApi) {

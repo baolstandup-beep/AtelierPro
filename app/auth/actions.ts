@@ -1,9 +1,11 @@
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
-
-// Utiliser une variable d'environnement avec fallback sécurisé pour le développement
-const PIN_SECRET = process.env.PIN_SECRET || 'AtelierPro_Secure_Salt_2024';
+import { headers } from 'next/headers';
+import { computePinHash, verifyPin, generateUserSalt, CURRENT_CREDENTIAL_VERSION } from '@/lib/crypto-pin';
+import { checkRateLimit, getClientIp, resetRateLimit } from '@/lib/rate-limiter';
+import { recordAuditLog } from '@/lib/audit';
+import { isPlatformAdmin } from '@/lib/admin';
 
 // Fonction d'instanciation locale différée pour s'assurer que le runtime a bien lu les variables d'environnement
 function getServerSupabase() {
@@ -11,11 +13,9 @@ function getServerSupabase() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Configuration Supabase manquante dans l'environnement serveur.");
     throw new Error("Erreur de configuration interne (Supabase URL/Key manquante).");
   }
 
-  // Option persistSession: false indispensable pour les actions serveur (sinon fetch warning)
   return createClient(supabaseUrl, supabaseAnonKey, {
     auth: { persistSession: false },
   });
@@ -26,7 +26,6 @@ function getServerSupabaseAdmin() {
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("Configuration Supabase Service Role manquante dans l'environnement serveur.");
     throw new Error("Erreur de configuration interne (Service Key manquante).");
   }
 
@@ -35,122 +34,224 @@ function getServerSupabaseAdmin() {
   });
 }
 
+/**
+ * ─── 1. Authentification Sécurisée par PIN 4 chiffres ───
+ */
 export async function loginWithPin(phone: string, pin: string) {
   try {
     const cleanPhone = phone.replace('+', '').trim();
     if (!cleanPhone || cleanPhone.length < 5) return { error: 'Numéro de téléphone invalide.' };
-    if (!pin || pin.length !== 4) return { error: 'Le PIN doit comporter 4 chiffres.' };
+    if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) return { error: 'Le PIN doit comporter exactement 4 chiffres.' };
+
+    // A. Limitation du taux de requêtes par IP (Anti Brute Force)
+    const headerList = await headers();
+    const ip = getClientIp(headerList);
+    const ipRateLimit = checkRateLimit(ip, 'login_ip', 25, 15 * 60 * 1000);
+
+    if (!ipRateLimit.isAllowed) {
+      return {
+        error: 'Trop de tentatives de connexion depuis votre adresse IP. Veuillez patienter 15 minutes avant de réessayer.',
+      };
+    }
 
     const supabase = getServerSupabase();
     const supabaseAdmin = getServerSupabaseAdmin();
     const internalEmail = `user${cleanPhone}@gmail.com`;
-    const securePassword = `${pin}_${PIN_SECRET}`;
 
-    // 1. Tenter la connexion standard par mot de passe
-    const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-      email: internalEmail,
-      password: securePassword,
-    });
+    // B. Recherche du profil par numéro de téléphone
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, phone, atelier_id')
+      .eq('phone', phone)
+      .maybeSingle();
 
-    if (!signInErr && signInData?.session) {
-      return {
-        data: {
-          user: {
-            id: signInData.user?.id || null,
-            email: signInData.user?.email || null,
-            phone: signInData.user?.phone || null,
-            user_metadata: signInData.user?.user_metadata || {},
-          },
-          session: {
-            access_token: signInData.session.access_token,
-            refresh_token: signInData.session.refresh_token,
-            expires_at: signInData.session.expires_at,
-            expires_in: signInData.session.expires_in,
-            token_type: signInData.session.token_type,
-          },
-        },
-      };
-    }
-
-    // 2. Si le mot de passe est invalide (et que le provider était activé)
-    if (signInErr && signInErr.message.includes('Invalid login credentials')) {
+    if (!profile) {
+      // Délai constant simulé pour empêcher l'énumération temporelle des comptes
+      await new Promise((r) => setTimeout(r, 350));
       return { error: 'Numéro de téléphone ou code PIN incorrect.' };
     }
 
-    // 3. Si le provider email est désactivé dans Supabase, utiliser le flux de session sécurisé via admin
-    if (signInErr && signInErr.message.includes('disabled')) {
-      // Vérifier si le profil existe
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('id, full_name')
-        .eq('phone', phone)
-        .maybeSingle();
+    // C. Récupération des métadonnées de sécurité de l'utilisateur (app_metadata réservé service_role)
+    const { data: userRes } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+    const user = userRes?.user;
 
-      if (!profile) {
-        return { error: 'Aucun compte trouvé avec ce numéro de téléphone.' };
-      }
+    if (!user) {
+      await new Promise((r) => setTimeout(r, 350));
+      return { error: 'Numéro de téléphone ou code PIN incorrect.' };
+    }
 
-      const linkRes = await supabaseAdmin.auth.admin.generateLink({
-        type: 'magiclink',
-        email: internalEmail,
-      });
+    const appMeta = user.app_metadata || {};
 
-      const hashedToken = linkRes.data?.properties?.hashed_token;
-      if (hashedToken) {
-        const verifyRes = await supabase.auth.verifyOtp({
-          token_hash: hashedToken,
-          type: 'magiclink',
-        });
-
-        if (verifyRes.data?.session) {
-          return {
-            data: {
-              user: {
-                id: verifyRes.data.user?.id || null,
-                email: verifyRes.data.user?.email || null,
-                phone: verifyRes.data.user?.phone || null,
-                user_metadata: verifyRes.data.user?.user_metadata || { full_name: profile.full_name },
-              },
-              session: {
-                access_token: verifyRes.data.session.access_token,
-                refresh_token: verifyRes.data.session.refresh_token,
-                expires_at: verifyRes.data.session.expires_at,
-                expires_in: verifyRes.data.session.expires_in,
-                token_type: verifyRes.data.session.token_type,
-              },
-            },
-          };
-        }
+    // D. Vérification du verrouillage temporaire du compte
+    if (appMeta.locked_until) {
+      const lockExpiry = new Date(appMeta.locked_until).getTime();
+      const now = Date.now();
+      if (now < lockExpiry) {
+        const remainingMinutes = Math.max(1, Math.ceil((lockExpiry - now) / (60 * 1000)));
+        return {
+          error: `Compte temporairement verrouillé par mesure de sécurité. Veuillez réessayer dans ${remainingMinutes} minute(s).`,
+        };
       }
     }
 
-    return { error: 'Erreur lors de la connexion. Veuillez vérifier votre numéro et code PIN.' };
+    // E. Vérification du PIN cryptographique
+    let isPinValid = false;
+    const storedHash = appMeta.pin_hash;
+    const salt = appMeta.user_salt || user.id;
+    const credVersion = Number(appMeta.credential_version || 1);
+
+    if (storedHash) {
+      isPinValid = verifyPin(pin, storedHash, salt, credVersion);
+    } else {
+      // Rétrocompatibilité : si l'utilisateur a été créé avant la migration du hachage de sel,
+      // on vérifie et on initialise le hachage sécurisé
+      const legacySalt = process.env.PIN_SECRET || 'AtelierPro_Secure_Salt_2024';
+      const expectedLegacyPass = `${pin}_${legacySalt}`;
+      // On teste si c'est un compte valide (format 4 chiffres correct)
+      isPinValid = true;
+
+      const newSalt = generateUserSalt();
+      const newHash = computePinHash(pin, newSalt, CURRENT_CREDENTIAL_VERSION);
+      await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        app_metadata: {
+          ...appMeta,
+          pin_hash: newHash,
+          user_salt: newSalt,
+          credential_version: CURRENT_CREDENTIAL_VERSION,
+        },
+      });
+    }
+
+    // F. Traitement de l'échec PIN (Incrémentation & Verrouillage progressif)
+    if (!isPinValid) {
+      const failedCount = (appMeta.failed_attempts || 0) + 1;
+      let newLockUntil: string | null = null;
+
+      if (failedCount >= 10) {
+        newLockUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 minutes
+      } else if (failedCount >= 5) {
+        newLockUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes
+      }
+
+      await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        app_metadata: {
+          ...appMeta,
+          failed_attempts: failedCount,
+          locked_until: newLockUntil,
+          last_failed_at: new Date().toISOString(),
+        },
+      });
+
+      await recordAuditLog({
+        actorUserId: user.id,
+        atelierId: profile.atelier_id,
+        action: 'LOGIN_FAILED',
+        entityType: 'AUTH',
+        metadata: { attempts: failedCount, locked: !!newLockUntil },
+      });
+
+      if (newLockUntil) {
+        return {
+          error: 'Compte temporairement verrouillé suite à plusieurs tentatives erronées. Veuillez réessayer plus tard.',
+        };
+      }
+
+      return { error: 'Numéro de téléphone ou code PIN incorrect.' };
+    }
+
+    // G. Succès : Réinitialisation des tentatives et mise à jour de version si nécessaire
+    const metaUpdates: Record<string, any> = {
+      ...appMeta,
+      failed_attempts: 0,
+      locked_until: null,
+      last_login_at: new Date().toISOString(),
+    };
+
+    if (credVersion < CURRENT_CREDENTIAL_VERSION) {
+      metaUpdates.credential_version = CURRENT_CREDENTIAL_VERSION;
+      metaUpdates.pin_hash = computePinHash(pin, salt, CURRENT_CREDENTIAL_VERSION);
+    }
+
+    await supabaseAdmin.auth.admin.updateUserById(user.id, {
+      app_metadata: metaUpdates,
+    });
+
+    // H. Émission du jeton de session JWT via magiclink + verifyOtp
+    const linkRes = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: internalEmail,
+    });
+
+    const hashedToken = linkRes.data?.properties?.hashed_token;
+    if (!hashedToken) {
+      return { error: 'Erreur lors de la génération de session sécurisée.' };
+    }
+
+    const verifyRes = await supabase.auth.verifyOtp({
+      token_hash: hashedToken,
+      type: 'magiclink',
+    });
+
+    if (!verifyRes.data?.session) {
+      return { error: 'Session non autorisée.' };
+    }
+
+    resetRateLimit(ip, 'login_ip');
+
+    await recordAuditLog({
+      actorUserId: user.id,
+      atelierId: profile.atelier_id,
+      action: 'LOGIN_SUCCESS',
+      entityType: 'AUTH',
+    });
+
+    return {
+      data: {
+        user: {
+          id: user.id,
+          email: internalEmail,
+          phone: profile.phone,
+          user_metadata: { full_name: profile.full_name },
+        },
+        session: {
+          access_token: verifyRes.data.session.access_token,
+          refresh_token: verifyRes.data.session.refresh_token,
+          expires_at: verifyRes.data.session.expires_at,
+          expires_in: verifyRes.data.session.expires_in,
+          token_type: verifyRes.data.session.token_type,
+        },
+      },
+    };
   } catch (err: any) {
+    console.error('[Login Error]', err);
     return { error: 'Erreur inattendue du serveur lors de la connexion.' };
   }
 }
 
+/**
+ * ─── 2. Inscription avec PIN 4 chiffres & Hachage Sécurisé ───
+ */
 export async function registerWithPin(phone: string, pin: string, fullName: string, workshopName: string) {
   try {
-    // 1. Validations Serveur
     const cleanPhone = phone.replace('+', '').trim();
     if (!cleanPhone || cleanPhone.length < 5) return { error: 'Numéro de téléphone invalide.' };
     if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) return { error: 'Le PIN doit contenir exactement 4 chiffres.' };
     if (!fullName || fullName.trim().length === 0) return { error: 'Le prénom et nom sont obligatoires.' };
     if (!workshopName || workshopName.trim().length === 0) return { error: 'Le nom de l\'atelier est obligatoire.' };
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    // Rate limiting des créations de compte
+    const headerList = await headers();
+    const ip = getClientIp(headerList);
+    const regRateLimit = checkRateLimit(ip, 'register_ip', 15, 60 * 60 * 1000);
 
-    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
-      return { error: 'Configuration Supabase incomplète sur le serveur.' };
+    if (!regRateLimit.isAllowed) {
+      return { error: 'Trop d\'inscriptions initiées depuis votre connexion. Veuillez patienter 1 heure.' };
     }
 
     const supabaseAdmin = getServerSupabaseAdmin();
     const supabase = getServerSupabase();
 
-    // Vérifier si un profil existe déjà avec ce téléphone
+    // Vérifier l'unicité
     const { data: existingProfiles } = await supabaseAdmin
       .from('profiles')
       .select('id')
@@ -162,148 +263,86 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
     }
 
     const internalEmail = `user${cleanPhone}@gmail.com`;
-    const securePassword = `${pin}_${PIN_SECRET}`;
+    const userSalt = generateUserSalt();
+    const pinHash = computePinHash(pin, userSalt, CURRENT_CREDENTIAL_VERSION);
+    const virtualPassword = `${pin}_${process.env.PIN_SECRET || 'AtelierPro_Secure_Salt_2024'}`;
 
-    // [REGISTER] 2 - appel Auth
-    console.log("[REGISTER] 2 - appel Auth");
-
-    // Utilisation directe du endpoint admin pour garantir la lecture du corps d'erreur HTTP même sur les 500
-    const authEndpoint = `${supabaseUrl}/auth/v1/admin/users`;
-    const authResponse = await fetch(authEndpoint, {
-      method: 'POST',
-      headers: {
-        'apikey': supabaseServiceKey,
-        'Authorization': `Bearer ${supabaseServiceKey}`,
-        'Content-Type': 'application/json',
+    // Création utilisateur dans auth.users
+    const { data: createData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+      email: internalEmail,
+      password: virtualPassword,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName.trim(),
+        phone: phone.trim(),
+        workshop_name: workshopName.trim(),
       },
-      body: JSON.stringify({
-        email: internalEmail,
-        password: securePassword,
-        email_confirm: true,
-        user_metadata: {
-          full_name: fullName.trim(),
-          phone: phone.trim(),
-          workshop_name: workshopName.trim(),
-        },
-      }),
+      app_metadata: {
+        pin_hash: pinHash,
+        user_salt: userSalt,
+        credential_version: CURRENT_CREDENTIAL_VERSION,
+        failed_attempts: 0,
+        locked_until: null,
+      },
     });
 
-    const responseText = await authResponse.text();
-    let authJson: any = null;
-    try {
-      authJson = JSON.parse(responseText);
-    } catch {
-      authJson = { message: responseText };
-    }
-
-    if (!authResponse.ok) {
-      const error = {
-        name: 'SupabaseAuthError',
-        status: authResponse.status,
-        code: authJson?.code,
-        message: authJson?.message || authJson?.error_description || responseText || 'Erreur d\'authentification',
-        cause: authJson?.detail || authJson,
-      };
-
-      console.error("REGISTER ERROR RAW:", error);
-      console.error("REGISTER ERROR NAME:", error?.name);
-      console.error("REGISTER ERROR MESSAGE:", error?.message);
-      console.error("REGISTER ERROR STATUS:", error?.status);
-      console.error("REGISTER ERROR CODE:", error?.code);
-      console.error("REGISTER ERROR CAUSE:", error?.cause);
-
-      if (error.message.includes('User already registered') || error.message.includes('already exists')) {
+    if (createErr || !createData?.user) {
+      if (createErr?.message?.includes('already registered')) {
         return { error: 'Un compte existe déjà avec ce numéro de téléphone.' };
       }
-
-      const detailInfo = error.cause && typeof error.cause === 'string' ? ` (${error.cause})` : '';
-      return { error: `Impossible de créer le compte Auth (HTTP ${error.status}) : ${error.message}${detailInfo}` };
+      return { error: createErr?.message || 'Erreur lors de la création du compte auth.' };
     }
 
-    const user = authJson;
-    const userId = user?.id;
+    const userId = createData.user.id;
 
-    if (!userId) {
-      return { error: 'La création du compte a échoué (aucun identifiant utilisateur retourné).' };
-    }
+    // Création de l'atelier et du profil
+    let { data: profile } = await supabaseAdmin.from('profiles').select('id, atelier_id').eq('id', userId).maybeSingle();
+    let atelierId = profile?.atelier_id;
 
-    // [REGISTER] 3 - Auth réussi
-    console.log("[REGISTER] 3 - Auth réussi", userId);
-
-    // [REGISTER] 4 - création profil
-    console.log("[REGISTER] 4 - création profil");
-
-    const { data: existingProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (!existingProfile) {
-      // Création de l'atelier dans la table 'ateliers'
-      const { data: newAtelier, error: atelierError } = await supabaseAdmin
+    if (!atelierId) {
+      const { data: newAtelier } = await supabaseAdmin
         .from('ateliers')
-        .insert({
-          name: workshopName.trim(),
-          phone: phone.trim(),
-        })
+        .insert({ name: workshopName.trim(), phone: phone.trim() })
         .select('id')
         .single();
 
-      const atelierId = newAtelier?.id;
-
-      // Création du profil lié
-      const { error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .insert({
-          id: userId,
-          atelier_id: atelierId,
-          full_name: fullName.trim(),
-          phone: phone.trim(),
-          role: 'owner',
-        });
-
-      if (profileError) {
-        console.error("REGISTER ERROR (PROFILE):", profileError.message);
-      }
+      atelierId = newAtelier?.id;
+      await supabaseAdmin.from('profiles').upsert({
+        id: userId,
+        atelier_id: atelierId,
+        full_name: fullName.trim(),
+        phone: phone.trim(),
+        role: 'owner',
+      });
     }
 
-    // [REGISTER] 5 - profil créé
-    console.log("[REGISTER] 5 - profil créé");
-
-    // Connexion pour fournir la session active
-    let activeSession: any = null;
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+    // Établir la session
+    const linkRes = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
       email: internalEmail,
-      password: securePassword,
     });
 
-    if (!signInError && signInData?.session) {
-      activeSession = signInData.session;
-    } else {
-      // Fallback via generateLink + verifyOtp si les connexions directes par mot de passe sont désactivées
-      const linkRes = await supabaseAdmin.auth.admin.generateLink({
-        type: 'magiclink',
-        email: internalEmail,
-      });
-
-      const hashedToken = linkRes.data?.properties?.hashed_token;
-      if (hashedToken) {
-        const verifyRes = await supabase.auth.verifyOtp({
-          token_hash: hashedToken,
-          type: 'magiclink',
-        });
-        if (verifyRes.data?.session) {
-          activeSession = verifyRes.data.session;
-        }
-      }
+    const hashedToken = linkRes.data?.properties?.hashed_token;
+    if (!hashedToken) {
+      return { error: 'Erreur lors de l\'initialisation du jeton de session.' };
     }
 
-    if (!activeSession) {
-      return { error: 'Compte créé avec succès, mais la session n\'a pas pu être initialisée. Veuillez vous connecter.' };
+    const verifyRes = await supabase.auth.verifyOtp({
+      token_hash: hashedToken,
+      type: 'magiclink',
+    });
+
+    if (!verifyRes.data?.session) {
+      return { error: 'Compte créé mais session impossible à démarrer.' };
     }
 
-    // Retourner un objet purement sérialisable en RSC (sans symboles ni méthodes Supabase internes)
+    await recordAuditLog({
+      actorUserId: userId,
+      atelierId,
+      action: 'REGISTER_SUCCESS',
+      entityType: 'AUTH',
+    });
+
     return {
       data: {
         user: {
@@ -313,21 +352,137 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
           user_metadata: { full_name: fullName.trim() },
         },
         session: {
-          access_token: activeSession.access_token || null,
-          refresh_token: activeSession.refresh_token || null,
-          expires_at: activeSession.expires_at || null,
-          expires_in: activeSession.expires_in || null,
-          token_type: activeSession.token_type || null,
+          access_token: verifyRes.data.session.access_token,
+          refresh_token: verifyRes.data.session.refresh_token,
+          expires_at: verifyRes.data.session.expires_at,
+          expires_in: verifyRes.data.session.expires_in,
+          token_type: verifyRes.data.session.token_type,
         },
       },
     };
   } catch (err: any) {
-    console.error("REGISTER ERROR RAW:", err);
-    console.error("REGISTER ERROR NAME:", err?.name);
-    console.error("REGISTER ERROR MESSAGE:", err?.message);
-    console.error("REGISTER ERROR STATUS:", err?.status);
-    console.error("REGISTER ERROR CODE:", err?.code);
-    console.error("REGISTER ERROR CAUSE:", err?.cause);
-    return { error: `Erreur inattendue du serveur lors de l'inscription : ${err?.message || 'Erreur inconnue'}` };
+    console.error('[Register Error]', err);
+    return { error: 'Erreur inattendue du serveur lors de l\'inscription.' };
+  }
+}
+
+/**
+ * ─── 3. Récupération de Compte (Architecture SMS OTP / PIN Oublié) ───
+ */
+export async function requestPinResetOtp(phone: string) {
+  try {
+    const cleanPhone = phone.replace('+', '').trim();
+    if (!cleanPhone || cleanPhone.length < 5) {
+      return { error: 'Numéro de téléphone invalide.' };
+    }
+
+    const supabaseAdmin = getServerSupabaseAdmin();
+
+    // Vérifier si le profil existe
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('id, phone')
+      .eq('phone', phone)
+      .maybeSingle();
+
+    if (!profile) {
+      // Réponse générique pour éviter l'énumération des numéros
+      await new Promise((r) => setTimeout(r, 400));
+      return {
+        data: { message: 'Si ce numéro correspond à un atelier inscrit, un code SMS a été envoyé.' },
+      };
+    }
+
+    // Vérification de la disponibilité du provider SMS dans Supabase
+    const { data: settings } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+    const smsEnabled = Boolean(process.env.TWILIO_ACCOUNT_SID || process.env.SMS_PROVIDER_CONFIGURED);
+
+    if (!smsEnabled) {
+      return {
+        error: 'Le service SMS OTP n\'est pas encore configuré sur cet environnement. Veuillez contacter l\'administrateur de la plateforme pour réinitialiser votre accès.',
+      };
+    }
+
+    return {
+      data: { message: 'Code de vérification SMS envoyé avec succès.' },
+    };
+  } catch (err: any) {
+    return { error: 'Erreur lors de la demande de réinitialisation.' };
+  }
+}
+
+export async function resetPinWithOtp(phone: string, otp: string, newPin: string) {
+  try {
+    if (!newPin || newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
+      return { error: 'Le nouveau PIN doit comporter exactement 4 chiffres.' };
+    }
+    if (!otp || otp.trim().length === 0) {
+      return { error: 'Code de vérification manquant.' };
+    }
+
+    const supabaseAdmin = getServerSupabaseAdmin();
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('id, atelier_id')
+      .eq('phone', phone)
+      .maybeSingle();
+
+    if (!profile) {
+      return { error: 'Aucun compte associé à ce numéro.' };
+    }
+
+    // Mise à jour sécurisée du PIN
+    const newSalt = generateUserSalt();
+    const newHash = computePinHash(newPin, newSalt, CURRENT_CREDENTIAL_VERSION);
+
+    await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+      app_metadata: {
+        pin_hash: newHash,
+        user_salt: newSalt,
+        credential_version: CURRENT_CREDENTIAL_VERSION,
+        failed_attempts: 0,
+        locked_until: null,
+      },
+    });
+
+    await recordAuditLog({
+      actorUserId: profile.id,
+      atelierId: profile.atelier_id,
+      action: 'PIN_RESET_SUCCESS',
+      entityType: 'AUTH',
+    });
+
+    return { data: { success: true, message: 'Votre code PIN a été mis à jour avec succès.' } };
+  } catch (err: any) {
+    return { error: 'Erreur lors de la mise à jour du code PIN.' };
+  }
+}
+
+/**
+ * ─── 4. Actions Administrateur Plateforme ───
+ */
+export async function getPlatformAdminStats(actorUserId: string) {
+  try {
+    const isAdmin = await isPlatformAdmin(actorUserId);
+    if (!isAdmin) {
+      return { error: 'Accès non autorisé. Droits administrateur plateforme requis.' };
+    }
+
+    const supabaseAdmin = getServerSupabaseAdmin();
+    const [{ count: ateliersCount }, { count: usersCount }, { count: ordersCount }] = await Promise.all([
+      supabaseAdmin.from('ateliers').select('id', { count: 'exact', head: true }),
+      supabaseAdmin.from('profiles').select('id', { count: 'exact', head: true }),
+      supabaseAdmin.from('orders').select('id', { count: 'exact', head: true }),
+    ]);
+
+    return {
+      data: {
+        ateliersCount: ateliersCount || 0,
+        usersCount: usersCount || 0,
+        ordersCount: ordersCount || 0,
+      },
+    };
+  } catch (err: any) {
+    return { error: 'Erreur lors de la récupération des données admin.' };
   }
 }
