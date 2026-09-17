@@ -241,20 +241,6 @@ export default function RegisterPage() {
               </label>
             </div>
 
-            <div className="mb-5 p-3.5 rounded-2xl bg-[#EBF7F1] border border-[#0F3B32]/20">
-              <button
-                type="button"
-                onClick={() => {
-                  loginAsDemo();
-                  success('Session Démo Active !', 'Bienvenue dans AtelierPro (Atelier Couture Dakar)');
-                  router.push('/dashboard');
-                }}
-                className="w-full py-3 px-4 rounded-xl bg-[#0F3B32] hover:bg-[#185c4e] text-white text-xs sm:text-sm font-bold uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4 text-[#FEF3C7]" />
-                <span>⚡ Tester la démo en 1 clic (Sans inscription)</span>
-              </button>
-            </div>
 
             <button
               type="button"
