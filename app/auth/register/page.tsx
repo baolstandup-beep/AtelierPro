@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/lib/store';
-import { isSupabaseConfigured, signInWithGoogle, signUpWithEmail } from '@/lib/supabase';
+import { isSupabaseConfigured, signInWithGoogle, getSupabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/toaster';
 import {
   Scissors,
@@ -15,23 +15,23 @@ import {
   TrendingUp,
   Eye,
   EyeOff,
-  Mail,
-  Lock,
   User,
-  Check,
-  ArrowRight,
   Sparkles,
+  Phone,
+  Building2,
+  Lock,
+  ArrowRight
 } from 'lucide-react';
+import { registerWithPin } from '@/app/auth/actions';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { signIn, loginAsDemo, syncWithSupabase } = useAppStore();
+  const { loginAsDemo, syncWithSupabase } = useAppStore();
   const { success, error: showError } = useToast();
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [showEmailForm, setShowEmailForm] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
-  const [showPassword, setShowPassword] = useState(false);
+  const [form, setForm] = useState({ name: '', phone: '', workshop: '', pin: '', confirmPin: '' });
+  const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -39,16 +39,22 @@ export default function RegisterPage() {
   function validate() {
     const errs: Record<string, string> = {};
     if (!form.name.trim() || form.name.trim().length < 2) errs.name = 'Votre nom est requis (2 car. min.)';
-    if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Email valide requis';
-    if (!form.password || form.password.length < 6) errs.password = 'Mot de passe de 6 caractères minimum';
-    if (form.password !== form.confirm) errs.confirm = 'Les mots de passe ne correspondent pas';
+    
+    const phone = form.phone.replace(/\s+/g, '');
+    if (!phone || phone.length < 9) errs.phone = 'Veuillez saisir un numéro de téléphone valide.';
+    
+    if (!form.workshop.trim()) errs.workshop = 'Le nom de l\'atelier est obligatoire';
+    
+    if (!form.pin || !/^\d{4}$/.test(form.pin)) errs.pin = 'Le code PIN doit contenir exactement 4 chiffres.';
+    if (form.pin !== form.confirmPin) errs.confirmPin = 'Les deux codes PIN ne correspondent pas.';
+    
     return errs;
   }
 
-  async function handleEmailSubmit(e: React.FormEvent) {
+  async function handleRegisterSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!acceptedTerms) {
-      showError('Conditions requises', 'Veuillez accepter les conditions pour continuer.');
+      showError('Conditions requises', 'Veuillez accepter les Conditions d\'utilisation et la Politique de confidentialité.');
       return;
     }
 
@@ -58,50 +64,40 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // 1. Anti-Brute-Force Rate Limit Check (Max 5 attempts per IP)
-      const rateCheck = await fetch('/api/auth/rate-limit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'attempt' }),
-      });
-
-      if (rateCheck.status === 429) {
-        const data = await rateCheck.json().catch(() => ({}));
-        showError(
-          'Inscription Bloquée',
-          data.error || 'Trop de tentatives (5 max). Votre IP est temporairement bloquée.'
-        );
-        return;
+      let normalizedPhone = form.phone.replace(/\s+/g, '');
+      if (!normalizedPhone.startsWith('+221') && normalizedPhone.length === 9) {
+        normalizedPhone = '+221' + normalizedPhone;
       }
 
       if (isSupabaseConfigured) {
-        const { user } = await signUpWithEmail(form.email, form.password, form.name);
-        if (user) {
-          await syncWithSupabase(user.id, form.name);
+        const { data, error } = await registerWithPin(normalizedPhone, form.pin, form.name, form.workshop);
+        
+        if (error) {
+          showError('Erreur d\'inscription', error);
+          setLoading(false);
+          return;
+        }
+
+        if (data?.session) {
+          const sb = getSupabase();
+          await sb.auth.setSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token
+          });
+        }
+
+        if (data?.user) {
+          await syncWithSupabase(data.user.id, form.name);
         }
       } else {
-        // Local state / Demo mode
         await new Promise((r) => setTimeout(r, 300));
         loginAsDemo();
       }
 
-      // Reset rate limit on valid registration
-      fetch('/api/auth/rate-limit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'success' }),
-      }).catch(() => {});
-
-      success('Compte créé avec succès !', 'Bienvenue dans AtelierPro');
+      success('Compte créé avec succès.', 'Bienvenue dans AtelierPro');
       router.push('/dashboard');
     } catch (err: any) {
-      if (isSupabaseConfigured) {
-        showError('Erreur d\'inscription', err?.message || 'Impossible de créer le compte.');
-      } else {
-        loginAsDemo();
-        success('Compte créé avec succès !', 'Bienvenue dans AtelierPro (Mode Démo)');
-        router.push('/dashboard');
-      }
+      showError('Erreur serveur', 'Impossible de créer votre compte pour le moment. Réessayez.');
     } finally {
       setLoading(false);
     }
@@ -118,7 +114,6 @@ export default function RegisterPage() {
       if (isSupabaseConfigured) {
         await signInWithGoogle();
       } else {
-        // Demo mode instant registration
         await new Promise((r) => setTimeout(r, 400));
         loginAsDemo();
         success('Inscription réussie !', 'Bienvenue dans AtelierPro');
@@ -135,22 +130,18 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-3 sm:p-6 font-sans antialiased selection:bg-[#0F3B32] selection:text-[#FBF9F5]">
-      {/* ─── MAIN DUAL CARD (Trasnote exact layout) ─── */}
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
         className="w-full max-w-5xl bg-white rounded-3xl sm:rounded-[2.5rem] shadow-[0_25px_70px_rgba(0,0,0,0.12)] border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12"
       >
-        {/* ─── LEFT COLUMN (Rich Atelier Green Banner) ─── */}
+        {/* LEFT COLUMN */}
         <div className="lg:col-span-5 bg-gradient-to-br from-[#0F3B32] via-[#165a4c] to-[#0A2A24] p-8 sm:p-12 text-white flex flex-col justify-between relative overflow-hidden">
-          {/* Subtle Ambient Decorative Glow */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-[#D97706]/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#16A34A]/15 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Top & Center Content */}
           <div className="flex flex-col items-center text-center my-auto relative z-10 py-6">
-            {/* Frosted Icon Pill */}
             <motion.div
               whileHover={{ rotate: 10, scale: 1.05 }}
               className="w-20 h-20 rounded-3xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center text-white mb-8 shadow-inner"
@@ -162,13 +153,11 @@ export default function RegisterPage() {
               Rejoignez des tailleurs modernes
             </h2>
             <p className="text-xs sm:text-sm text-slate-200/90 max-w-xs leading-relaxed">
-              Deux champs suffisent pour commencer. Le reste vient après.
+              Votre téléphone suffit pour commencer. Le reste vient après.
             </p>
 
-            {/* Subtle Divider */}
             <div className="w-24 h-px bg-white/20 my-8" />
 
-            {/* 3 Bullet Features */}
             <div className="w-full max-w-xs space-y-4 text-left text-xs sm:text-sm font-semibold">
               <div className="flex items-center gap-3">
                 <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 text-[#FEF3C7]">
@@ -193,7 +182,6 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Bottom Location indicator */}
           <div className="pt-6 border-t border-white/10 text-center relative z-10">
             <p className="text-[11px] text-slate-300">
               Conçu pour Dakar • Abidjan • Bamako • Cotonou • Paris
@@ -201,12 +189,10 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {/* ─── RIGHT COLUMN (White Form Area) ─── */}
+        {/* RIGHT COLUMN */}
         <div className="lg:col-span-7 p-6 sm:p-12 bg-white flex flex-col justify-between">
           <div>
-            {/* Top Bar: Logo & Return Link */}
             <div className="flex items-center justify-between gap-4 mb-8">
-              {/* Brand Logo */}
               <Link href="/" className="flex items-center gap-2 group">
                 <div className="w-8 h-8 rounded-full bg-[#0F3B32] flex items-center justify-center text-white shadow-sm">
                   <Scissors className="w-4 h-4 text-[#D97706]" />
@@ -216,7 +202,6 @@ export default function RegisterPage() {
                 </span>
               </Link>
 
-              {/* Back to Home Button */}
               <Link
                 href="/"
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
@@ -226,46 +211,13 @@ export default function RegisterPage() {
               </Link>
             </div>
 
-            {/* Stepper Progress Indicator (3 Steps) */}
-            <div className="flex items-center justify-between gap-2 mb-8 max-w-md">
-              {/* Step 1 */}
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-[#0F3B32] text-white flex items-center justify-center text-xs font-bold shadow-sm">
-                  1
-                </div>
-                <span className="text-xs font-bold text-[#0F3B32]">Compte</span>
-              </div>
-
-              <div className="flex-1 h-px bg-slate-200" />
-
-              {/* Step 2 */}
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-xs font-bold">
-                  2
-                </div>
-                <span className="text-xs font-semibold text-slate-400">Vérification</span>
-              </div>
-
-              <div className="flex-1 h-px bg-slate-200" />
-
-              {/* Step 3 */}
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-xs font-bold">
-                  3
-                </div>
-                <span className="text-xs font-semibold text-slate-400">Votre atelier</span>
-              </div>
-            </div>
-
-            {/* Headline */}
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-serif-luxury mb-1">
               Créer mon compte
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mb-6">
-              Avec Google en un clic, ou par e-mail. Vous configurez votre atelier juste après.
+              Inscrivez-vous simplement avec votre numéro de téléphone.
             </p>
 
-            {/* Green Box: Avant de commencer (Terms Acceptance) */}
             <div className="bg-[#EBF7F1] border border-[#0F3B32]/20 rounded-2xl p-4 mb-6 transition-all">
               <div className="flex items-center gap-2 text-xs font-bold text-[#0F3B32] mb-2">
                 <ShieldCheck className="w-4 h-4 text-[#16A34A]" />
@@ -293,7 +245,6 @@ export default function RegisterPage() {
               </label>
             </div>
 
-            {/* ⚡ Quick 1-Click Demo Mode Button */}
             <div className="mb-5 p-3.5 rounded-2xl bg-[#EBF7F1] border border-[#0F3B32]/20">
               <button
                 type="button"
@@ -309,7 +260,6 @@ export default function RegisterPage() {
               </button>
             </div>
 
-            {/* Quick Google Sign Up Button */}
             <button
               type="button"
               onClick={handleGoogleSignUp}
@@ -353,149 +303,165 @@ export default function RegisterPage() {
               </p>
             )}
 
-            {/* Divider "Ou" */}
             <div className="flex items-center gap-4 my-6">
               <div className="flex-1 h-px bg-slate-200" />
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ou</span>
               <div className="flex-1 h-px bg-slate-200" />
             </div>
 
-            {/* Email Form Toggle or Fields */}
-            {!showEmailForm ? (
+            <motion.form
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              onSubmit={handleRegisterSubmit}
+              className="space-y-4"
+            >
+              {/* Prénom et Nom */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Prénom et nom *
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Ex. Cheikh Diop"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value.replace(/\s+/g, ' ') })}
+                    className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs sm:text-sm bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F3B32] transition-all ${
+                      errors.name ? 'border-red-500' : 'border-slate-200'
+                    }`}
+                  />
+                </div>
+                {errors.name && <p className="text-[11px] text-red-500 mt-1">{errors.name}</p>}
+              </div>
+
+              {/* Téléphone */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Numéro de téléphone *
+                </label>
+                <div className="relative flex">
+                  <div className="absolute left-0 top-0 bottom-0 flex items-center justify-center pl-3.5 pr-2 border-r border-slate-200 bg-slate-50/50 rounded-l-xl">
+                    <Phone className="w-4 h-4 text-slate-400 mr-1.5" />
+                    <span className="text-xs sm:text-sm font-semibold text-slate-600">+221</span>
+                  </div>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="77 000 00 00"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className={`w-full pl-[5.5rem] pr-4 py-2.5 rounded-xl border text-xs sm:text-sm bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F3B32] transition-all ${
+                      errors.phone ? 'border-red-500' : 'border-slate-200'
+                    }`}
+                  />
+                </div>
+                {errors.phone && <p className="text-[11px] text-red-500 mt-1">{errors.phone}</p>}
+              </div>
+
+              {/* Atelier */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Nom de l'atelier *
+                </label>
+                <div className="relative">
+                  <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Ex. Atelier Baol Couture"
+                    value={form.workshop}
+                    onChange={(e) => setForm({ ...form, workshop: e.target.value })}
+                    className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs sm:text-sm bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F3B32] transition-all ${
+                      errors.workshop ? 'border-red-500' : 'border-slate-200'
+                    }`}
+                  />
+                </div>
+                {errors.workshop && <p className="text-[11px] text-red-500 mt-1">{errors.workshop}</p>}
+              </div>
+
+              {/* PIN & Confirm */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Code PIN *
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type={showPin ? 'text' : 'password'}
+                      inputMode="numeric"
+                      maxLength={4}
+                      placeholder="● ● ● ●"
+                      value={form.pin}
+                      onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, '') })}
+                      className={`w-full pl-10 pr-10 py-2.5 rounded-xl border text-xs sm:text-sm bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F3B32] transition-all tracking-widest ${
+                        errors.pin ? 'border-red-500' : 'border-slate-200'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
+                    >
+                      {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {errors.pin && <p className="text-[11px] text-red-500 mt-1">{errors.pin}</p>}
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Confirmer le code PIN *
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type={showPin ? 'text' : 'password'}
+                      inputMode="numeric"
+                      maxLength={4}
+                      placeholder="● ● ● ●"
+                      value={form.confirmPin}
+                      onChange={(e) => setForm({ ...form, confirmPin: e.target.value.replace(/\D/g, '') })}
+                      className={`w-full pl-10 pr-10 py-2.5 rounded-xl border text-xs sm:text-sm bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F3B32] transition-all tracking-widest ${
+                        errors.confirmPin ? 'border-red-500' : 'border-slate-200'
+                      }`}
+                    />
+                  </div>
+                  {errors.confirmPin && <p className="text-[11px] text-red-500 mt-1">{errors.confirmPin}</p>}
+                </div>
+              </div>
+
               <button
-                type="button"
-                onClick={() => setShowEmailForm(true)}
-                className="w-full flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold transition-all shadow-sm"
+                type="submit"
+                disabled={loading || !acceptedTerms}
+                className={`w-full py-3.5 rounded-2xl text-xs sm:text-sm font-bold tracking-wide uppercase transition-all shadow-md ${
+                  acceptedTerms && !loading
+                    ? 'bg-[#0F3B32] hover:bg-[#185c4e] text-white hover:shadow-lg cursor-pointer'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                }`}
               >
-                <Mail className="w-4 h-4 text-slate-500" />
-                <span>Continuer avec Email</span>
+                {loading ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Création du compte...</span>
+                  </div>
+                ) : (
+                  <span>Créer mon compte &rarr;</span>
+                )}
               </button>
-            ) : (
-              <motion.form
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                onSubmit={handleEmailSubmit}
-                className="space-y-4"
-              >
-                {/* Name */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Votre nom complet / Nom d&apos;atelier
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Mamadou Diallo"
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs sm:text-sm bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F3B32] transition-all ${
-                        errors.name ? 'border-red-500' : 'border-slate-200'
-                      }`}
-                    />
-                  </div>
-                  {errors.name && <p className="text-[11px] text-red-500 mt-1">{errors.name}</p>}
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Adresse e-mail
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="email"
-                      placeholder="mamadou@atelier.com"
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs sm:text-sm bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F3B32] transition-all ${
-                        errors.email ? 'border-red-500' : 'border-slate-200'
-                      }`}
-                    />
-                  </div>
-                  {errors.email && <p className="text-[11px] text-red-500 mt-1">{errors.email}</p>}
-                </div>
-
-                {/* Password & Confirm */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Mot de passe
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="••••••••"
-                        value={form.password}
-                        onChange={(e) => setForm({ ...form, password: e.target.value })}
-                        className={`w-full pl-10 pr-10 py-2.5 rounded-xl border text-xs sm:text-sm bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F3B32] transition-all ${
-                          errors.password ? 'border-red-500' : 'border-slate-200'
-                        }`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      >
-                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                    {errors.password && <p className="text-[11px] text-red-500 mt-1">{errors.password}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Confirmer
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="••••••••"
-                        value={form.confirm}
-                        onChange={(e) => setForm({ ...form, confirm: e.target.value })}
-                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs sm:text-sm bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F3B32] transition-all ${
-                          errors.confirm ? 'border-red-500' : 'border-slate-200'
-                        }`}
-                      />
-                    </div>
-                    {errors.confirm && <p className="text-[11px] text-red-500 mt-1">{errors.confirm}</p>}
-                  </div>
-                </div>
-
-                {/* Submit Email Button */}
-                <button
-                  type="submit"
-                  disabled={loading || !acceptedTerms}
-                  className={`w-full py-3.5 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wider text-white shadow-md transition-all flex items-center justify-center gap-2 ${
-                    acceptedTerms && !loading
-                      ? 'bg-[#0F3B32] hover:bg-[#185c4e] cursor-pointer'
-                      : 'bg-slate-300 cursor-not-allowed'
-                  }`}
-                >
-                  {loading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <span>Créer mon compte</span>
-                      <ArrowRight className="w-4 h-4 text-[#D97706]" />
-                    </>
-                  )}
-                </button>
-              </motion.form>
-            )}
+            </motion.form>
           </div>
 
-          {/* Bottom Link: Already have an account? */}
-          <div className="pt-8 border-t border-slate-100 text-center mt-6">
-            <p className="text-xs text-slate-600">
-              Déjà un compte ?{' '}
-              <Link href="/auth/login" className="text-[#0F3B32] font-bold hover:underline">
-                Se connecter
-              </Link>
+          <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
+            <p className="text-xs text-slate-500">
+              Déjà un compte ?
             </p>
+            <Link
+              href="/auth/login"
+              className="text-[#D97706] text-xs font-bold hover:text-[#b46205] transition-colors flex items-center gap-1"
+            >
+              Se connecter <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
       </motion.div>
