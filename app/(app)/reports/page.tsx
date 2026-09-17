@@ -130,6 +130,56 @@ export default function ReportsPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  // Export Excel
+  async function handleExportExcel() {
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
+
+    // 1. Synthèse
+    const summaryData = [
+      ['Rapport d\'activité AtelierPro', currentWorkshop?.name || 'Atelier'],
+      ['Date génération', format(new Date(), 'yyyy-MM-dd HH:mm')],
+      [''],
+      ['Indicateur', 'Valeur', 'Devise'],
+      ['CA Aujourd\'hui', caToday, sym],
+      ['CA Cette semaine', caWeek, sym],
+      ['CA Ce mois', caMonth, sym],
+      ['CA Cette année', caYear, sym],
+      ['Nombre total de commandes', totalOrdersCount, ''],
+      ['Ticket moyen', averageTicket, sym],
+      ['Reste à recouvrer (Dettes)', totalBalanceToRecover, sym],
+      ['Total des dépenses', totalExpenses, sym],
+      ['Résultat net estimé', netEstimatedResult, sym],
+    ];
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Synthèse');
+
+    // 2. Écritures Comptables (Paiements)
+    const paymentsData = payments.map(p => ({
+      Date: p.payment_date ? format(parseISO(p.payment_date), 'yyyy-MM-dd HH:mm') : '',
+      Client: p.customer?.full_name || 'Inconnu',
+      Montant: p.amount,
+      Devise: sym,
+      Méthode: p.payment_method,
+      Statut: p.status,
+      Référence: p.reference
+    }));
+    const wsPayments = XLSX.utils.json_to_sheet(paymentsData);
+    XLSX.utils.book_append_sheet(wb, wsPayments, 'Paiements');
+
+    // 3. Dépenses
+    const expensesData = expenses.map(e => ({
+      Date: e.expense_date ? format(parseISO(e.expense_date), 'yyyy-MM-dd') : '',
+      Catégorie: e.category,
+      Description: e.description,
+      Montant: e.amount,
+      Devise: sym,
+      Méthode: e.payment_method
+    }));
+    const wsExpenses = XLSX.utils.json_to_sheet(expensesData);
+    XLSX.utils.book_append_sheet(wb, wsExpenses, 'Dépenses');
+
+    XLSX.writeFile(wb, `comptabilite_atelierpro_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   }
 
   return (
@@ -146,14 +196,24 @@ export default function ReportsPage() {
           </p>
         </div>
 
-        <Button
-          variant="outline"
-          leftIcon={<Download className="w-4 h-4" />}
-          onClick={handleExportCSV}
-          className="w-full sm:w-auto"
-        >
-          Exporter en CSV
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            leftIcon={<Download className="w-4 h-4" />}
+            onClick={handleExportCSV}
+            className="w-full sm:w-auto"
+          >
+            Exporter en CSV
+          </Button>
+          <Button
+            variant="primary"
+            leftIcon={<Download className="w-4 h-4" />}
+            onClick={handleExportExcel}
+            className="w-full sm:w-auto bg-green-700 hover:bg-green-800 text-white"
+          >
+            Export Comptable Excel
+          </Button>
+        </div>
       </div>
 
       {/* Grille des Chiffres d'Affaires */}

@@ -44,6 +44,7 @@ export function WhatsAppSenderModal({
 
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplateType>(defaultTemplate);
   const [copied, setCopied] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   // Financial values
   const totalAmount = order?.total_amount || customer.total_spent || 0;
@@ -112,6 +113,32 @@ export function WhatsAppSenderModal({
 
   function handleOpenWhatsApp() {
     window.open(whatsappUrl, '_blank');
+  }
+
+  async function handleSendDirectly() {
+    setIsSending(true);
+    try {
+      const res = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: cleanPhone,
+          message: customMessage,
+        }),
+      });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || 'Erreur inconnue');
+      
+      success('Message envoyé avec succès via l\'API Cloud !');
+      onClose();
+    } catch (error: any) {
+      alert(`Échec de l'envoi : ${error.message}\nVérifiez que les clés API Meta sont configurées.`);
+    } finally {
+      setIsSending(false);
+    }
   }
 
   return (
@@ -206,16 +233,26 @@ export function WhatsAppSenderModal({
           </Button>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={isSending}>
               Fermer
             </Button>
             <button
               type="button"
+              onClick={handleSendDirectly}
+              disabled={isSending}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
+            >
+              <Send className="w-4 h-4 fill-white" />
+              <span>{isSending ? 'Envoi...' : 'Envoyer via API'}</span>
+            </button>
+            <button
+              type="button"
               onClick={handleOpenWhatsApp}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider shadow-md hover:scale-105 transition-all cursor-pointer"
+              disabled={isSending}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider shadow-md hover:scale-105 transition-all cursor-pointer"
             >
               <MessageCircle className="w-4 h-4 fill-white" />
-              <span>Envoyer sur WhatsApp</span>
+              <span>Ouvrir WhatsApp</span>
               <ExternalLink className="w-3.5 h-3.5 text-emerald-200" />
             </button>
           </div>

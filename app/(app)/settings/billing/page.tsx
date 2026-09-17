@@ -42,7 +42,7 @@ export default function BillingSettingsPage() {
         body: JSON.stringify({
           type: 'subscription',
           planId,
-          workshopId: currentWorkshop?.id || 'demo-workshop',
+          workshopId: currentWorkshop?.id || 'err-workshop',
           customerEmail: 'contact@atelierpro.app',
         }),
       });

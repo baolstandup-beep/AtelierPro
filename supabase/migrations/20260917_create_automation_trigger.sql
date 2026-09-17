@@ -37,7 +37,7 @@ BEGIN
       VALUES (
         v_workshop_id,
         NEW.id,
-        'OWNER',
+        'OWNER'::public.user_role,
         'ACTIVE'
       );
     END IF;

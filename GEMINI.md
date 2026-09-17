@@ -41,7 +41,7 @@ Project: AtelierPro (``)
 
 ### Module 1 : Authentification & Sécurité Multi-Tenant
 - **Description** : Inscription, connexion, déconnexion, récupération de mot de passe, synchronisation de session et protection des accès.
-- **Fichiers & Pages** : [`app/auth/login/page.tsx`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/app/auth/login/page.tsx), [`app/auth/register/page.tsx`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/app/auth/register/page.tsx), [`app/auth/forgot-password/page.tsx`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/app/auth/forgot-password/page.tsx), [`app/auth/callback/route.ts`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/app/auth/callback/route.ts), [`components/auth/supabase-auth-sync.tsx`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/components/auth/supabase-auth-sync.tsx), [`middleware.ts`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/middleware.ts), [`lib/rate-limiter.ts`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/lib/rate-limiter.ts).
+- **Fichiers & Pages** : [`app/auth/login/page.tsx`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/app/auth/login/page.tsx), [`app/auth/register/page.tsx`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/app/auth/register/page.tsx), [`app/auth/forgot-password/page.tsx`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/app/auth/forgot-password/page.tsx), [`app/auth/callback/route.ts`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/app/auth/callback/route.ts), [`components/auth/supabase-auth-sync.tsx`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/components/auth/supabase-auth-sync.tsx), [`proxy.ts`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/proxy.ts), [`lib/rate-limiter.ts`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/lib/rate-limiter.ts).
 - **Tables DB** : `auth.users`, `profiles`, `workshops`, `workshop_members`.
 - **État** : **Fonctionnelle** (connectée à Supabase Auth, sessions persistées, protection anti-brute force max 5 tentatives/15 min).
 
@@ -165,7 +165,7 @@ atelierpro/
 │   └── sw.js                            # Service Worker de mise en cache
 ├── scripts/                             # Scripts de tests automatisés (MVP, RLS, Sécurité)
 ├── supabase/                            # Scripts SQL (schéma, RLS, tests de sécurité)
-├── middleware.ts                        # Middleware de sécurité HTTP & rate limit
+├── proxy.ts                             # Middleware (Proxy) de sécurité HTTP & rate limit
 ├── next.config.ts                       # Configuration Next.js (Headers de sécurité, CSP, PWA)
 └── vercel.json                          # Configuration de build et déploiement Vercel
 ```
@@ -243,7 +243,7 @@ erDiagram
 - La fonction PostgreSQL `public.user_is_member_of(_workshop_id UUID)` valide en base que `auth.uid()` est membre actif ou propriétaire avant d'autoriser tout `SELECT`, `INSERT`, `UPDATE` ou `DELETE`.
 
 ### 2. Protection Anti-Brute Force (Rate Limiting)
-- [`middleware.ts`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/middleware.ts) et [`lib/rate-limiter.ts`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/lib/rate-limiter.ts) bloquent automatiquement les adresses IP après **5 tentatives consécutives infructueuses sur les routes `POST` d'authentification** pendant une durée de **15 minutes**.
+- [`proxy.ts`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/proxy.ts) et [`lib/rate-limiter.ts`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/lib/rate-limiter.ts) bloquent automatiquement les adresses IP après **5 tentatives consécutives infructueuses sur les routes `POST` d'authentification** pendant une durée de **15 minutes**.
 - Les adresses loopback de développement (`127.0.0.1`, `localhost`) sont exemptées pour ne pas bloquer les tests locaux.
 
 ### 3. En-têtes HTTP de Sécurité
@@ -308,10 +308,10 @@ Les futurs agents doivent respecter impérativement les règles suivantes :
 
 ### 🟡 IMPORTANT :
 1. **Provisionnement du Bucket Supabase Storage** : Si le bucket `atelierpro-media` n'est pas encore créé dans l'interface de gestion Supabase du projet, [`lib/storage.ts`](file:///Users/administrateur/Documents/dossier%20sans%20titre%202/atelierpro/lib/storage.ts) bascule sur les Object URLs locales. Créer le bucket public `atelierpro-media` dans Supabase pour pérenniser les photos de tissus en ligne.
-2. **Migration convention Next.js Proxy** : Next.js 16 signale un avertissement recommandant la migration de `middleware.ts` vers `proxy.ts`. Ce fichier fonctionne actuellement de manière stable mais peut être migré si demandé.
+2. ✅ **Migration convention Next.js Proxy** : La migration de `middleware.ts` vers `proxy.ts` a été effectuée avec succès pour se conformer aux futures recommandations de Next.js 16.
 
 ### 🟢 AMÉLIORATION :
-1. **Reçus WhatsApp API directe (Cloud API)** : Actuellement, les messages s'ouvrent via l'URL universelle `https://wa.me/...`. Une intégration WhatsApp Business Cloud API directe pourrait permettre des notifications automatiques en arrière-plan sans intervention humaine.
+1. ✅ **Reçus WhatsApp API directe (Cloud API)** : Une intégration WhatsApp Business Cloud API directe a été implémentée (`app/api/whatsapp/send/route.ts`) pour permettre des envois de notifications automatiques via Meta.
 2. **Export Comptable Excel étendu** : Le bouton d'export dans `reports/page.tsx` génère un rapport de synthèse. Ajouter l'export `.xlsx` natif des écritures comptables journalières.
 
 ---

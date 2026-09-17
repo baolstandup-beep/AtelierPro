@@ -88,13 +88,15 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
       if (error.message && (error.message.includes('User already registered') || error.message.includes('already exists'))) {
          return { error: 'Un compte existe déjà avec ce numéro de téléphone.' };
       }
-      return { error: error.message || JSON.stringify(error) || 'Erreur inconnue lors de la création Auth' };
+      const debugInfo = `Msg: ${error.message}, Name: ${error.name}, Keys: ${Object.keys(error).join(',')}, Code: ${(error as any).code}`;
+      return { error: `Erreur Supabase Auth: ${debugInfo}` };
     }
 
     // Le trigger handle_new_user sur Supabase s'occupe de créer le profil, l'atelier et l'association membre automatiquement.
 
     return { data: sessionData };
   } catch (err: any) {
-    return { error: err?.message || JSON.stringify(err) || 'Erreur serveur inattendue' };
+    const debugInfo = `Msg: ${err?.message}, Name: ${err?.name}, Keys: ${err ? Object.keys(err).join(',') : 'null'}`;
+    return { error: `Exception Interceptée: ${debugInfo}` };
   }
 }
