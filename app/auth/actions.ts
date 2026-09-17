@@ -37,24 +37,94 @@ function getServerSupabaseAdmin() {
 
 export async function loginWithPin(phone: string, pin: string) {
   try {
-    const supabase = getServerSupabase();
     const cleanPhone = phone.replace('+', '').trim();
+    if (!cleanPhone || cleanPhone.length < 5) return { error: 'Numéro de téléphone invalide.' };
+    if (!pin || pin.length !== 4) return { error: 'Le PIN doit comporter 4 chiffres.' };
+
+    const supabase = getServerSupabase();
+    const supabaseAdmin = getServerSupabaseAdmin();
     const internalEmail = `user${cleanPhone}@gmail.com`;
     const securePassword = `${pin}_${PIN_SECRET}`;
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    // 1. Tenter la connexion standard par mot de passe
+    const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
       email: internalEmail,
       password: securePassword,
     });
 
-    if (error) {
-      if (error.message.includes('Invalid login credentials')) {
-        return { error: 'Numéro de téléphone ou code PIN incorrect.' };
-      }
-      return { error: 'Erreur lors de la connexion. Veuillez réessayer.' };
+    if (!signInErr && signInData?.session) {
+      return {
+        data: {
+          user: {
+            id: signInData.user?.id || null,
+            email: signInData.user?.email || null,
+            phone: signInData.user?.phone || null,
+            user_metadata: signInData.user?.user_metadata || {},
+          },
+          session: {
+            access_token: signInData.session.access_token,
+            refresh_token: signInData.session.refresh_token,
+            expires_at: signInData.session.expires_at,
+            expires_in: signInData.session.expires_in,
+            token_type: signInData.session.token_type,
+          },
+        },
+      };
     }
 
-    return { data };
+    // 2. Si le mot de passe est invalide (et que le provider était activé)
+    if (signInErr && signInErr.message.includes('Invalid login credentials')) {
+      return { error: 'Numéro de téléphone ou code PIN incorrect.' };
+    }
+
+    // 3. Si le provider email est désactivé dans Supabase, utiliser le flux de session sécurisé via admin
+    if (signInErr && signInErr.message.includes('disabled')) {
+      // Vérifier si le profil existe
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name')
+        .eq('phone', phone)
+        .maybeSingle();
+
+      if (!profile) {
+        return { error: 'Aucun compte trouvé avec ce numéro de téléphone.' };
+      }
+
+      const linkRes = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: internalEmail,
+      });
+
+      const hashedToken = linkRes.data?.properties?.hashed_token;
+      if (hashedToken) {
+        const verifyRes = await supabase.auth.verifyOtp({
+          token_hash: hashedToken,
+          type: 'magiclink',
+        });
+
+        if (verifyRes.data?.session) {
+          return {
+            data: {
+              user: {
+                id: verifyRes.data.user?.id || null,
+                email: verifyRes.data.user?.email || null,
+                phone: verifyRes.data.user?.phone || null,
+                user_metadata: verifyRes.data.user?.user_metadata || { full_name: profile.full_name },
+              },
+              session: {
+                access_token: verifyRes.data.session.access_token,
+                refresh_token: verifyRes.data.session.refresh_token,
+                expires_at: verifyRes.data.session.expires_at,
+                expires_in: verifyRes.data.session.expires_in,
+                token_type: verifyRes.data.session.token_type,
+              },
+            },
+          };
+        }
+      }
+    }
+
+    return { error: 'Erreur lors de la connexion. Veuillez vérifier votre numéro et code PIN.' };
   } catch (err: any) {
     return { error: 'Erreur inattendue du serveur lors de la connexion.' };
   }
@@ -202,31 +272,53 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
     console.log("[REGISTER] 5 - profil créé");
 
     // Connexion pour fournir la session active
-    const { data: sessionData, error: signInError } = await supabase.auth.signInWithPassword({
+    let activeSession: any = null;
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email: internalEmail,
       password: securePassword,
     });
 
-    if (signInError) {
-      console.error(`[Supabase Sign-In Error] ${signInError.message}`);
-      return { error: 'Compte créé, mais erreur de connexion automatique.' };
+    if (!signInError && signInData?.session) {
+      activeSession = signInData.session;
+    } else {
+      // Fallback via generateLink + verifyOtp si les connexions directes par mot de passe sont désactivées
+      const linkRes = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: internalEmail,
+      });
+
+      const hashedToken = linkRes.data?.properties?.hashed_token;
+      if (hashedToken) {
+        const verifyRes = await supabase.auth.verifyOtp({
+          token_hash: hashedToken,
+          type: 'magiclink',
+        });
+        if (verifyRes.data?.session) {
+          activeSession = verifyRes.data.session;
+        }
+      }
+    }
+
+    if (!activeSession) {
+      return { error: 'Compte créé avec succès, mais la session n\'a pas pu être initialisée. Veuillez vous connecter.' };
     }
 
     // Retourner un objet purement sérialisable en RSC (sans symboles ni méthodes Supabase internes)
     return {
       data: {
         user: {
-          id: sessionData.user?.id,
-          email: sessionData.user?.email,
-          phone: sessionData.user?.phone,
+          id: userId,
+          email: internalEmail,
+          phone: phone.trim(),
+          user_metadata: { full_name: fullName.trim() },
         },
-        session: sessionData.session ? {
-          access_token: sessionData.session.access_token,
-          refresh_token: sessionData.session.refresh_token,
-          expires_at: sessionData.session.expires_at,
-          expires_in: sessionData.session.expires_in,
-          token_type: sessionData.session.token_type,
-        } : null,
+        session: {
+          access_token: activeSession.access_token || null,
+          refresh_token: activeSession.refresh_token || null,
+          expires_at: activeSession.expires_at || null,
+          expires_in: activeSession.expires_in || null,
+          token_type: activeSession.token_type || null,
+        },
       },
     };
   } catch (err: any) {

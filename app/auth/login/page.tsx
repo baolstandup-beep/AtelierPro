@@ -72,8 +72,9 @@ export default function LoginPage() {
           });
         }
 
-        if (data?.user) {
-          const fullName = data.user.user_metadata?.full_name || 'Utilisateur';
+        if (data?.user?.id) {
+          const userMeta = (data.user as any).user_metadata;
+          const fullName = (userMeta?.full_name as string) || 'Utilisateur';
           await syncWithSupabase(data.user.id, fullName);
         }
       } else {

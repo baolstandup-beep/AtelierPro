@@ -39,9 +39,44 @@ export async function dbGetOrCreateUserWorkshop(userId: string, userFullName?: s
     throw new Error('Supabase non configuré');
   }
 
+  // 1. Consultation directe du profil utilisateur dans la table 'profiles'
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('atelier_id, role, full_name')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (profile && profile.atelier_id) {
+    // 2. Récupération de l'atelier correspondant dans 'ateliers'
+    const { data: atelier } = await supabase
+      .from('ateliers')
+      .select('*')
+      .eq('id', profile.atelier_id)
+      .maybeSingle();
+
+    if (atelier) {
+      const ws: Workshop = {
+        id: atelier.id,
+        name: atelier.name || 'Mon Atelier',
+        phone: atelier.phone || undefined,
+        address: atelier.address || undefined,
+        city: undefined,
+        logo_url: undefined,
+        currency: atelier.currency || 'XOF',
+        currency_symbol: 'FCFA',
+        owner_id: userId,
+        is_active: true,
+        created_at: atelier.created_at || new Date().toISOString(),
+        updated_at: atelier.created_at || new Date().toISOString(),
+      };
+      return { workshop: ws, role: profile.role || 'OWNER' };
+    }
+  }
+
+  // 3. Fallback sur les tables 'workshops' et 'workshop_members' si configurées
   let attempt = 0;
-  const maxAttempts = 4;
-  const delays = [300, 600, 1000, 2000];
+  const maxAttempts = 3;
+  const delays = [300, 600, 1000];
 
   while (attempt < maxAttempts) {
     const { data: memberRows, error: memberErr } = await supabase
@@ -52,8 +87,7 @@ export async function dbGetOrCreateUserWorkshop(userId: string, userFullName?: s
 
     if (!memberErr && memberRows && memberRows.length > 0 && memberRows[0].workshops) {
       const ws = memberRows[0].workshops as unknown as Workshop;
-      
-            return { workshop: ws, role: memberRows[0].role || 'OWNER' };
+      return { workshop: ws, role: memberRows[0].role || 'OWNER' };
     }
 
     const { data: ownedWorkshops, error: ownErr } = await supabase
@@ -73,7 +107,38 @@ export async function dbGetOrCreateUserWorkshop(userId: string, userFullName?: s
     attempt++;
   }
 
-  throw new Error('TIMEOUT: Profil atelier introuvable après création. Le backend Supabase (trigger) a peut-être échoué.');
+  // 4. Si aucun atelier n'existe encore, créer un atelier par défaut
+  const defaultName = userFullName ? `Atelier de ${userFullName}` : 'Mon Atelier';
+  const { data: createdAtelier } = await supabase
+    .from('ateliers')
+    .insert({ name: defaultName })
+    .select()
+    .maybeSingle();
+
+  if (createdAtelier) {
+    await supabase.from('profiles').upsert({
+      id: userId,
+      atelier_id: createdAtelier.id,
+      full_name: userFullName || '',
+      role: 'owner',
+    });
+
+    return {
+      workshop: {
+        id: createdAtelier.id,
+        name: createdAtelier.name,
+        currency: 'XOF',
+        currency_symbol: 'FCFA',
+        owner_id: userId,
+        is_active: true,
+        created_at: createdAtelier.created_at,
+        updated_at: createdAtelier.created_at,
+      },
+      role: 'OWNER',
+    };
+  }
+
+  throw new Error('TIMEOUT: Profil atelier introuvable après création. Le backend Supabase a peut-être échoué.');
 }
 
 /**
@@ -84,15 +149,50 @@ export async function dbFetchWorkshopFullData(workshopId: string): Promise<Synce
     throw new Error('Supabase non configuré');
   }
 
-  // 1. Atelier
-  const { data: wsData, error: wsErr } = await supabase
+  const client = supabase;
+
+  // 1. Atelier (avec support direct de 'ateliers' ou 'workshops')
+  let wsData: any = null;
+  const { data: directWs } = await client
     .from('workshops')
     .select('*')
     .eq('id', workshopId)
-    .single();
+    .maybeSingle();
 
-  if (wsErr || !wsData) {
-    throw new Error(wsErr?.message || 'Atelier introuvable');
+  if (directWs) {
+    wsData = directWs;
+  } else {
+    const { data: atData } = await client
+      .from('ateliers')
+      .select('*')
+      .eq('id', workshopId)
+      .maybeSingle();
+
+    if (atData) {
+      wsData = {
+        id: atData.id,
+        name: atData.name,
+        phone: atData.phone,
+        address: atData.address,
+        currency: atData.currency || 'XOF',
+        currency_symbol: 'FCFA',
+        is_active: true,
+        created_at: atData.created_at,
+        updated_at: atData.created_at,
+      };
+    }
+  }
+
+  if (!wsData) {
+    wsData = {
+      id: workshopId,
+      name: 'Mon Atelier',
+      currency: 'XOF',
+      currency_symbol: 'FCFA',
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
   }
 
   // 2. Requêtes parallèles pour toutes les tables de l'atelier
@@ -108,16 +208,64 @@ export async function dbFetchWorkshopFullData(workshopId: string): Promise<Synce
     membersRes,
     notificationsRes,
   ] = await Promise.all([
-    supabase.from('customers').select('*').eq('workshop_id', workshopId).is('deleted_at', null).order('created_at', { ascending: false }),
-    supabase.from('orders').select('*').eq('workshop_id', workshopId).is('deleted_at', null).order('created_at', { ascending: false }),
-    supabase.from('order_items').select('*').eq('workshop_id', workshopId),
-    supabase.from('payments').select('*').eq('workshop_id', workshopId).order('payment_date', { ascending: false }),
-    supabase.from('measurement_profiles').select('*').eq('workshop_id', workshopId).order('taken_at', { ascending: false }),
-    supabase.from('measurement_values').select('*').eq('workshop_id', workshopId),
-    supabase.from('measurement_types').select('*').eq('workshop_id', workshopId).order('sort_order', { ascending: true }),
-    supabase.from('expenses').select('*').eq('workshop_id', workshopId).order('expense_date', { ascending: false }),
-    supabase.from('workshop_members').select('*, profiles:user_id (*)').eq('workshop_id', workshopId),
-    supabase.from('notifications').select('*').eq('workshop_id', workshopId).order('created_at', { ascending: false }).limit(50),
+    client.from('customers').select('*').eq('workshop_id', workshopId).is('deleted_at', null).order('created_at', { ascending: false }).then(async res => {
+      if (res.error && res.error.message?.includes('not find the table')) {
+        const { data: clientsData } = await client.from('clients').select('*').eq('atelier_id', workshopId).order('created_at', { ascending: false });
+        return {
+          data: (clientsData || []).map((c: any) => ({
+            id: c.id,
+            workshop_id: workshopId,
+            full_name: c.name || '',
+            phone: c.phone || '',
+            gender: c.gender || 'OTHER',
+            notes: c.notes || '',
+            created_at: c.created_at,
+            updated_at: c.updated_at || c.created_at,
+          })),
+          error: null,
+        };
+      }
+      return res;
+    }),
+    client.from('orders').select('*').eq('workshop_id', workshopId).is('deleted_at', null).order('created_at', { ascending: false }).then(async res => {
+      if (res.error && res.error.message?.includes('workshop_id')) {
+        const { data: ordersAlt } = await client.from('orders').select('*').eq('atelier_id', workshopId).order('created_at', { ascending: false });
+        return { data: ordersAlt || [], error: null };
+      }
+      return res;
+    }),
+    client.from('order_items').select('*').eq('workshop_id', workshopId).then(async res => {
+      if (res.error && res.error.message?.includes('workshop_id')) {
+        const { data: itemsAlt } = await client.from('order_items').select('*').eq('atelier_id', workshopId);
+        return { data: itemsAlt || [], error: null };
+      }
+      return res;
+    }),
+    client.from('payments').select('*').eq('workshop_id', workshopId).order('payment_date', { ascending: false }).then(async res => {
+      if (res.error && res.error.message?.includes('workshop_id')) {
+        const { data: paysAlt } = await client.from('payments').select('*').eq('atelier_id', workshopId).order('created_at', { ascending: false });
+        return { data: paysAlt || [], error: null };
+      }
+      return res;
+    }),
+    client.from('measurement_profiles').select('*').eq('workshop_id', workshopId).order('taken_at', { ascending: false }).then(res => ({ data: res.data || [], error: null })),
+    client.from('measurement_values').select('*').eq('workshop_id', workshopId).then(res => ({ data: res.data || [], error: null })),
+    client.from('measurement_types').select('*').eq('workshop_id', workshopId).order('sort_order', { ascending: true }).then(res => ({ data: res.data || [], error: null })),
+    client.from('expenses').select('*').eq('workshop_id', workshopId).order('expense_date', { ascending: false }).then(res => ({ data: res.data || [], error: null })),
+    client.from('workshop_members').select('*, profiles:user_id (*)').eq('workshop_id', workshopId).then(async res => {
+      if (res.error && res.error.message?.includes('workshop_members')) {
+        const { data: tm } = await client.from('team_members').select('*').eq('atelier_id', workshopId);
+        return { data: tm || [], error: null };
+      }
+      return res;
+    }),
+    client.from('notifications').select('*').eq('workshop_id', workshopId).order('created_at', { ascending: false }).limit(50).then(async res => {
+      if (res.error && res.error.message?.includes('workshop_id')) {
+        const { data: notifsAlt } = await client.from('notifications').select('*').eq('atelier_id', workshopId).limit(50);
+        return { data: notifsAlt || [], error: null };
+      }
+      return res;
+    }),
   ]);
 
   const rawCustomers: Customer[] = (customersRes.data || []) as Customer[];
@@ -185,7 +333,7 @@ export async function dbFetchWorkshopFullData(workshopId: string): Promise<Synce
 export async function dbCreateCustomer(workshopId: string, input: CreateCustomerInput, userId?: string): Promise<Customer> {
   if (!supabase || !isSupabaseConfigured) throw new Error('Supabase non configuré');
 
-  const { data, error } = await supabase
+  const res = await supabase
     .from('customers')
     .insert({
       workshop_id: workshopId,
@@ -199,10 +347,43 @@ export async function dbCreateCustomer(workshopId: string, input: CreateCustomer
       created_by: userId || null,
     })
     .select()
+    .maybeSingle();
+
+  if (res.data) return res.data as Customer;
+
+  // Fallback sur la table 'clients'
+  const genderMap: Record<string, string> = {
+    MALE: 'homme',
+    FEMALE: 'femme',
+    homme: 'homme',
+    femme: 'femme',
+  };
+  const clientGender = input.gender ? (genderMap[input.gender] || null) : null;
+
+  const { data: client, error: clErr } = await supabase
+    .from('clients')
+    .insert({
+      atelier_id: workshopId,
+      name: input.full_name.trim(),
+      phone: input.phone.trim(),
+      notes: input.notes?.trim() || null,
+      gender: clientGender,
+    })
+    .select()
     .single();
 
-  if (error || !data) throw error;
-  return data as Customer;
+  if (clErr) throw new Error(clErr.message);
+
+  return {
+    id: client.id,
+    workshop_id: workshopId,
+    full_name: client.name,
+    phone: client.phone || '',
+    gender: (client.gender as any) || 'OTHER',
+    notes: client.notes || '',
+    created_at: client.created_at,
+    updated_at: client.created_at,
+  };
 }
 
 export async function dbUpdateCustomer(customerId: string, input: Partial<CreateCustomerInput>): Promise<Customer> {
@@ -222,10 +403,48 @@ export async function dbUpdateCustomer(customerId: string, input: Partial<Create
     })
     .eq('id', customerId)
     .select()
+    .maybeSingle();
+
+  if (data) return data as Customer;
+
+  // Fallback sur 'clients'
+  const genderMap: Record<string, string> = {
+    MALE: 'homme',
+    FEMALE: 'femme',
+    homme: 'homme',
+    femme: 'femme',
+  };
+  const clientGender = input.gender ? (genderMap[input.gender] || null) : undefined;
+
+  const updatePayload: any = {
+    name: input.full_name?.trim(),
+    phone: input.phone?.trim(),
+    notes: input.notes?.trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+  if (clientGender !== undefined) {
+    updatePayload.gender = clientGender;
+  }
+
+  const { data: client, error: clErr } = await supabase
+    .from('clients')
+    .update(updatePayload)
+    .eq('id', customerId)
+    .select()
     .single();
 
-  if (error || !data) throw error;
-  return data as Customer;
+  if (clErr) throw new Error(clErr.message);
+
+  return {
+    id: client.id,
+    workshop_id: client.atelier_id,
+    full_name: client.name,
+    phone: client.phone || '',
+    gender: (client.gender as any) || 'OTHER',
+    notes: client.notes || '',
+    created_at: client.created_at,
+    updated_at: client.updated_at || client.created_at,
+  };
 }
 
 export async function dbDeleteCustomer(customerId: string): Promise<void> {
