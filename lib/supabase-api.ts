@@ -468,66 +468,86 @@ export async function dbCreateOrder(
   userId?: string
 ): Promise<{ order: Order; items: OrderItem[]; initialPayment?: Payment }> {
   if (!supabase || !isSupabaseConfigured) throw new Error('Supabase non configuré');
+  console.log("========== CREATE ORDER START ==========");
+  console.log("STEP 0 AUTH", {
+    userId,
+    atelierId: workshopId,
+    clientId: input.customer_id
+  });
 
   const totalAmount = input.items.reduce((sum, item) => sum + (item.unit_price * (item.quantity || 1)), 0);
   const paidAmount = input.initial_payment && input.initial_payment > 0 ? input.initial_payment : 0;
   const balance = Math.max(0, totalAmount - paidAmount);
-  console.log("CREATE ORDER DATA", {
-    userId,
-    atelierId: workshopId,
-    clientId: input.customer_id,
-    totalAmount,
-    advanceAmount: paidAmount,
-    paymentMethod: input.initial_payment_method || input.payment_method || 'CASH'
-  });
 
   if (!workshopId) throw new Error("atelier_id est manquant");
   if (!input.customer_id) throw new Error("client_id est manquant");
 
   const orderNumber = generateOrderNumber(new Date().getFullYear(), Math.floor(Math.random() * 900) + 100);
 
+  const orderPayload = {
+    atelier_id: workshopId,
+    client_id: input.customer_id,
+    title: orderNumber,
+    description: input.notes?.trim() || null,
+    status: 'en_attente',
+    total_amount: totalAmount,
+    due_date: input.due_date || null,
+  };
+
+  console.log("STEP 1 ORDER PAYLOAD", orderPayload);
+
   // 1. Créer la commande
   const { data: orderData, error: orderErr } = await supabase
     .from('orders')
-    .insert({
-      atelier_id: workshopId,
-      client_id: input.customer_id,
-      title: orderNumber,
-      description: input.notes?.trim() || null,
-      status: 'en_attente',
-      total_amount: totalAmount,
-      due_date: input.due_date || null,
-    })
+    .insert(orderPayload)
     .select()
     .single();
 
+  console.log("STEP 1 ORDER RESULT", {
+    data: orderData,
+    error: orderErr
+  });
+
   if (orderErr || !orderData) {
-    console.error("SUPABASE CREATE ORDER ERROR", {
+    console.error("❌ STEP 1 ORDERS FAILED", {
       code: orderErr?.code,
       message: orderErr?.message,
       details: orderErr?.details,
-      hint: orderErr?.hint,
-      error: orderErr
+      hint: orderErr?.hint
     });
-    throw orderErr || new Error("No data returned from order creation");
+    const errorToThrow = orderErr || new Error("No data returned from order creation");
+    throw errorToThrow;
   }
+  
+  console.log("✅ ORDER CREATED:", orderData.id);
 
-  // 2. Créer les articles de confection (order_items)
-  const itemsToInsert = input.items.map((item) => ({
+  console.log("STEP 2 ORDER ITEMS");
+  const itemsPayload = input.items.map((item) => ({
     order_id: orderData.id,
     atelier_id: workshopId,
     label: item.name.trim(),
     quantity: item.quantity || 1,
     unit_price: item.unit_price || 0,
   }));
+  console.log("ORDER ITEMS PAYLOAD", itemsPayload);
 
   const { data: itemsData, error: itemsErr } = await supabase
     .from('order_items')
-    .insert(itemsToInsert)
+    .insert(itemsPayload)
     .select();
 
+  console.log("ORDER ITEMS RESULT", {
+    data: itemsData,
+    error: itemsErr
+  });
+
   if (itemsErr) {
-    console.error('[Supabase] Erreur insertion articles:', itemsErr);
+    console.error("❌ STEP 2 ORDER_ITEMS FAILED", {
+      code: itemsErr?.code,
+      message: itemsErr?.message,
+      details: itemsErr?.details,
+      hint: itemsErr?.hint
+    });
   }
 
   // 3. Enregistrer l'acompte initial dans payments si présent
@@ -536,33 +556,37 @@ export async function dbCreateOrder(
     const paymentMethodRaw = input.initial_payment_method || input.payment_method || 'CASH';
     const finalPaymentMethod = paymentMethodRaw === 'CASH' ? 'especes' : paymentMethodRaw;
 
+    const paymentPayload = {
+      atelier_id: workshopId,
+      order_id: orderData.id,
+      amount: paidAmount,
+      method: finalPaymentMethod,
+      note: 'Acompte initial à la commande',
+    };
+    console.log("PAYMENT PAYLOAD", paymentPayload);
+
     const { data: payData, error: payErr } = await supabase
       .from('payments')
-      .insert({
-        atelier_id: workshopId,
-        order_id: orderData.id,
-        amount: paidAmount,
-        method: finalPaymentMethod,
-        note: 'Acompte initial à la commande',
-      })
+      .insert(paymentPayload)
       .select()
       .single();
 
+    console.log("PAYMENT RESULT", {
+      data: payData,
+      error: payErr
+    });
+
     if (payErr) {
-      console.error("SUPABASE CREATE PAYMENT ERROR", {
+      console.error("❌ STEP 3 PAYMENT FAILED", {
         code: payErr?.code,
         message: payErr?.message,
         details: payErr?.details,
-        hint: payErr?.hint,
-        error: payErr
+        hint: payErr?.hint
       });
     }
 
     if (payData) {
-      createdPayment = {
-        ...payData,
-        method: payData.payment_method,
-      } as Payment;
+      createdPayment = payData as Payment;
     }
   }
 
@@ -570,34 +594,24 @@ export async function dbCreateOrder(
     order: {
       ...orderData,
       id: orderData.id,
-      workshop_id: orderData.atelier_id || workshopId,
-      customer_id: orderData.client_id || input.customer_id,
-      order_number: orderData.title || orderNumber,
-      status: 'NEW',
-      priority: input.priority || 'NORMAL',
+      workshop_id: orderData.workshop_id || workshopId,
+      customer_id: orderData.customer_id || input.customer_id,
+      order_number: orderData.order_number || orderNumber,
+      status: orderData.status || 'NEW',
+      priority: orderData.priority || input.priority || 'NORMAL',
       total_amount: Number(orderData.total_amount || totalAmount),
-      paid_amount: paidAmount,
-      balance: balance,
-      order_date: orderData.created_at || new Date().toISOString(),
+      paid_amount: Number(orderData.paid_amount || paidAmount),
+      balance: Number(orderData.balance || balance),
+      order_date: orderData.order_date || new Date().toISOString(),
       due_date: orderData.due_date || input.due_date,
-      notes: orderData.description || input.notes,
-      items: (itemsData || []).map((item: any) => ({
-        ...item,
-        name: item.label || item.name,
-        workshop_id: item.atelier_id || item.workshop_id,
-      })),
+      notes: orderData.notes || input.notes,
+      items: itemsData || [],
     } as any,
-    items: (itemsData || []).map((item: any) => ({
-        ...item,
-        name: item.label || item.name,
-        workshop_id: item.atelier_id || item.workshop_id,
-    })) as any,
+    items: (itemsData || []) as any,
     initialPayment: createdPayment ? {
       ...createdPayment,
       payment_method: createdPayment.method,
-      workshop_id: createdPayment.atelier_id || workshopId,
-      customer_id: input.customer_id,
-      payment_date: createdPayment.paid_at || createdPayment.created_at,
+      payment_date: createdPayment.payment_date || createdPayment.created_at,
     } as any : undefined,
   };
 }
@@ -648,7 +662,7 @@ export async function dbCreatePayment(
       order_id: input.order_id,
       customer_id: input.customer_id,
       amount: input.amount,
-      payment_method: input.method || 'CASH',
+      method: input.method || 'CASH',
       status: (input.method === 'WAVE' || input.method === 'ORANGE_MONEY') ? 'PENDING' : 'CONFIRMED',
       reference: input.reference || null,
       notes: input.notes || null,

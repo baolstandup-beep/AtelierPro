@@ -147,10 +147,17 @@ export default function NewOrderPage() {
 
       success('Commande créée !', order.order_number);
       router.push(`/orders/${order.id}`);
-    } catch (err: any) {
-      console.error('Order creation failed:', err);
-      const msg = err?.message || err?.details || err?.hint || 'Impossible de créer la commande.';
-      showError('Erreur', msg);
+    } catch (error: any) {
+      console.error("🔥 CREATE ORDER FATAL ERROR", {
+        name: error?.name,
+        code: error?.code,
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        stack: error?.stack,
+        raw: error
+      });
+      throw error;
     } finally {
       setLoading(false);
     }
