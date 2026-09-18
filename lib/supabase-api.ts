@@ -478,19 +478,13 @@ export async function dbCreateOrder(
   const { data: orderData, error: orderErr } = await supabase
     .from('orders')
     .insert({
-      workshop_id: workshopId,
-      customer_id: input.customer_id,
-      order_number: orderNumber,
-      status: 'NEW',
-      priority: input.priority || 'NORMAL',
+      atelier_id: workshopId,
+      client_id: input.customer_id,
+      title: orderNumber,
+      description: input.notes?.trim() || null,
+      status: 'en_attente',
       total_amount: totalAmount,
-      paid_amount: paidAmount,
-      balance: balance,
-      order_date: new Date().toISOString(),
       due_date: input.due_date || null,
-      assigned_to: input.assigned_to || null,
-      notes: input.notes?.trim() || null,
-      created_by: userId || null,
     })
     .select()
     .single();
@@ -500,14 +494,10 @@ export async function dbCreateOrder(
   // 2. Créer les articles de confection (order_items)
   const itemsToInsert = input.items.map((item) => ({
     order_id: orderData.id,
-    workshop_id: workshopId,
-    name: item.name.trim(),
-    garment_type: item.garment_type || null,
-    fabric: item.fabric || null,
-    color: item.color || null,
+    atelier_id: workshopId,
+    label: item.name.trim(),
     quantity: item.quantity || 1,
     unit_price: item.unit_price || 0,
-    notes: item.notes || null,
   }));
 
   const { data: itemsData, error: itemsErr } = await supabase
@@ -523,21 +513,21 @@ export async function dbCreateOrder(
   let createdPayment: Payment | undefined;
   if (paidAmount > 0) {
     const paymentMethod = input.initial_payment_method || input.payment_method || 'CASH';
-    const { data: payData } = await supabase
+    const { data: payData, error: payErr } = await supabase
       .from('payments')
       .insert({
-        workshop_id: workshopId,
+        atelier_id: workshopId,
         order_id: orderData.id,
-        customer_id: input.customer_id,
         amount: paidAmount,
-        payment_method: paymentMethod,
-        status: 'CONFIRMED',
-        payment_date: new Date().toISOString(),
-        notes: 'Acompte initial à la commande',
-        created_by: userId || null,
+        method: paymentMethod,
+        note: 'Acompte initial à la commande',
       })
       .select()
       .single();
+
+    if (payErr) {
+      console.error('[Supabase] Erreur insertion paiement:', payErr);
+    }
 
     if (payData) {
       createdPayment = {

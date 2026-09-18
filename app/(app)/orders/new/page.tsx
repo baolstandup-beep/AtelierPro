@@ -147,8 +147,10 @@ export default function NewOrderPage() {
 
       success('Commande créée !', order.order_number);
       router.push(`/orders/${order.id}`);
-    } catch (err: unknown) {
-      showError('Erreur', err instanceof Error ? err.message : 'Impossible de créer la commande.');
+    } catch (err: any) {
+      console.error('Order creation failed:', err);
+      const msg = err?.message || err?.details || err?.hint || 'Impossible de créer la commande.';
+      showError('Erreur', msg);
     } finally {
       setLoading(false);
     }
