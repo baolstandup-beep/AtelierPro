@@ -81,6 +81,7 @@ export async function POST(request: Request) {
       .from('payment_webhook_events')
       .select('id')
       .eq('event_id', eventId)
+      .eq('provider', 'WAVE')
       .single();
 
     if (existingEvent) {
@@ -90,10 +91,11 @@ export async function POST(request: Request) {
     }
 
     // 2. Récupérer le paiement dans notre base
+    // Le client_reference contient l'ID UUID de notre paiement interne.
     const { data: payment, error: payErr } = await supabaseAdmin
       .from('subscription_payments')
       .select('*')
-      .eq('reference', clientReference)
+      .eq('id', clientReference)
       .single();
 
     if (payErr || !payment) {
@@ -128,7 +130,8 @@ export async function POST(request: Request) {
         payment_reference: clientReference,
         event_type: eventType,
         signature_valid: true,
-        processed: false,
+        processing_status: 'error',
+        error_message: rpcError.message || 'Internal RPC Error',
         payload: payload
       });
 
@@ -149,7 +152,7 @@ export async function POST(request: Request) {
         payment_reference: clientReference,
         event_type: eventType,
         signature_valid: true,
-        processed: true,
+        processing_status: 'processed',
         processed_at: new Date().toISOString(),
         payload: payload
       });

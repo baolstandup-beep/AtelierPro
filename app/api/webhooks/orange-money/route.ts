@@ -27,6 +27,7 @@ export async function POST(request: Request) {
       .from('payment_webhook_events')
       .select('id')
       .eq('event_id', notif_token)
+      .eq('provider', 'ORANGE_MONEY')
       .single();
 
     if (existingEvent) {
@@ -87,10 +88,11 @@ export async function POST(request: Request) {
     console.info(`[ORANGE_STATUS_VERIFIED] Transaction ${order_id} genuinely successful on OM servers`);
 
     // 3. Traiter le paiement interne
+    // order_id correspond à l'UUID de notre paiement interne dans subscription_payments
     const { data: payment, error: payErr } = await supabaseAdmin
       .from('subscription_payments')
       .select('*')
-      .eq('reference', order_id)
+      .eq('id', order_id)
       .single();
 
     if (payErr || !payment) {
@@ -124,7 +126,8 @@ export async function POST(request: Request) {
         payment_reference: order_id,
         event_type: 'payment_success',
         signature_valid: true,
-        processed: false,
+        processing_status: 'error',
+        error_message: rpcError.message || 'Internal RPC Error OM',
         payload: payload
       });
 
@@ -143,7 +146,7 @@ export async function POST(request: Request) {
         payment_reference: order_id,
         event_type: 'payment_success',
         signature_valid: true, // Vérification serveur réussie
-        processed: true,
+        processing_status: 'processed',
         processed_at: new Date().toISOString(),
         payload: payload
       });
