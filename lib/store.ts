@@ -136,6 +136,26 @@ const safeStorage = {
   },
 };
 
+// ─── Default Measurement Types Fallback ─────────────────────────
+const DEFAULT_MEASUREMENT_NAMES = [
+  'Tour de cou', 'Épaule', 'Poitrine', 'Longueur boubou', 'Longueur chemise',
+  'Longueur veste', 'Longueur robe', 'Longueur manches', 'Tour de bras',
+  'Tour de poignet', 'Taille', 'Bassin', 'Hanche', 'Tour de ceinture',
+  'Longueur pantalon', 'Cuisse', 'Genou', 'Bas de pantalon'
+];
+
+function getDefaultMeasurementTypes(workshopId: string): MeasurementType[] {
+  return DEFAULT_MEASUREMENT_NAMES.map((name, index) => ({
+    id: `default-meas-${index}`,
+    workshop_id: workshopId,
+    name,
+    unit: 'cm',
+    sort_order: index + 1,
+    is_custom: false,
+    created_at: new Date().toISOString(),
+  }));
+}
+
 // ─── Store Implementation ─────────────────────────────────────
 export const useAppStore = create<AppStore>()(
   (set, get) => ({
@@ -151,7 +171,7 @@ export const useAppStore = create<AppStore>()(
       orders: [],
       payments: [],
       measurementProfiles: [],
-      measurementTypes: [],
+      measurementTypes: getDefaultMeasurementTypes('demo-workshop-001'),
       expenses: [],
       members: [],
       notifications: [],
@@ -193,7 +213,7 @@ export const useAppStore = create<AppStore>()(
             orders: data.orders,
             payments: data.payments,
             measurementProfiles: data.measurementProfiles,
-            measurementTypes: data.measurementTypes.length > 0 ? data.measurementTypes : [],
+            measurementTypes: data.measurementTypes.length > 0 ? data.measurementTypes : getDefaultMeasurementTypes(data.workshop.id),
             expenses: data.expenses,
             members: data.members.length > 0 ? data.members : [],
             notifications: data.notifications,
@@ -250,7 +270,7 @@ export const useAppStore = create<AppStore>()(
           orders: [],
           payments: [],
           measurementProfiles: [],
-          measurementTypes: [],
+          measurementTypes: getDefaultMeasurementTypes('demo-workshop-001'),
           expenses: [],
           members: [],
           notifications: [],

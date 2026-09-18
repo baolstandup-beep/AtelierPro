@@ -9,6 +9,18 @@ import { Card, PageHeader, EmptyState } from '@/components/ui/card';
 import { useToast } from '@/components/ui/toaster';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 
+const MORPHOLOGY_TAGS = [
+  'Épaule droite tombante',
+  'Épaule gauche tombante',
+  'Ventre rond',
+  'Dos cambré',
+  'Dos voûté',
+  'Bras forts',
+  'Préfère manches amples',
+  'Préfère cintré',
+  'Fente longue',
+];
+
 export default function NewMeasurementPage() {
   const { id: customerId } = useParams<{ id: string }>();
   const router = useRouter();
@@ -31,6 +43,14 @@ export default function NewMeasurementPage() {
 
   function setValue(typeId: string, val: string) {
     setValues((prev) => ({ ...prev, [typeId]: val }));
+  }
+
+  function toggleMorphologyTag(tag: string) {
+    if (notes.includes(tag)) {
+      setNotes(notes.replace(new RegExp(`${tag}(, )?`, 'g'), '').trim().replace(/,$/, ''));
+    } else {
+      setNotes(notes ? `${notes}, ${tag}` : tag);
+    }
   }
 
   function handleAddType() {
@@ -152,13 +172,37 @@ export default function NewMeasurementPage() {
             </button>
           )}
 
-          <Textarea
-            label="Notes (facultatif)"
-            placeholder="Observations particulières, difficultés…"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-          />
+          <div className="pt-2 border-t border-gray-100">
+            <div className="mb-3 mt-3">
+              <label className="text-xs font-bold text-gray-800 block mb-2">Remarques morphologiques & préférences (Sélection rapide)</label>
+              <div className="flex flex-wrap gap-2">
+                {MORPHOLOGY_TAGS.map((tag) => {
+                  const isActive = notes.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleMorphologyTag(tag)}
+                      className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
+                        isActive
+                          ? 'bg-green-100 border-green-500 text-green-800 font-semibold'
+                          : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <Textarea
+              label="Notes détaillées (facultatif)"
+              placeholder="Observations particulières, difficultés…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+            />
+          </div>
 
           <div className="flex gap-3 pt-2">
             <Button variant="outline" type="button" onClick={() => router.back()}>

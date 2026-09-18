@@ -114,6 +114,18 @@ const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon?: string; logo?:
   },
 ];
 
+const MORPHOLOGY_TAGS = [
+  'Épaule droite tombante',
+  'Épaule gauche tombante',
+  'Ventre rond',
+  'Dos cambré',
+  'Dos voûté',
+  'Bras forts',
+  'Préfère manches amples',
+  'Préfère cintré',
+  'Fente longue',
+];
+
 export default function NewMeasurementPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -188,6 +200,14 @@ export default function NewMeasurementPage() {
     const preset = GARMENT_PRESETS.find((p) => p.id === presetId);
     if (preset) {
       setLabel(preset.label);
+    }
+  }
+
+  function toggleMorphologyTag(tag: string) {
+    if (notes.includes(tag)) {
+      setNotes(notes.replace(new RegExp(`${tag}(, )?`, 'g'), '').trim().replace(/,$/, ''));
+    } else {
+      setNotes(notes ? `${notes}, ${tag}` : tag);
     }
   }
 
@@ -573,8 +593,30 @@ export default function NewMeasurementPage() {
           </div>
 
           <div className="mt-5 pt-4 border-t border-gray-100">
+            <div className="mb-3">
+              <label className="text-xs font-bold text-gray-800 block mb-2">Remarques morphologiques & préférences (Sélection rapide)</label>
+              <div className="flex flex-wrap gap-2">
+                {MORPHOLOGY_TAGS.map((tag) => {
+                  const isActive = notes.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleMorphologyTag(tag)}
+                      className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
+                        isActive
+                          ? 'bg-green-100 border-green-500 text-green-800 font-semibold'
+                          : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <Textarea
-              label="Remarques morphologiques & préférences"
+              label="Remarques détaillées"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Ex: Épaule droite un peu tombante, préfère les manches amples, fente de 15cm..."
