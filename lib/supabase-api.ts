@@ -472,6 +472,18 @@ export async function dbCreateOrder(
   const totalAmount = input.items.reduce((sum, item) => sum + (item.unit_price * (item.quantity || 1)), 0);
   const paidAmount = input.initial_payment && input.initial_payment > 0 ? input.initial_payment : 0;
   const balance = Math.max(0, totalAmount - paidAmount);
+  console.log("CREATE ORDER DATA", {
+    userId,
+    atelierId: workshopId,
+    clientId: input.customer_id,
+    totalAmount,
+    advanceAmount: paidAmount,
+    paymentMethod: input.initial_payment_method || input.payment_method || 'CASH'
+  });
+
+  if (!workshopId) throw new Error("atelier_id est manquant");
+  if (!input.customer_id) throw new Error("client_id est manquant");
+
   const orderNumber = generateOrderNumber(new Date().getFullYear(), Math.floor(Math.random() * 900) + 100);
 
   // 1. Créer la commande
@@ -489,7 +501,16 @@ export async function dbCreateOrder(
     .select()
     .single();
 
-  if (orderErr || !orderData) throw orderErr;
+  if (orderErr || !orderData) {
+    console.error("SUPABASE CREATE ORDER ERROR", {
+      code: orderErr?.code,
+      message: orderErr?.message,
+      details: orderErr?.details,
+      hint: orderErr?.hint,
+      error: orderErr
+    });
+    throw orderErr || new Error("No data returned from order creation");
+  }
 
   // 2. Créer les articles de confection (order_items)
   const itemsToInsert = input.items.map((item) => ({
@@ -512,21 +533,29 @@ export async function dbCreateOrder(
   // 3. Enregistrer l'acompte initial dans payments si présent
   let createdPayment: Payment | undefined;
   if (paidAmount > 0) {
-    const paymentMethod = input.initial_payment_method || input.payment_method || 'CASH';
+    const paymentMethodRaw = input.initial_payment_method || input.payment_method || 'CASH';
+    const finalPaymentMethod = paymentMethodRaw === 'CASH' ? 'especes' : paymentMethodRaw;
+
     const { data: payData, error: payErr } = await supabase
       .from('payments')
       .insert({
         atelier_id: workshopId,
         order_id: orderData.id,
         amount: paidAmount,
-        method: paymentMethod,
+        method: finalPaymentMethod,
         note: 'Acompte initial à la commande',
       })
       .select()
       .single();
 
     if (payErr) {
-      console.error('[Supabase] Erreur insertion paiement:', payErr);
+      console.error("SUPABASE CREATE PAYMENT ERROR", {
+        code: payErr?.code,
+        message: payErr?.message,
+        details: payErr?.details,
+        hint: payErr?.hint,
+        error: payErr
+      });
     }
 
     if (payData) {
@@ -540,10 +569,36 @@ export async function dbCreateOrder(
   return {
     order: {
       ...orderData,
-      items: (itemsData || []) as OrderItem[],
-    } as Order,
-    items: (itemsData || []) as OrderItem[],
-    initialPayment: createdPayment,
+      id: orderData.id,
+      workshop_id: orderData.atelier_id || workshopId,
+      customer_id: orderData.client_id || input.customer_id,
+      order_number: orderData.title || orderNumber,
+      status: 'NEW',
+      priority: input.priority || 'NORMAL',
+      total_amount: Number(orderData.total_amount || totalAmount),
+      paid_amount: paidAmount,
+      balance: balance,
+      order_date: orderData.created_at || new Date().toISOString(),
+      due_date: orderData.due_date || input.due_date,
+      notes: orderData.description || input.notes,
+      items: (itemsData || []).map((item: any) => ({
+        ...item,
+        name: item.label || item.name,
+        workshop_id: item.atelier_id || item.workshop_id,
+      })),
+    } as any,
+    items: (itemsData || []).map((item: any) => ({
+        ...item,
+        name: item.label || item.name,
+        workshop_id: item.atelier_id || item.workshop_id,
+    })) as any,
+    initialPayment: createdPayment ? {
+      ...createdPayment,
+      payment_method: createdPayment.method,
+      workshop_id: createdPayment.atelier_id || workshopId,
+      customer_id: input.customer_id,
+      payment_date: createdPayment.paid_at || createdPayment.created_at,
+    } as any : undefined,
   };
 }
 
