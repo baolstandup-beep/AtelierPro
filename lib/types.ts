@@ -323,3 +323,37 @@ export interface CreateMeasurementInput {
   fabric_type?: string;
   values: { measurement_type_id: string; value: number; unit: string }[];
 }
+
+// ------- SaaS Payments types -------
+export type SaaSProvider = 'WAVE' | 'ORANGE_MONEY' | 'STRIPE' | 'MANUAL';
+export type SaaSStatus = 'pending' | 'processing' | 'paid' | 'failed' | 'cancelled' | 'expired';
+
+export interface SubscriptionPayment {
+  id: string;
+  workshop_id: string;
+  plan_id: string;
+  provider: SaaSProvider;
+  provider_transaction_id?: string;
+  reference: string;
+  amount: number;
+  currency: string;
+  status: SaaSStatus;
+  created_at: string;
+  updated_at: string;
+  paid_at?: string;
+  raw_metadata?: Record<string, unknown>;
+}
+
+export interface PaymentWebhookEvent {
+  id: string;
+  provider: string;
+  event_id: string;
+  payment_reference: string;
+  event_type: string;
+  signature_valid: boolean;
+  processed: boolean;
+  received_at: string;
+  processed_at?: string;
+  payload: Record<string, unknown>;
+}
+

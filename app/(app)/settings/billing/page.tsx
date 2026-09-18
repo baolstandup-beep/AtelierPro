@@ -29,7 +29,37 @@ export default function BillingSettingsPage() {
   const { success, error: showError } = useToast();
 
   const [loadingPlan, setLoadingPlan] = useState<SubscriptionPlanId | null>(null);
+  const [paymentProvider, setPaymentProvider] = useState<'STRIPE' | 'WAVE' | 'ORANGE_MONEY' | null>(null);
   const [currentPlanId, setCurrentPlanId] = useState<SubscriptionPlanId>('STARTER'); // Default demo active plan
+
+  async function handleSaaSPayment(planId: SubscriptionPlanId, provider: 'WAVE' | 'ORANGE_MONEY') {
+    setLoadingPlan(planId);
+    setPaymentProvider(provider);
+    try {
+      const endpoint = provider === 'WAVE' ? '/api/payments/wave/create' : '/api/payments/orange-money/create';
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan_id: planId
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur Checkout');
+
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err: any) {
+      showError(`Erreur ${provider}`, err?.message || `Impossible d'initialiser le paiement ${provider}.`);
+    } finally {
+      setLoadingPlan(null);
+      setPaymentProvider(null);
+    }
+  }
 
   async function handleSubscribe(planId: SubscriptionPlanId) {
     if (planId === 'FREE') return;
@@ -167,14 +197,38 @@ export default function BillingSettingsPage() {
                       Forfait actuel
                     </Button>
                   ) : (
-                    <Button
-                      className="w-full"
-                      variant={plan.isPopular ? 'primary' : 'outline'}
-                      loading={loadingPlan === plan.id}
-                      onClick={() => handleSubscribe(plan.id)}
-                    >
-                      {plan.priceXOF === 0 ? 'Choisir Découverte' : 'Souscrire avec Stripe'}
-                    </Button>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        className="w-full"
+                        variant={plan.isPopular ? 'primary' : 'outline'}
+                        loading={loadingPlan === plan.id && paymentProvider === 'STRIPE'}
+                        onClick={() => {
+                          setPaymentProvider('STRIPE');
+                          handleSubscribe(plan.id);
+                        }}
+                      >
+                        {plan.priceXOF === 0 ? 'Choisir Découverte' : 'Souscrire avec Stripe'}
+                      </Button>
+                      
+                      {plan.priceXOF > 0 && (
+                        <>
+                          <Button
+                            className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                            loading={loadingPlan === plan.id && paymentProvider === 'WAVE'}
+                            onClick={() => handleSaaSPayment(plan.id, 'WAVE')}
+                          >
+                            Payer avec Wave
+                          </Button>
+                          <Button
+                            className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                            loading={loadingPlan === plan.id && paymentProvider === 'ORANGE_MONEY'}
+                            onClick={() => handleSaaSPayment(plan.id, 'ORANGE_MONEY')}
+                          >
+                            Payer avec Orange Money
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
