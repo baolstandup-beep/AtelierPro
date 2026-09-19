@@ -1,3 +1,14 @@
+
+/* old */ function oldMapOrder(dbOrder: any): any {
+  if (!dbOrder) return dbOrder;
+  return {
+    ...dbOrder,
+    workshop_id: dbOrder.atelier_id,
+    customer_id: dbOrder.client_id,
+    order_number: dbOrder.title,
+    notes: dbOrder.description
+  };
+}
 import { supabase, isSupabaseConfigured } from './supabase';
 import type {
   Workshop,
@@ -226,10 +237,21 @@ export async function dbFetchWorkshopFullData(workshopId: string): Promise<Synce
       }
       return res;
     }),
-    client.from('orders').select('*').eq('workshop_id', workshopId).is('deleted_at', null).order('created_at', { ascending: false }).then(async res => {
-      if (res.error && res.error.message?.includes('workshop_id')) {
+    client.from('orders').select('*').eq('atelier_id', workshopId).is('deleted_at', null).order('created_at', { ascending: false }).then(async res => {
+      // Mapping real DB columns to frontend types
+      const mapOrder = (dbOrder: any) => ({
+        ...dbOrder,
+        workshop_id: dbOrder.atelier_id,
+        customer_id: dbOrder.client_id,
+        order_number: dbOrder.title,
+        notes: dbOrder.description
+      });
+      if (res.data) res.data = res.data.map(mapOrder);
+      
+      if (res.error) {
+        // Fallback or just return
         const { data: ordersAlt } = await client.from('orders').select('*').eq('atelier_id', workshopId).order('created_at', { ascending: false });
-        return { data: ordersAlt || [], error: null };
+        if (ordersAlt) return { data: ordersAlt.map(mapOrder), error: null };
       }
       return res;
     }),
@@ -484,16 +506,14 @@ export async function dbCreateOrder(
   const orderNumber = generateOrderNumber(new Date().getFullYear(), Math.floor(Math.random() * 900) + 100);
 
   const orderPayload = {
-    workshop_id: workshopId,
-    customer_id: input.customer_id,
-    order_number: orderNumber,
-    notes: input.notes?.trim() || null,
+    atelier_id: workshopId,
+    client_id: input.customer_id,
+    title: orderNumber,
+    description: input.notes?.trim() || null,
     status: 'NEW',
     priority: input.priority || 'NORMAL',
     total_amount: totalAmount,
     paid_amount: paidAmount,
-    // Note: 'balance' est une colonne GENERATED ALWAYS AS (total_amount - paid_amount) STORED
-    // Elle ne doit PAS être incluse dans le payload INSERT/UPDATE — PostgreSQL la calcule automatiquement
     due_date: input.due_date || null,
   };
 
@@ -639,7 +659,7 @@ export async function dbUpdateOrderStatus(orderId: string, status: OrderStatus):
     .single();
 
   if (error || !data) throw error;
-  return data as Order;
+  return mapOrderToFrontend(data);
 }
 
 export async function dbDeleteOrder(orderId: string): Promise<void> {
@@ -663,7 +683,7 @@ export async function dbUpdateOrder(
   const safeUpdates: Record<string, unknown> = {};
   if (updates.status !== undefined) safeUpdates.status = updates.status;
   if (updates.due_date !== undefined) safeUpdates.due_date = updates.due_date;
-  if (updates.notes !== undefined) safeUpdates.notes = updates.notes;
+  if (updates.notes !== undefined) safeUpdates.description = updates.notes; // mapped
   if (updates.priority !== undefined) safeUpdates.priority = updates.priority;
 
   const { data, error } = await supabase
@@ -674,7 +694,7 @@ export async function dbUpdateOrder(
     .single();
 
   if (error || !data) throw error || new Error('Mise à jour commande échouée');
-  return data as Order;
+  return mapOrderToFrontend(data);
 }
 
 
@@ -896,4 +916,16 @@ export async function dbRemoveMember(
     .eq('user_id', userId);
 
   if (error) throw error;
+}
+
+// Globally available mapping function
+export function mapOrderToFrontend(dbOrder: any): any {
+  if (!dbOrder) return dbOrder;
+  return {
+    ...dbOrder,
+    workshop_id: dbOrder.atelier_id || dbOrder.workshop_id,
+    customer_id: dbOrder.client_id || dbOrder.customer_id,
+    order_number: dbOrder.title || dbOrder.order_number,
+    notes: dbOrder.description || dbOrder.notes
+  };
 }
