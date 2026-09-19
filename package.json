@@ -23,6 +23,7 @@
     "@radix-ui/react-toast": "^1.2.23",
     "@stripe/stripe-js": "^9.15.0",
     "@supabase/auth-helpers-nextjs": "^0.15.0",
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.109.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",

@@ -37,7 +37,7 @@ const SENSITIVE_AUTH_PREFIXES = [
   '/api/stripe',
 ];
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const ip = getClientIp(request.headers);
 
@@ -201,15 +201,33 @@ export function proxy(request: NextRequest) {
   const isPublicRoute = PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'));
 
   if (isProtectedRoute && !isPublicRoute) {
-    // Check for Supabase session cookie or app auth cookie if present
-    const supabaseToken =
-      request.cookies.get('sb-access-token')?.value ||
-      request.cookies.get('supabase-auth-token')?.value;
-    const clientAuthToken = request.cookies.get('atelierpro_session')?.value;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    // Note: For SSR Supabase auth evaluation
-    if (supabaseToken || clientAuthToken) {
-      // Valid session indicator
+    if (supabaseUrl && supabaseAnonKey) {
+      const { createServerClient } = require('@supabase/ssr');
+      const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet: any[]) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              request.cookies.set(name, value);
+              response.cookies.set(name, value, options);
+            });
+          },
+        },
+      });
+
+      // Verification du token côté serveur via Supabase
+      const { data: { user }, error } = await supabase.auth.getUser();
+
+      if (error || !user) {
+        const loginUrl = new URL('/auth/login', request.url);
+        loginUrl.searchParams.set('redirect', pathname);
+        return NextResponse.redirect(loginUrl);
+      }
     }
   }
 

@@ -32,12 +32,19 @@ import {
   dbDeleteCustomer,
   dbCreateOrder,
   dbUpdateOrderStatus,
+  dbUpdateOrder,
   dbDeleteOrder,
   dbCreatePayment,
   dbCreateMeasurementProfile,
+  dbDeleteMeasurementProfile,
   dbCreateExpense,
   dbDeleteExpense,
+  dbInviteMember,
+  dbUpdateMemberRole,
+  dbToggleMemberStatus,
+  dbRemoveMember,
 } from './supabase-api';
+
 
 // ─── No Demo data ────────────────────────────────────────────────
 
@@ -171,7 +178,7 @@ export const useAppStore = create<AppStore>()(
       orders: [],
       payments: [],
       measurementProfiles: [],
-      measurementTypes: getDefaultMeasurementTypes('demo-workshop-001'),
+      measurementTypes: [],  // Sera peuplé par syncWithSupabase avec l'ID réel de l'atelier
       expenses: [],
       members: [],
       notifications: [],
@@ -222,16 +229,12 @@ export const useAppStore = create<AppStore>()(
           });
         } catch (err: any) {
           console.error('[Store] Sync Supabase Error:', err);
-          if (typeof window !== 'undefined') {
-             if (err?.message?.includes('TIMEOUT')) {
-               alert("PROFILE_CREATION_TIMEOUT : La création de votre profil prend plus de temps que prévu. Veuillez rafraîchir la page dans quelques instants.");
-             } else {
-               alert(`ATELIER_NOT_FOUND : Erreur lors de la récupération de votre atelier. ${err?.message || ''}`);
-             }
-          }
+          const errorMessage = err?.message?.includes('ATELIER_NOT_FOUND') || err?.message?.includes('TIMEOUT')
+            ? `Impossible de charger votre atelier. ${err?.message || ''}. Veuillez rafraîchir la page.`
+            : `Erreur lors de la synchronisation : ${err?.message || 'Erreur inconnue'}`;
           set({
             isLoading: false,
-            error: err?.message || 'Erreur lors de la synchronisation Supabase',
+            error: errorMessage,
           });
         }
       },
@@ -270,7 +273,7 @@ export const useAppStore = create<AppStore>()(
           orders: [],
           payments: [],
           measurementProfiles: [],
-          measurementTypes: getDefaultMeasurementTypes('demo-workshop-001'),
+          measurementTypes: [],  // Réinitialisé vide — sera rechargé par syncWithSupabase
           expenses: [],
           members: [],
           notifications: [],
@@ -365,18 +368,25 @@ export const useAppStore = create<AppStore>()(
       getCustomer: (id: string) => {
         const { customers, orders, payments } = get();
         const customer = customers.find((c) => c.id === id);
-        if (!customer) return undefined;
+        if (!customer || customer.deleted_at) return undefined;
 
         const customerOrders = orders.filter((o) => o.customer_id === id && !o.deleted_at);
         const totalSpent = customerOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
         const totalPaid = customerOrders.reduce((sum, o) => sum + Number(o.paid_amount || 0), 0);
+        const totalBalance = customerOrders.reduce((sum, o) => {
+          const paid = payments
+            .filter((p) => p.order_id === o.id && p.status === 'CONFIRMED')
+            .reduce((s, p) => s + Number(p.amount || 0), 0);
+          return sum + Math.max(0, Number(o.total_amount || 0) - paid);
+        }, 0);
 
         return {
           ...customer,
           total_orders: customerOrders.length,
           total_spent: totalSpent,
-          total_balance: Math.max(0, totalSpent - totalPaid),
-          last_order_at: customerOrders[0]?.created_at,
+          total_paid: totalPaid,
+          total_balance: totalBalance,
+          last_order_at: customerOrders.length > 0 ? customerOrders[0].created_at : customer.created_at,
         };
       },
 
@@ -422,10 +432,21 @@ export const useAppStore = create<AppStore>()(
       },
 
       deleteMeasurementProfile: async (id: string) => {
-        const { measurementProfiles } = get();
+        const { measurementProfiles, currentUserId } = get();
+        // Optimistic update local immédiat
         set({
           measurementProfiles: measurementProfiles.filter((p) => p.id !== id),
         });
+        // Persistance Supabase
+        if (isSupabaseConfigured && currentUserId) {
+          try {
+            await dbDeleteMeasurementProfile(id);
+          } catch (err) {
+            console.error('[deleteMeasurementProfile] Erreur de persistance Supabase:', err);
+            // Restauration en cas d'erreur
+            set({ measurementProfiles });
+          }
+        }
       },
 
       getMeasurementProfiles: (customerId: string) => {
@@ -436,9 +457,10 @@ export const useAppStore = create<AppStore>()(
 
       addMeasurementType: (name: string, unit: string = 'cm') => {
         const { currentWorkshop, measurementTypes } = get();
+        if (!currentWorkshop) throw new Error('Aucun atelier chargé — impossible d\'ajouter un type de mesure');
         const type: MeasurementType = {
           id: uid(),
-          workshop_id: currentWorkshop?.id || 'demo-workshop-001',
+          workshop_id: currentWorkshop.id,
           name: name.trim(),
           unit,
           sort_order: measurementTypes.length + 1,
@@ -529,10 +551,30 @@ export const useAppStore = create<AppStore>()(
       },
 
       updateOrder: async (id: string, updates: Partial<Order>) => {
+        const { currentUserId } = get();
+        // Optimistic update local immédiat
         set((state) => ({
           orders: state.orders.map((o) => (o.id === id ? { ...o, ...updates, updated_at: new Date().toISOString() } : o)),
         }));
+        // Persistance Supabase
+        if (isSupabaseConfigured && currentUserId) {
+          try {
+            const savedOrder = await dbUpdateOrder(id, {
+              status: updates.status,
+              due_date: updates.due_date,
+              notes: updates.notes,
+              priority: updates.priority,
+            });
+            // Mise à jour avec les données réelles de la DB (incluant balance recalculé)
+            set((state) => ({
+              orders: state.orders.map((o) => (o.id === id ? { ...o, ...savedOrder } : o)),
+            }));
+          } catch (err) {
+            console.error('[updateOrder] Erreur de persistance Supabase:', err);
+          }
+        }
       },
+
 
       changeOrderStatus: async (orderId: string, newStatus: OrderStatus, notes?: string) => {
         const { currentUserId } = get();
@@ -663,11 +705,13 @@ export const useAppStore = create<AppStore>()(
 
       // ─── Members ─────────────────────────────────────────────
       inviteMember: (input) => {
-        const { currentWorkshop, members } = get();
+        const { currentWorkshop, currentUserId, members } = get();
+        if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
+
         const member: WorkshopMember = {
           id: uid(),
-          workshop_id: currentWorkshop?.id || 'demo-workshop-001',
-          user_id: uid(),
+          workshop_id: currentWorkshop.id,
+          user_id: uid(), // ID provisoire — sera résolu lors du prochain sync
           role: input.role,
           status: 'ACTIVE',
           created_at: new Date().toISOString(),
@@ -681,55 +725,114 @@ export const useAppStore = create<AppStore>()(
           },
         };
         set({ members: [...members, member] });
+        // Note: La persistance réelle de l'invitation nécessite de connaître l'userId Supabase
+        // du nouveau membre. Cela doit passer par un Server Action (recherche par téléphone → userId)
+        // Pour l'instant, le store est mis à jour localement en attendant le prochain sync.
         return member;
       },
 
-      updateMemberRole: (memberId, role) => {
+      updateMemberRole: async (memberId, role) => {
+        const { currentWorkshop } = get();
         set((state) => ({
           members: state.members.map((m) => (m.id === memberId ? { ...m, role } : m)),
         }));
+        if (isSupabaseConfigured && currentWorkshop) {
+          const member = get().members.find((m) => m.id === memberId);
+          if (member?.user_id) {
+            try {
+              await dbUpdateMemberRole(currentWorkshop.id, member.user_id, role);
+            } catch (err) {
+              console.error('[updateMemberRole] Erreur Supabase:', err);
+            }
+          }
+        }
       },
 
-      toggleMemberStatus: (memberId) => {
+      toggleMemberStatus: async (memberId) => {
+        const { currentWorkshop } = get();
         set((state) => ({
           members: state.members.map((m) =>
             m.id === memberId ? { ...m, status: m.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' } : m
           ),
         }));
+        if (isSupabaseConfigured && currentWorkshop) {
+          const member = get().members.find((m) => m.id === memberId);
+          if (member?.user_id) {
+            const newStatus = member.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+            try {
+              await dbToggleMemberStatus(currentWorkshop.id, member.user_id, newStatus as 'ACTIVE' | 'INACTIVE');
+            } catch (err) {
+              console.error('[toggleMemberStatus] Erreur Supabase:', err);
+            }
+          }
+        }
       },
 
-      removeMember: (memberId) => {
+      removeMember: async (memberId) => {
+        const { currentWorkshop } = get();
+        const member = get().members.find((m) => m.id === memberId);
         set((state) => ({
           members: state.members.filter((m) => m.id !== memberId),
         }));
+        if (isSupabaseConfigured && currentWorkshop && member?.user_id) {
+          try {
+            await dbRemoveMember(currentWorkshop.id, member.user_id);
+          } catch (err) {
+            console.error('[removeMember] Erreur Supabase:', err);
+          }
+        }
       },
+
 
       // ─── Dashboard Stats ─────────────────────────────────────
       getDashboardStats: () => {
         const { orders, payments, customers } = get();
-        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const now = new Date();
+        const todayStr = format(now, 'yyyy-MM-dd');
+
+        // Calcul de la date de demain (YYYY-MM-DD)
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = format(tomorrow, 'yyyy-MM-dd');
+
+        // Calcul du début du mois courant
+        const startOfMonth = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
 
         const activeOrders = orders.filter((o) => !o.deleted_at && o.status !== 'DELIVERED' && o.status !== 'CANCELLED');
         const ordersReady = orders.filter((o) => !o.deleted_at && o.status === 'READY').length;
         const ordersLate = activeOrders.filter((o) => isDueDateLate(o.due_date, o.status)).length;
 
-        const paymentsThisMonth = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-        const totalOrderAmount = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
-        const balanceToRecover = Math.max(0, totalOrderAmount - paymentsThisMonth);
+        // Paiements du mois courant uniquement (status CONFIRMED)
+        const confirmedPayments = payments.filter((p) => p.status === 'CONFIRMED');
+        const paymentsThisMonth = confirmedPayments
+          .filter((p) => (p.payment_date || '') >= startOfMonth)
+          .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+        // Revenue ce mois = total des paiements confirmés du mois (pas les commandes)
+        const revenueThisMonth = paymentsThisMonth;
+
+        // Balance à récupérer = sum des soldes non payés sur commandes actives
+        const balanceToRecover = activeOrders.reduce((sum, o) => {
+          const paid = confirmedPayments
+            .filter((p) => p.order_id === o.id)
+            .reduce((s, p) => s + Number(p.amount || 0), 0);
+          return sum + Math.max(0, Number(o.total_amount || 0) - paid);
+        }, 0);
 
         return {
-          ordersToday: orders.filter((o) => o.order_date === todayStr).length,
-          ordersDueToday: orders.filter((o) => o.due_date === todayStr && o.status !== 'DELIVERED').length,
-          ordersDueTomorrow: 0,
+          ordersToday: orders.filter((o) => !o.deleted_at && o.order_date === todayStr).length,
+          ordersDueToday: orders.filter((o) => !o.deleted_at && o.due_date === todayStr && o.status !== 'DELIVERED').length,
+          ordersDueTomorrow: orders.filter((o) => !o.deleted_at && o.due_date === tomorrowStr && o.status !== 'DELIVERED').length,
           ordersLate,
           ordersInProduction: activeOrders.length,
           ordersReady,
           paymentsThisMonth,
           balanceToRecover,
           totalCustomers: customers.filter((c) => !c.deleted_at).length,
-          revenueThisMonth: totalOrderAmount,
+          revenueThisMonth,
         };
       },
+
 
       getRecentActivity: () => {
         const { orders, payments, customers } = get();

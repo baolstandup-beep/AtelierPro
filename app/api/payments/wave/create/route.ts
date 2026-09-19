@@ -1,11 +1,31 @@
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    
+    const cookieStore = await cookies();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set({ name, value, ...options });
+            });
+          } catch (error) {
+            // Ignore
+          }
+        },
+      },
+    });
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
@@ -110,14 +130,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to record payment' }, { status: 500 });
     }
 
-    if (waveRes.ok && data.id) {
-      console.info(`[WAVE_PAYMENT_CREATED] Payment created with ref: ${reference}, Wave Session ID: ${data.id}`);
-      return NextResponse.json({
-        checkout_url: data.wave_launch_url || data.checkout_url,
-        session_id: data.id,
-        reference: reference
-      });
-    }
+    // Succès — retourner l'URL de checkout Wave
+    console.info(`[WAVE_PAYMENT_CREATED] Payment created with ref: ${reference}, Wave Session ID: ${waveSessionId}`);
+    return NextResponse.json({
+      checkout_url: waveCheckoutUrl,
+      session_id: waveSessionId,
+      reference: reference
+    });
 
   } catch (error) {
     console.error('Payment creation error:', error);

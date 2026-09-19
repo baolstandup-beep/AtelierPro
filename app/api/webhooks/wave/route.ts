@@ -78,7 +78,7 @@ export async function POST(request: Request) {
 
     // 1. Idempotence : Vérifier si l'événement a déjà été traité
     const { data: existingEvent, error: eventErr } = await supabaseAdmin
-      .from('payment_webhook_events')
+      .from('webhook_events')  // Nom correct dans schema.sql (pas 'payment_webhook_events')
       .select('id')
       .eq('event_id', eventId)
       .eq('provider', 'WAVE')
@@ -145,7 +145,7 @@ export async function POST(request: Request) {
     // La RPC gère l'update si l'événement existe déjà, mais pas l'insert si c'est nouveau.
     // L'idempotence a déjà été passée à l'étape 1, on l'insert.
     await supabaseAdmin
-      .from('payment_webhook_events')
+      .from('webhook_events')  // Nom correct dans schema.sql
       .insert({
         provider: 'WAVE',
         event_id: eventId,

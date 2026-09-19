@@ -39,7 +39,39 @@ export async function dbGetOrCreateUserWorkshop(userId: string, userFullName?: s
     throw new Error('Supabase non configuré');
   }
 
-  // 1. Consultation directe du profil utilisateur dans la table 'profiles'
+  // 1. Source primaire : workshop_members (chemin canonique après inscription)
+  const { data: memberRows, error: memberErr } = await supabase
+    .from('workshop_members')
+    .select('role, workshops (*)')
+    .eq('user_id', userId)
+    .eq('status', 'ACTIVE')
+    .limit(1);
+
+  if (!memberErr && memberRows && memberRows.length > 0 && memberRows[0].workshops) {
+    const ws = memberRows[0].workshops as unknown as Workshop;
+    return { workshop: ws, role: memberRows[0].role || 'OWNER' };
+  }
+
+  // 2. Fallback : workshops dont l'utilisateur est owner_id
+  const { data: ownedWorkshops } = await supabase
+    .from('workshops')
+    .select('*')
+    .eq('owner_id', userId)
+    .limit(1);
+
+  if (ownedWorkshops && ownedWorkshops.length > 0) {
+    const ws = ownedWorkshops[0] as Workshop;
+    // Réparation : créer workshop_members manquant
+    await supabase.from('workshop_members').upsert({
+      workshop_id: ws.id,
+      user_id: userId,
+      role: 'OWNER',
+      status: 'ACTIVE',
+    }, { onConflict: 'workshop_id,user_id' });
+    return { workshop: ws, role: 'OWNER' };
+  }
+
+  // 3. Fallback legacy : profiles.atelier_id → ateliers
   const { data: profile } = await supabase
     .from('profiles')
     .select('atelier_id, role, full_name')
@@ -47,7 +79,6 @@ export async function dbGetOrCreateUserWorkshop(userId: string, userFullName?: s
     .maybeSingle();
 
   if (profile && profile.atelier_id) {
-    // 2. Récupération de l'atelier correspondant dans 'ateliers'
     const { data: atelier } = await supabase
       .from('ateliers')
       .select('*')
@@ -63,83 +94,51 @@ export async function dbGetOrCreateUserWorkshop(userId: string, userFullName?: s
         city: undefined,
         logo_url: undefined,
         currency: atelier.currency || 'XOF',
-        currency_symbol: 'FCFA',
+        currency_symbol: atelier.currency_symbol || 'FCFA',
         owner_id: userId,
         is_active: true,
         created_at: atelier.created_at || new Date().toISOString(),
-        updated_at: atelier.created_at || new Date().toISOString(),
+        updated_at: atelier.updated_at || new Date().toISOString(),
       };
       return { workshop: ws, role: profile.role || 'OWNER' };
     }
   }
 
-  // 3. Fallback sur les tables 'workshops' et 'workshop_members' si configurées
-  let attempt = 0;
-  const maxAttempts = 3;
-  const delays = [300, 600, 1000];
-
-  while (attempt < maxAttempts) {
-    const { data: memberRows, error: memberErr } = await supabase
-      .from('workshop_members')
-      .select('role, workshops (*)')
-      .eq('user_id', userId)
-      .limit(1);
-
-    if (!memberErr && memberRows && memberRows.length > 0 && memberRows[0].workshops) {
-      const ws = memberRows[0].workshops as unknown as Workshop;
-      return { workshop: ws, role: memberRows[0].role || 'OWNER' };
-    }
-
-    const { data: ownedWorkshops, error: ownErr } = await supabase
-      .from('workshops')
-      .select('*')
-      .eq('owner_id', userId)
-      .limit(1);
-
-    if (!ownErr && ownedWorkshops && ownedWorkshops.length > 0) {
-      const ws = ownedWorkshops[0] as Workshop;
-      return { workshop: ws, role: 'OWNER' };
-    }
-
-    if (attempt < maxAttempts - 1) {
-      await new Promise(resolve => setTimeout(resolve, delays[attempt]));
-    }
-    attempt++;
-  }
-
-  // 4. Si aucun atelier n'existe encore, créer un atelier par défaut
+  // 4. Aucun atelier trouvé — créer un workshop par défaut dans la table canonique
   const defaultName = userFullName ? `Atelier de ${userFullName}` : 'Mon Atelier';
-  const { data: createdAtelier } = await supabase
-    .from('ateliers')
-    .insert({ name: defaultName })
+  const { data: newWs, error: wsErr } = await supabase
+    .from('workshops')
+    .insert({
+      name: defaultName,
+      owner_id: userId,
+      currency: 'XOF',
+      currency_symbol: 'FCFA',
+      is_active: true,
+    })
     .select()
-    .maybeSingle();
+    .single();
 
-  if (createdAtelier) {
+  if (!wsErr && newWs) {
+    // Créer l'entrée workshop_members
+    await supabase.from('workshop_members').insert({
+      workshop_id: newWs.id,
+      user_id: userId,
+      role: 'OWNER',
+      status: 'ACTIVE',
+    });
+    // Mettre à jour le profil
     await supabase.from('profiles').upsert({
       id: userId,
-      atelier_id: createdAtelier.id,
+      atelier_id: newWs.id,
       full_name: userFullName || '',
       role: 'owner',
     });
-
-    return {
-      workshop: {
-        id: createdAtelier.id,
-        name: createdAtelier.name,
-        currency: 'XOF',
-        currency_symbol: 'FCFA',
-        owner_id: userId,
-        is_active: true,
-        created_at: createdAtelier.created_at,
-        updated_at: createdAtelier.created_at,
-      },
-      role: 'OWNER',
-    };
+    return { workshop: newWs as Workshop, role: 'OWNER' };
   }
 
-  throw new Error('TIMEOUT: Profil atelier introuvable après création. Le backend Supabase a peut-être échoué.');
+  throw new Error('ATELIER_NOT_FOUND: Impossible de résoudre ou créer l\'atelier pour cet utilisateur.');
 }
+
 
 /**
  * ─── 2. Chargement de l'ensemble des données d'un atelier ───
@@ -485,12 +484,16 @@ export async function dbCreateOrder(
   const orderNumber = generateOrderNumber(new Date().getFullYear(), Math.floor(Math.random() * 900) + 100);
 
   const orderPayload = {
-    atelier_id: workshopId,
-    client_id: input.customer_id,
-    title: orderNumber,
-    description: input.notes?.trim() || null,
-    status: 'en_attente',
+    workshop_id: workshopId,
+    customer_id: input.customer_id,
+    order_number: orderNumber,
+    notes: input.notes?.trim() || null,
+    status: 'NEW',
+    priority: input.priority || 'NORMAL',
     total_amount: totalAmount,
+    paid_amount: paidAmount,
+    // Note: 'balance' est une colonne GENERATED ALWAYS AS (total_amount - paid_amount) STORED
+    // Elle ne doit PAS être incluse dans le payload INSERT/UPDATE — PostgreSQL la calcule automatiquement
     due_date: input.due_date || null,
   };
 
@@ -524,10 +527,14 @@ export async function dbCreateOrder(
   console.log("STEP 2 ORDER ITEMS");
   const itemsPayload = input.items.map((item) => ({
     order_id: orderData.id,
-    atelier_id: workshopId,
-    label: item.name.trim(),
+    workshop_id: workshopId,
+    name: item.name.trim(),
+    garment_type: item.garment_type || null,
+    fabric: item.fabric || null,
+    color: item.color || null,
     quantity: item.quantity || 1,
     unit_price: item.unit_price || 0,
+    notes: item.notes || null,
   }));
   console.log("ORDER ITEMS PAYLOAD", itemsPayload);
 
@@ -554,14 +561,16 @@ export async function dbCreateOrder(
   let createdPayment: Payment | undefined;
   if (paidAmount > 0) {
     const paymentMethodRaw = input.initial_payment_method || input.payment_method || 'CASH';
-    const finalPaymentMethod = paymentMethodRaw === 'CASH' ? 'especes' : paymentMethodRaw;
 
     const paymentPayload = {
-      atelier_id: workshopId,
+      workshop_id: workshopId,
       order_id: orderData.id,
+      customer_id: input.customer_id,
       amount: paidAmount,
-      method: finalPaymentMethod,
-      note: 'Acompte initial à la commande',
+      method: paymentMethodRaw,
+      status: 'CONFIRMED',
+      notes: 'Acompte initial à la commande',
+      payment_date: new Date().toISOString(),
     };
     console.log("PAYMENT PAYLOAD", paymentPayload);
 
@@ -644,6 +653,31 @@ export async function dbDeleteOrder(orderId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function dbUpdateOrder(
+  orderId: string,
+  updates: Partial<Pick<Order, 'status' | 'due_date' | 'notes' | 'priority'>>
+): Promise<Order> {
+  if (!supabase || !isSupabaseConfigured) throw new Error('Supabase non configuré');
+
+  // Exclure 'balance' des mises à jour (colonne GENERATED ALWAYS)
+  const safeUpdates: Record<string, unknown> = {};
+  if (updates.status !== undefined) safeUpdates.status = updates.status;
+  if (updates.due_date !== undefined) safeUpdates.due_date = updates.due_date;
+  if (updates.notes !== undefined) safeUpdates.notes = updates.notes;
+  if (updates.priority !== undefined) safeUpdates.priority = updates.priority;
+
+  const { data, error } = await supabase
+    .from('orders')
+    .update(safeUpdates)
+    .eq('id', orderId)
+    .select()
+    .single();
+
+  if (error || !data) throw error || new Error('Mise à jour commande échouée');
+  return data as Order;
+}
+
+
 /**
  * ─── 5. Operations Paiements ───
  */
@@ -674,37 +708,23 @@ export async function dbCreatePayment(
 
   if (payErr || !payData) throw payErr;
 
-  // 2. Mettre à jour les montants de la commande correspondante
+  // 2. La mise à jour de paid_amount/balance sur la commande est gérée automatiquement
+  // par le trigger PostgreSQL trg_payment_recalc_after_change.
+  // On relit simplement la commande pour avoir les valeurs à jour.
   let updatedOrder: Order | undefined;
-  const { data: orderData } = await supabase
-    .from('orders')
-    .select('id, total_amount, paid_amount')
-    .eq('id', input.order_id)
-    .single();
-
-  if (orderData && payData.status === 'CONFIRMED') {
-    const newPaid = Number(orderData.paid_amount || 0) + Number(input.amount);
-    const newBalance = Math.max(0, Number(orderData.total_amount || 0) - newPaid);
-
-    const { data: updatedOrd } = await supabase
+  if (payData.status === 'CONFIRMED') {
+    const { data: freshOrder } = await supabase
       .from('orders')
-      .update({
-        paid_amount: newPaid,
-        balance: newBalance,
-        updated_at: new Date().toISOString(),
-      })
+      .select('*')
       .eq('id', input.order_id)
-      .select()
       .single();
 
-    if (updatedOrd) updatedOrder = updatedOrd as Order;
+    if (freshOrder) updatedOrder = freshOrder as Order;
   }
 
   return {
-    payment: {
-      ...payData,
-      method: payData.payment_method,
-    } as Payment,
+    // payData.method est le nom réel de la colonne DB — pas payData.payment_method
+    payment: payData as Payment,
     updatedOrder,
   };
 }
@@ -783,5 +803,97 @@ export async function dbCreateExpense(
 export async function dbDeleteExpense(expenseId: string): Promise<void> {
   if (!supabase || !isSupabaseConfigured) throw new Error('Supabase non configuré');
   const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
+  if (error) throw error;
+}
+
+/**
+ * ─── 7. Operations Mesures (suppression) ───
+ */
+export async function dbDeleteMeasurementProfile(profileId: string): Promise<void> {
+  if (!supabase || !isSupabaseConfigured) throw new Error('Supabase non configuré');
+
+  // 1. Supprimer d'abord les valeurs associées (évite violation FK si ON DELETE CASCADE non configuré)
+  const { error: valErr } = await supabase
+    .from('measurement_values')
+    .delete()
+    .eq('profile_id', profileId);
+
+  if (valErr) throw valErr;
+
+  // 2. Supprimer le profil de mesure
+  const { error: profErr } = await supabase
+    .from('measurement_profiles')
+    .delete()
+    .eq('id', profileId);
+
+  if (profErr) throw profErr;
+}
+
+/**
+ * ─── 8. Operations Membres Atelier ───
+ */
+export async function dbInviteMember(
+  workshopId: string,
+  userId: string,
+  role: string = 'EMPLOYEE'
+): Promise<void> {
+  if (!supabase || !isSupabaseConfigured) throw new Error('Supabase non configuré');
+
+  const { error } = await supabase
+    .from('workshop_members')
+    .upsert({
+      workshop_id: workshopId,
+      user_id: userId,
+      role,
+      status: 'ACTIVE',
+    }, { onConflict: 'workshop_id,user_id' });
+
+  if (error) throw error;
+}
+
+export async function dbUpdateMemberRole(
+  workshopId: string,
+  userId: string,
+  role: string
+): Promise<void> {
+  if (!supabase || !isSupabaseConfigured) throw new Error('Supabase non configuré');
+
+  const { error } = await supabase
+    .from('workshop_members')
+    .update({ role })
+    .eq('workshop_id', workshopId)
+    .eq('user_id', userId);
+
+  if (error) throw error;
+}
+
+export async function dbToggleMemberStatus(
+  workshopId: string,
+  userId: string,
+  status: 'ACTIVE' | 'INACTIVE'
+): Promise<void> {
+  if (!supabase || !isSupabaseConfigured) throw new Error('Supabase non configuré');
+
+  const { error } = await supabase
+    .from('workshop_members')
+    .update({ status })
+    .eq('workshop_id', workshopId)
+    .eq('user_id', userId);
+
+  if (error) throw error;
+}
+
+export async function dbRemoveMember(
+  workshopId: string,
+  userId: string
+): Promise<void> {
+  if (!supabase || !isSupabaseConfigured) throw new Error('Supabase non configuré');
+
+  const { error } = await supabase
+    .from('workshop_members')
+    .delete()
+    .eq('workshop_id', workshopId)
+    .eq('user_id', userId);
+
   if (error) throw error;
 }

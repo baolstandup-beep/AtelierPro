@@ -103,23 +103,29 @@ export async function loginWithPin(phone: string, pin: string) {
     if (storedHash) {
       isPinValid = verifyPin(pin, storedHash, salt, credVersion);
     } else {
-      // Rétrocompatibilité : si l'utilisateur a été créé avant la migration du hachage de sel,
-      // on vérifie et on initialise le hachage sécurisé
+      // Rétrocompatibilité : compte créé avant la migration vers le hachage sécurisé.
+      // On vérifie via le mot de passe Supabase (format legacy) puis on migre.
       const legacySalt = process.env.PIN_SECRET || 'AtelierPro_Secure_Salt_2024';
-      const expectedLegacyPass = `${pin}_${legacySalt}`;
-      // On teste si c'est un compte valide (format 4 chiffres correct)
-      isPinValid = true;
-
-      const newSalt = generateUserSalt();
-      const newHash = computePinHash(pin, newSalt, CURRENT_CREDENTIAL_VERSION);
-      await supabaseAdmin.auth.admin.updateUserById(user.id, {
-        app_metadata: {
-          ...appMeta,
-          pin_hash: newHash,
-          user_salt: newSalt,
-          credential_version: CURRENT_CREDENTIAL_VERSION,
-        },
+      const legacyPassword = `${pin}_${legacySalt}`;
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email: internalEmail,
+        password: legacyPassword,
       });
+      isPinValid = !signInErr;
+
+      if (isPinValid) {
+        // Migration vers le nouveau format de hash sécurisé
+        const newSalt = generateUserSalt();
+        const newHash = computePinHash(pin, newSalt, CURRENT_CREDENTIAL_VERSION);
+        await supabaseAdmin.auth.admin.updateUserById(user.id, {
+          app_metadata: {
+            ...appMeta,
+            pin_hash: newHash,
+            user_salt: newSalt,
+            credential_version: CURRENT_CREDENTIAL_VERSION,
+          },
+        });
+      }
     }
 
     // F. Traitement de l'échec PIN (Incrémentation & Verrouillage progressif)
@@ -296,25 +302,61 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
     const userId = createData.user.id;
 
     // Création de l'atelier et du profil
-    let { data: profile } = await supabaseAdmin.from('profiles').select('id, atelier_id').eq('id', userId).maybeSingle();
-    let atelierId = profile?.atelier_id;
+    // 1. Vérifier si un workshop existe déjà pour cet utilisateur (évite les doublons)
+    const { data: existingMember } = await supabaseAdmin
+      .from('workshop_members')
+      .select('workshop_id')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-    if (!atelierId) {
-      const { data: newAtelier } = await supabaseAdmin
-        .from('ateliers')
-        .insert({ name: workshopName.trim(), phone: phone.trim() })
+    let workshopId: string | null = existingMember?.workshop_id || null;
+    let atelierId: string | null = null;
+
+    if (!workshopId) {
+      // 2. Créer le workshop dans la table canonique 'workshops'
+      const { data: newWorkshop, error: wsErr } = await supabaseAdmin
+        .from('workshops')
+        .insert({
+          name: workshopName.trim(),
+          phone: phone.trim() || null,
+          owner_id: userId,
+          currency: 'XOF',
+          currency_symbol: 'FCFA',
+          is_active: true,
+        })
         .select('id')
         .single();
 
-      atelierId = newAtelier?.id;
-      await supabaseAdmin.from('profiles').upsert({
-        id: userId,
-        atelier_id: atelierId,
-        full_name: fullName.trim(),
-        phone: phone.trim(),
-        role: 'owner',
-      });
+      if (wsErr || !newWorkshop) {
+        // Fallback sur 'ateliers' si workshops échoue (compatibilité prod existante)
+        const { data: newAtelier } = await supabaseAdmin
+          .from('ateliers')
+          .insert({ name: workshopName.trim(), phone: phone.trim() || null })
+          .select('id')
+          .single();
+        atelierId = newAtelier?.id || null;
+      } else {
+        workshopId = newWorkshop.id;
+
+        // 3. Créer l'entrée workshop_members pour l'OWNER
+        await supabaseAdmin.from('workshop_members').insert({
+          workshop_id: workshopId,
+          user_id: userId,
+          role: 'OWNER',
+          status: 'ACTIVE',
+        });
+      }
     }
+
+    // 4. Créer/mettre à jour le profil utilisateur
+    await supabaseAdmin.from('profiles').upsert({
+      id: userId,
+      atelier_id: atelierId || workshopId,
+      full_name: fullName.trim(),
+      phone: phone.trim(),
+      role: 'owner',
+    });
+    atelierId = atelierId || workshopId;
 
     // Établir la session
     const linkRes = await supabaseAdmin.auth.admin.generateLink({

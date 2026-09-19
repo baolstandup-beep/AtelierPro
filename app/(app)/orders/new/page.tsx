@@ -157,7 +157,10 @@ export default function NewOrderPage() {
         stack: error?.stack,
         raw: error
       });
-      throw error;
+      const userMessage = error?.message
+        || error?.details
+        || 'Impossible de créer la commande. Vérifiez votre connexion.';
+      showError('Erreur', userMessage);
     } finally {
       setLoading(false);
     }
