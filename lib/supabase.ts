@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -13,13 +13,7 @@ export const isSupabaseConfigured = !!(
 );
 
 export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    })
+  ? createBrowserClient(supabaseUrl, supabaseAnonKey)
   : null;
 
 export function getSupabase() {
@@ -66,8 +60,9 @@ export async function signUpWithEmail(email: string, password: string, name?: st
     password,
     options: {
       data: {
-        full_name: name || '',
+        full_name: name,
       },
+      emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
     },
   });
   if (error) throw error;
@@ -78,11 +73,4 @@ export async function signOutUser() {
   if (!supabase) return;
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
-}
-
-export async function getCurrentSession() {
-  if (!supabase) return null;
-  const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session) return null;
-  return data.session;
 }
