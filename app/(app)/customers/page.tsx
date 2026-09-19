@@ -108,63 +108,66 @@ export default function CustomersPage() {
                 onClick={() => router.push(`/customers/${customer.id}`)}
                 className="flex-1 text-left min-w-0"
               >
-                <Card hover padding="sm">
-                  <div className="flex items-center gap-3">
+                <div className="bg-white dark:bg-[#121A16] p-4 rounded-2xl border border-[#EBE7DF] dark:border-white/10 shadow-[0_4px_20px_rgba(15,59,50,0.02)] hover:shadow-[0_8px_24px_rgba(15,59,50,0.08)] hover:-translate-y-0.5 transition-all duration-300">
+                  <div className="flex items-center gap-4">
                     <Avatar name={customer.full_name} src={customer.photo_url} size="md" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{customer.full_name}</p>
+                        <p className="text-base font-bold text-[#111827] dark:text-white truncate">{customer.full_name}</p>
                         {customer.balance > 0 && (
-                          <span className="flex-shrink-0 text-xs bg-orange-100 text-orange-700 rounded-full px-1.5 py-0.5 font-medium">
+                          <span className="flex-shrink-0 text-[10px] uppercase tracking-wider bg-amber-50 text-[#D97706] border border-amber-200/50 rounded-full px-2 py-0.5 font-bold">
                             Dette
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <span className="flex items-center gap-1 text-xs text-gray-400">
-                          <Phone className="h-3 w-3" />
+                      <div className="flex items-center gap-4 mt-1">
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-[#8A7A65]">
+                          <Phone className="h-3.5 w-3.5" />
                           {formatPhone(customer.phone)}
                         </span>
                         {customer.totalOrders > 0 && (
-                          <span className="flex items-center gap-1 text-xs text-gray-400">
-                            <ShoppingBag className="h-3 w-3" />
-                            {customer.totalOrders}
+                          <span className="flex items-center gap-1.5 text-xs font-medium text-[#8A7A65]">
+                            <ShoppingBag className="h-3.5 w-3.5" />
+                            {customer.totalOrders} {customer.totalOrders > 1 ? 'commandes' : 'commande'}
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
+                    <div className="text-right flex-shrink-0 border-l border-slate-100 dark:border-white/5 pl-4 ml-2">
                       {customer.balance > 0 ? (
                         <>
-                          <p className="text-xs text-orange-600 font-semibold">
+                          <p className="text-sm text-[#D97706] font-bold font-mono">
                             {formatCurrency(customer.balance, ws?.currency_symbol)}
                           </p>
-                          <p className="text-[10px] text-gray-400">à récupérer</p>
+                          <p className="text-[10px] text-slate-400 font-medium">À RÉCUPÉRER</p>
                         </>
                       ) : customer.totalSpent > 0 ? (
                         <>
-                          <p className="text-xs text-gray-700 font-medium">
+                          <p className="text-sm text-[#0F3B32] dark:text-white font-bold font-mono">
                             {formatCurrency(customer.totalSpent, ws?.currency_symbol)}
                           </p>
-                          <p className="text-[10px] text-green-600">✓ Soldé</p>
+                          <p className="text-[10px] text-[#2E9D74] font-medium flex items-center justify-end gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#2E9D74]" />
+                            SOLDÉ
+                          </p>
                         </>
                       ) : (
-                        <p className="text-xs text-gray-400">Nouveau</p>
+                        <p className="text-xs text-slate-400 font-medium">Nouveau client</p>
                       )}
                     </div>
                   </div>
-                </Card>
+                </div>
               </button>
 
               {/* Quick WhatsApp Reminder Button */}
               {customer.phone && (
                 <button
                   type="button"
-                  onClick={() => setWhatsappCustomer(customer)}
-                  className="p-3 rounded-2xl bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white transition-all shadow-sm flex-shrink-0"
+                  onClick={(e) => { e.stopPropagation(); setWhatsappCustomer(customer); }}
+                  className="p-3 rounded-2xl bg-[#EBF7F1] dark:bg-[#0F3B32] hover:bg-[#2E9D74] text-[#2E9D74] dark:text-[#A3E635] hover:text-white transition-all shadow-sm flex-shrink-0 opacity-70 hover:opacity-100 group-hover:scale-105"
                   title="Envoyer un rappel ou notification WhatsApp"
                 >
-                  <MessageCircle className="w-4 h-4 fill-current" />
+                  <MessageCircle className="w-5 h-5 fill-current" />
                 </button>
               )}
             </div>

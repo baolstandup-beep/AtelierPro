@@ -545,17 +545,26 @@ export async function dbCreateOrder(
   console.log("✅ ORDER CREATED:", orderData.id);
 
   console.log("STEP 2 ORDER ITEMS");
-  const itemsPayload = input.items.map((item) => ({
-    order_id: orderData.id,
-    workshop_id: workshopId,
-    name: item.name.trim(),
-    garment_type: item.garment_type || null,
-    fabric: item.fabric || null,
-    color: item.color || null,
-    quantity: item.quantity || 1,
-    unit_price: item.unit_price || 0,
-    notes: item.notes || null,
-  }));
+  const itemsPayload = input.items.map((item) => {
+    let label = item.name.trim();
+    const extras = [];
+    if (item.garment_type) extras.push(item.garment_type);
+    if (item.fabric) extras.push(item.fabric);
+    if (item.color) extras.push(item.color);
+    if (item.notes) extras.push(item.notes);
+
+    if (extras.length > 0) {
+      label += ` (${extras.join(', ')})`;
+    }
+
+    return {
+      order_id: orderData.id,
+      atelier_id: workshopId,
+      label: label,
+      quantity: item.quantity || 1,
+      unit_price: item.unit_price || 0,
+    };
+  });
   console.log("ORDER ITEMS PAYLOAD", itemsPayload);
 
   const { data: itemsData, error: itemsErr } = await supabase

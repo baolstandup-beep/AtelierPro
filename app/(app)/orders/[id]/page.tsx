@@ -149,15 +149,15 @@ export default function OrderDetailPage() {
       </div>
 
       {/* Header */}
-      <Card>
+      <div className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-[#EBE7DF] dark:border-white/10 shadow-[0_8px_30px_rgba(15,59,50,0.04)]">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <h1 className="text-base font-bold text-gray-900">{order.order_number}</h1>
+            <div className="flex items-center gap-3 flex-wrap mb-2">
+              <h1 className="text-xl sm:text-2xl font-serif-luxury font-bold text-[#0F3B32] dark:text-white">{order.order_number}</h1>
               <OrderStatusBadge status={order.status} isLate={isLate} />
               {order.priority !== 'NORMAL' && (
-                <span className={`text-xs rounded-full px-2 py-0.5 font-bold ${
-                  order.priority === 'URGENT' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                <span className={`text-[10px] uppercase tracking-wider rounded-full px-2.5 py-1 font-bold border ${
+                  order.priority === 'URGENT' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-orange-50 text-orange-700 border-orange-200'
                 }`}>
                   {order.priority}
                 </span>
@@ -191,100 +191,98 @@ export default function OrderDetailPage() {
         </div>
 
         {/* Financial summary */}
-        <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-gray-100">
-          <div className="text-center">
-            <p className="text-sm font-bold text-gray-900">{formatCurrency(order.total_amount, ws?.currency_symbol)}</p>
-            <p className="text-[10px] text-gray-500">Total</p>
+        <div className="grid grid-cols-3 gap-4 mt-6 p-4 bg-[#F7F4ED] dark:bg-white/5 rounded-2xl border border-[#EBE7DF] dark:border-white/10 relative overflow-hidden">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-amber-500/5 rounded-full blur-xl pointer-events-none" />
+          <div className="text-center relative z-10">
+            <p className="text-xs text-[#8A7A65] dark:text-slate-400 font-medium mb-1">TOTAL</p>
+            <p className="text-base sm:text-lg font-bold font-mono text-[#0F3B32] dark:text-white">{formatCurrency(order.total_amount, ws?.currency_symbol)}</p>
           </div>
-          <div className="text-center">
-            <p className="text-sm font-bold text-green-700">{formatCurrency(paidAmount, ws?.currency_symbol)}</p>
-            <p className="text-[10px] text-gray-500">Payé</p>
+          <div className="text-center relative z-10 border-x border-[#EBE7DF]/60 dark:border-white/10">
+            <p className="text-xs text-[#8A7A65] dark:text-slate-400 font-medium mb-1">ENCAISSÉ</p>
+            <p className="text-base sm:text-lg font-bold font-mono text-[#2E9D74]">{formatCurrency(paidAmount, ws?.currency_symbol)}</p>
           </div>
-          <div className="text-center">
-            <p className={`text-sm font-bold ${balance > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+          <div className="text-center relative z-10">
+            <p className="text-xs text-[#8A7A65] dark:text-slate-400 font-medium mb-1">RESTE</p>
+            <p className={`text-base sm:text-lg font-bold font-mono ${balance > 0 ? 'text-[#D97706]' : 'text-[#2E9D74]'}`}>
               {formatCurrency(balance, ws?.currency_symbol)}
             </p>
-            <p className="text-[10px] text-gray-500">Reste</p>
           </div>
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-2 mt-4 flex-wrap">
-          <Button
-            size="sm"
-            variant="secondary"
-            className="bg-slate-100 hover:bg-slate-200 text-slate-800"
-            leftIcon={<Printer className="h-3.5 w-3.5" />}
-            onClick={() => setInvoiceOpen(true)}
-          >
-            Facture / Devis PDF
-          </Button>
-          {balance > 0 && (
+        <div className="flex gap-2 mt-5 flex-wrap">
+          {balance > 0 && order.status !== 'CANCELLED' && (
             <Button
               size="sm"
-              className="bg-[#1BA8E9] hover:bg-[#1594D0] text-white shadow-xs"
-              leftIcon={<QrCode className="h-3.5 w-3.5" />}
-              onClick={() => setQrModalOpen(true)}
+              className="bg-[#D97706] hover:bg-[#B45309] text-white shadow-md hover:shadow-lg transition-all"
+              leftIcon={<CreditCard className="h-4 w-4" />}
+              onClick={() => setPaymentOpen(true)}
             >
-              Wave / OM QR
-            </Button>
-          )}
-          {order.customer?.phone && (
-            <Button
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm"
-              leftIcon={<MessageCircle className="h-3.5 w-3.5 fill-white" />}
-              onClick={() => setWhatsappModalOpen(true)}
-            >
-              WhatsApp & Rappels
+              Encaisser le solde
             </Button>
           )}
           {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
             <Button
               size="sm"
-              variant="secondary"
-              leftIcon={<Kanban className="h-3.5 w-3.5" />}
-              onClick={() => setStatusOpen(true)}
+              className={balance > 0 ? "bg-[#0F3B32] hover:bg-[#185C4E] text-white" : "bg-[#2E9D74] hover:bg-[#0F3B32] text-white shadow-md"}
+              leftIcon={isFullyPaid ? <Truck className="h-4 w-4" /> : <Kanban className="h-4 w-4" />}
+              onClick={() => isFullyPaid ? (changeOrderStatus(id, 'DELIVERED'), success('Commande livrée !')) : setStatusOpen(true)}
             >
-              Changer statut
+              {isFullyPaid ? 'Marquer Livré' : 'Changer statut'}
             </Button>
           )}
-          {balance > 0 && order.status !== 'CANCELLED' && (
+          {order.customer?.phone && (
             <Button
               size="sm"
-              leftIcon={<CreditCard className="h-3.5 w-3.5" />}
-              onClick={() => setPaymentOpen(true)}
+              variant="outline"
+              className="border-[#2E9D74]/30 text-[#2E9D74] hover:bg-[#EBF7F1] dark:hover:bg-[#0F3B32]"
+              leftIcon={<MessageCircle className="h-4 w-4 fill-current" />}
+              onClick={() => setWhatsappModalOpen(true)}
             >
-              Encaisser
+              WhatsApp
             </Button>
           )}
-          {isFullyPaid && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-slate-200 text-slate-700 hover:bg-slate-50"
+            leftIcon={<Printer className="h-4 w-4" />}
+            onClick={() => setInvoiceOpen(true)}
+          >
+            Facture PDF
+          </Button>
+          {balance > 0 && (
             <Button
               size="sm"
-              variant="secondary"
-              leftIcon={<Truck className="h-3.5 w-3.5" />}
-              onClick={() => { changeOrderStatus(id, 'DELIVERED'); success('Commande livrée !'); }}
+              variant="outline"
+              className="border-[#1BA8E9]/30 text-[#1BA8E9] hover:bg-[#1BA8E9]/10"
+              leftIcon={<QrCode className="h-4 w-4" />}
+              onClick={() => setQrModalOpen(true)}
             >
-              Marquer Livré
+              QR Code
             </Button>
           )}
         </div>
 
-        {/* Late warning */}
-        {isLate && (
-          <div className="mt-3 bg-red-50 rounded-lg p-2.5 text-xs text-red-700 font-medium">
-            ⚠ Date de livraison dépassée — À traiter en priorité
-          </div>
-        )}
-
-        {/* Due date info */}
-        {order.due_date && (
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500">
-            <Clock className="h-3 w-3" />
-            Date de livraison prévue: <strong>{formatDate(order.due_date)}</strong>
-          </div>
-        )}
-      </Card>
+        {/* Due date & Warning */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-5 pt-4 border-t border-[#EBE7DF] dark:border-white/10">
+          {order.due_date ? (
+            <div className="flex items-center gap-2 text-sm text-[#8A7A65]">
+              <Clock className="h-4 w-4 text-[#D97706]" />
+              <span>Prévue le <strong>{formatDate(order.due_date)}</strong></span>
+            </div>
+          ) : (
+            <div /> // Spacer
+          )}
+          
+          {isLate && (
+            <div className="inline-flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-1.5 text-xs text-red-700 font-bold">
+              <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
+              Retard : À traiter en priorité
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Tabs */}
       <Tabs tabs={TABS} value={tab} onChange={setTab} variant="underline" />

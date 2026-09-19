@@ -66,12 +66,15 @@ export default function AtelierProLovableDashboardPage() {
               <span>Bonjour, bon travail à l&apos;atelier</span>
             </div>
             
-            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold font-serif-luxury tracking-tight text-white leading-tight">
-              Votre atelier, mesuré au millimètre.
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif-luxury tracking-tight text-white leading-tight">
+              Votre atelier, <br className="hidden sm:block" />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500 font-medium italic">
+                mesuré au millimètre.
+              </span>
             </h1>
             
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-light">
-              Mesures, délais et acomptes réunis au même endroit — plus de carnet perdu.
+            <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-light max-w-md">
+              Mesures, délais et acomptes réunis au même endroit — l'excellence artisanale sans compromis.
             </p>
           </div>
 
@@ -122,7 +125,7 @@ export default function AtelierProLovableDashboardPage() {
         {/* KPI 1 : Commandes en cours */}
         <Link
           href="/orders"
-          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md hover:border-[#2E9D74]/50 transition-all group flex flex-col justify-between"
+          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-[#EBE7DF] dark:border-white/10 shadow-[0_4px_20px_rgba(15,59,50,0.04)] hover:shadow-[0_12px_28px_rgba(15,59,50,0.12)] hover:-translate-y-1 hover:border-[#2E9D74]/30 transition-all duration-300 group flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Commandes en cours</span>
@@ -144,7 +147,7 @@ export default function AtelierProLovableDashboardPage() {
         {/* KPI 2 : Clients suivis */}
         <Link
           href="/customers"
-          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md hover:border-[#2E9D74]/50 transition-all group flex flex-col justify-between"
+          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-[#EBE7DF] dark:border-white/10 shadow-[0_4px_20px_rgba(15,59,50,0.04)] hover:shadow-[0_12px_28px_rgba(15,59,50,0.12)] hover:-translate-y-1 hover:border-[#2E9D74]/30 transition-all duration-300 group flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Clients suivis</span>
@@ -166,7 +169,7 @@ export default function AtelierProLovableDashboardPage() {
         {/* KPI 3 : Encaissé */}
         <Link
           href="/payments"
-          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md hover:border-[#2E9D74]/50 transition-all group flex flex-col justify-between"
+          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-[#EBE7DF] dark:border-white/10 shadow-[0_4px_20px_rgba(15,59,50,0.04)] hover:shadow-[0_12px_28px_rgba(15,59,50,0.12)] hover:-translate-y-1 hover:border-[#2E9D74]/30 transition-all duration-300 group flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Encaissé (Ce mois)</span>
@@ -187,7 +190,7 @@ export default function AtelierProLovableDashboardPage() {
         {/* KPI 4 : Reste à percevoir */}
         <Link
           href="/payments"
-          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md hover:border-[#D97706]/50 transition-all group flex flex-col justify-between"
+          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-[#EBE7DF] dark:border-white/10 shadow-[0_4px_20px_rgba(15,59,50,0.04)] hover:shadow-[0_12px_28px_rgba(15,59,50,0.12)] hover:-translate-y-1 hover:border-[#D97706]/30 transition-all duration-300 group flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Reste à percevoir</span>
@@ -252,7 +255,7 @@ export default function AtelierProLovableDashboardPage() {
                   <div
                     key={order.id}
                     onClick={() => router.push(`/orders/${order.id}`)}
-                    className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121A16] border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md hover:border-[#2E9D74]/40 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121A16] border border-[#EBE7DF] dark:border-white/10 shadow-sm hover:shadow-[0_8px_24px_rgba(15,59,50,0.08)] hover:-translate-y-0.5 hover:border-[#2E9D74]/40 transition-all duration-300 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
                   >
                     <div className="flex items-center gap-3.5">
                       <div className="w-11 h-11 rounded-2xl bg-[#EBF7F1] dark:bg-[#0F3B32] text-[#0F3B32] dark:text-[#A3E635] flex items-center justify-center font-bold text-sm shrink-0">
@@ -290,7 +293,7 @@ export default function AtelierProLovableDashboardPage() {
                         </p>
                       </div>
 
-                      <ChevronRight className="w-5 h-5 text-slate-400" />
+                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#2E9D74] group-hover:translate-x-1 transition-all" />
                     </div>
                   </div>
                 );
@@ -308,20 +311,23 @@ export default function AtelierProLovableDashboardPage() {
             <span className="text-xs font-mono font-bold text-[#16A34A]">{recoveryRate}% encaissé</span>
           </div>
 
-          <div className="p-6 rounded-3xl bg-white dark:bg-[#121A16] border border-slate-200 dark:border-white/10 shadow-sm space-y-6 text-left">
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Part des montants déjà encaissés.</p>
+          <div className="p-6 rounded-3xl bg-[#F7F4ED] dark:bg-[#121A16] border border-[#EBE7DF] dark:border-white/10 shadow-sm space-y-6 text-left relative overflow-hidden">
+            {/* Subtle background decoration */}
+            <div className="absolute -right-8 -top-8 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="relative z-10">
+              <p className="text-xs text-[#8A7A65] dark:text-slate-400 uppercase tracking-wider font-semibold">Taux de recouvrement</p>
               <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-4xl font-black font-mono text-[#0F3B32] dark:text-[#A3E635]">{recoveryRate}%</span>
-                <span className="text-xs font-semibold text-slate-400">du chiffre d&apos;affaires</span>
+                <span className="text-4xl font-serif-luxury text-[#0F3B32] dark:text-[#A3E635]">{recoveryRate}%</span>
+                <span className="text-xs font-medium text-[#8A7A65]">encaissé sur le CA</span>
               </div>
             </div>
 
             {/* Visual Progress Bar */}
-            <div className="space-y-1.5">
-              <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-white/10 overflow-hidden">
+            <div className="space-y-2 relative z-10">
+              <div className="w-full h-2.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden shadow-inner">
                 <div
-                  className="h-full bg-gradient-to-r from-[#2E9D74] to-[#A3E635] rounded-full transition-all duration-1000"
+                  className="h-full bg-gradient-to-r from-[#2E9D74] via-[#34d399] to-[#A3E635] rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(46,157,116,0.5)]"
                   style={{ width: `${Math.min(100, Math.max(0, recoveryRate))}%` }}
                 />
               </div>

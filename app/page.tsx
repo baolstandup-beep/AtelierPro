@@ -99,20 +99,20 @@ export default function AtelierProOfficialLandingPage() {
   const roiMultiplier = Math.max(1, Math.round(lostRevenuePrevented / 2900));
 
   return (
-    <div className="min-h-screen bg-[#FBF9F5] text-[#111827] font-sans antialiased selection:bg-[#0F3B32] selection:text-[#FBF9F5] overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-[#FBF9F5] via-[#F4F1EA] to-[#EAE5D9] text-[#111827] font-sans antialiased selection:bg-[#0F3B32] selection:text-[#FBF9F5] overflow-x-hidden">
       {/* ─── 1. TOP FLOATING PILL NAVBAR (Haute Confection Luxury Style) ─── */}
       <div className="sticky top-4 z-50 px-4 sm:px-6 max-w-5xl mx-auto">
         <motion.header
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5, ease: 'easeOut' }}
-          className="rounded-full border border-[#E7E2D8] bg-white/92 backdrop-blur-xl px-5 sm:px-7 py-2.5 sm:py-3 shadow-[0_8px_30px_rgba(15,59,50,0.07)] flex items-center justify-between transition-all"
+          className="rounded-full border border-white/60 bg-white/40 backdrop-blur-xl px-5 sm:px-7 py-2.5 sm:py-3 shadow-[0_8px_30px_rgba(15,59,50,0.06)] flex items-center justify-between transition-all"
         >
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group shrink-0">
             <motion.div
               whileHover={{ rotate: 12, scale: 1.06 }}
-              className="w-9 h-9 rounded-full bg-gradient-to-br from-[#0F3B32] to-[#185c4e] flex items-center justify-center text-[#FBF9F5] shadow-sm"
+              className="w-9 h-9 rounded-full bg-white/60 backdrop-blur-md flex items-center justify-center border border-white/60 shadow-sm"
             >
               <Scissors className="w-4 h-4 text-[#D97706]" />
             </motion.div>
@@ -171,7 +171,7 @@ export default function AtelierProOfficialLandingPage() {
               </Link>
             ) : (
               <div className="flex items-center gap-2">
-                <Link href="/ateliers" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold text-[#0F3B32] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors mr-1">
+                <Link href="/ateliers" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold text-[#0F3B32] bg-white/60 hover:bg-white/80 border border-white/60 backdrop-blur-md transition-colors mr-1">
                   <Scissors className="w-3.5 h-3.5 text-[#D97706]" />
                   <span>Trouver un Atelier</span>
                 </Link>
@@ -212,7 +212,7 @@ export default function AtelierProOfficialLandingPage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -12, scale: 0.96 }}
               transition={{ duration: 0.2 }}
-              className="md:hidden mt-2 p-5 rounded-3xl bg-white/95 backdrop-blur-xl border border-[#E7E2D8] shadow-2xl flex flex-col gap-3 text-sm font-semibold text-[#111827]"
+              className="md:hidden mt-2 p-5 rounded-3xl bg-white/60 backdrop-blur-xl border border-white/60 shadow-2xl flex flex-col gap-3 text-sm font-semibold text-[#111827]"
             >
               <a href="#fonctionnalites" onClick={() => setMobileMenuOpen(false)} className="py-1.5 hover:text-[#0F3B32]">
                 Fonctionnalités
@@ -264,7 +264,7 @@ export default function AtelierProOfficialLandingPage() {
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
-              className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-gradient-to-r from-[#0F3B32]/10 to-[#D97706]/10 border border-[#D97706]/25 text-[#0F3B32] text-xs font-bold mb-6 shadow-sm"
+              className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/40 backdrop-blur-md border border-white/60 text-[#0F3B32] text-xs font-bold mb-6 shadow-sm"
             >
               <span className="flex items-center gap-1">
                 <span className="text-[#D97706] text-sm">★</span>
@@ -327,7 +327,7 @@ export default function AtelierProOfficialLandingPage() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
                 href="#fonctionnalites"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-white hover:bg-[#FBF9F5] text-[#0F3B32] font-bold text-sm border border-[#DDD8CF] shadow-sm hover:shadow-md transition-all duration-200"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-white/60 hover:bg-white/80 backdrop-blur-md text-[#0F3B32] font-bold text-sm border border-white/60 shadow-sm hover:shadow-md transition-all duration-200"
               >
                 <Play className="w-4 h-4 text-[#D97706] fill-[#D97706]" />
                 Découvrir les fonctionnalités
