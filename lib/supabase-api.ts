@@ -325,6 +325,19 @@ export async function dbFetchWorkshopFullData(workshopId: string): Promise<Synce
 export async function dbCreateCustomer(workshopId: string, input: CreateCustomerInput, userId?: string): Promise<Customer> {
   if (!supabase || !isSupabaseConfigured) throw new Error('Supabase non configuré');
 
+  // Normalisation de sécurité de gender (n'accepte que 'homme', 'femme' ou null)
+  const normalizedGender =
+    typeof input.gender === 'string'
+      ? input.gender.trim().toLowerCase()
+      : null;
+
+  const safeGender =
+    normalizedGender === 'homme' || normalizedGender === 'male'
+      ? 'homme'
+      : normalizedGender === 'femme' || normalizedGender === 'female'
+      ? 'femme'
+      : null;
+
   // 1. Appel prioritaire vers l'API backend sécurisée (validation de quota serveur & advisory lock)
   try {
     const res = await fetch('/api/clients/create', {
@@ -334,7 +347,7 @@ export async function dbCreateCustomer(workshopId: string, input: CreateCustomer
         name: input.full_name.trim(),
         phone: input.phone.trim(),
         notes: input.notes?.trim() || null,
-        gender: input.gender || null,
+        gender: safeGender,
       }),
     });
 
@@ -366,7 +379,7 @@ export async function dbCreateCustomer(workshopId: string, input: CreateCustomer
     p_name: input.full_name.trim(),
     p_phone: input.phone.trim() || null,
     p_notes: input.notes?.trim() || null,
-    p_gender: input.gender || null,
+    p_gender: safeGender,
   });
 
   if (!rpcErr && rpcData) {
@@ -377,7 +390,7 @@ export async function dbCreateCustomer(workshopId: string, input: CreateCustomer
         workshop_id: c.atelier_id || workshopId,
         full_name: c.name,
         phone: c.phone || '',
-        gender: (c.gender as any) || 'OTHER',
+        gender: (c.gender as any) || undefined,
         notes: c.notes || '',
         created_at: c.created_at,
         updated_at: c.created_at,
@@ -391,19 +404,30 @@ export async function dbCreateCustomer(workshopId: string, input: CreateCustomer
   }
 
   // 3. Fallback sur la table canonique 'clients'
+  const clientPayload = {
+    atelier_id: workshopId,
+    name: input.full_name.trim(),
+    phone: input.phone.trim() || null,
+    gender: safeGender,
+    notes: input.notes?.trim() || null,
+  };
+
+  console.log('CLIENT PAYLOAD', clientPayload);
+
   const { data: client, error: clErr } = await supabase
     .from('clients')
-    .insert({
-      atelier_id: workshopId,
-      name: input.full_name.trim(),
-      phone: input.phone.trim() || null,
-      notes: input.notes?.trim() || null,
-      gender: input.gender || null,
-    })
+    .insert(clientPayload)
     .select()
     .single();
 
   if (clErr) {
+    console.error('CREATE CLIENT FAILED', {
+      code: clErr?.code,
+      message: clErr?.message,
+      details: clErr?.details,
+      hint: clErr?.hint,
+    });
+
     if (clErr.message?.includes('FREE_PLAN_CLIENT_LIMIT_REACHED')) {
       const err = new Error('Vous avez atteint la limite de 5 clients du plan Découverte.');
       (err as any).code = 'FREE_PLAN_CLIENT_LIMIT_REACHED';
@@ -417,7 +441,7 @@ export async function dbCreateCustomer(workshopId: string, input: CreateCustomer
     workshop_id: workshopId,
     full_name: client.name,
     phone: client.phone || '',
-    gender: (client.gender as any) || 'OTHER',
+    gender: (client.gender as any) || undefined,
     notes: client.notes || '',
     created_at: client.created_at,
     updated_at: client.created_at,
@@ -446,14 +470,17 @@ export async function dbUpdateCustomer(customerId: string, input: Partial<Create
 
   if (data) return data as Customer;
 
-  // Fallback sur 'clients'
-  const genderMap: Record<string, string> = {
-    MALE: 'homme',
-    FEMALE: 'femme',
-    homme: 'homme',
-    femme: 'femme',
-  };
-  const clientGender = input.gender ? (genderMap[input.gender] || null) : undefined;
+  // Normalisation de sécurité de gender pour 'clients'
+  let clientGender: string | null | undefined = undefined;
+  if (input.gender !== undefined) {
+    const raw = typeof input.gender === 'string' ? input.gender.trim().toLowerCase() : null;
+    clientGender =
+      raw === 'homme' || raw === 'male'
+        ? 'homme'
+        : raw === 'femme' || raw === 'female'
+        ? 'femme'
+        : null;
+  }
 
   const updatePayload: any = {
     name: input.full_name?.trim(),

@@ -65,7 +65,15 @@ export async function POST(req: NextRequest) {
     const fullName = (body.name || body.full_name || '').trim();
     const phone = (body.phone || '').trim() || null;
     const notes = (body.notes || '').trim() || null;
-    const gender = (body.gender || '').trim() || null;
+
+    // Normalisation de sécurité de gender (n'accepte que 'homme', 'femme' ou null)
+    const rawGender = typeof body.gender === 'string' ? body.gender.trim().toLowerCase() : null;
+    const safeGender =
+      rawGender === 'homme' || rawGender === 'male'
+        ? 'homme'
+        : rawGender === 'femme' || rawGender === 'female'
+        ? 'femme'
+        : null;
 
     if (!fullName || fullName.length < 2) {
       return NextResponse.json(
@@ -97,7 +105,7 @@ export async function POST(req: NextRequest) {
       p_name: fullName,
       p_phone: phone,
       p_notes: notes,
-      p_gender: gender,
+      p_gender: safeGender,
     });
 
     if (!rpcErr && rpcData) {
@@ -166,19 +174,30 @@ export async function POST(req: NextRequest) {
     }
 
     // Insertion sécurisée du client
+    const clientPayload = {
+      atelier_id: atelierId,
+      name: fullName,
+      phone,
+      gender: safeGender,
+      notes,
+    };
+
+    console.log('CLIENT PAYLOAD', clientPayload);
+
     const { data: newClient, error: insertErr } = await admin
       .from('clients')
-      .insert({
-        atelier_id: atelierId,
-        name: fullName,
-        phone,
-        notes,
-        gender,
-      })
+      .insert(clientPayload)
       .select()
       .single();
 
     if (insertErr) {
+      console.error('CREATE CLIENT FAILED', {
+        code: insertErr?.code,
+        message: insertErr?.message,
+        details: insertErr?.details,
+        hint: insertErr?.hint,
+      });
+
       if (insertErr.message?.includes(FREE_PLAN_CLIENT_LIMIT_REACHED)) {
         return NextResponse.json(
           {

@@ -16,7 +16,7 @@ export type PaymentStatus = 'PENDING' | 'CONFIRMED' | 'FAILED' | 'REFUNDED' | 'C
 export type PriorityLevel = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
 export type GarmentType = 'BOUBOU' | 'KAFTAN' | 'CHEMISE' | 'PANTALON' | 'ROBE' | 'JUPE' | 'VESTE' | 'COSTUME' | 'ENSEMBLE' | 'AUTRE';
 export type ExpenseCategory = 'TISSU' | 'FIL' | 'MATERIEL' | 'TRANSPORT' | 'LOYER' | 'ELECTRICITE' | 'SALAIRES' | 'ENTRETIEN' | 'AUTRE';
-export type GenderType = 'MALE' | 'FEMALE' | 'OTHER';
+export type GenderType = 'homme' | 'femme' | 'MALE' | 'FEMALE' | 'OTHER';
 
 export type SubscriptionPlanId = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
 

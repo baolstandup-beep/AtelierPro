@@ -19,9 +19,8 @@ import { WhatsAppSenderModal } from '@/components/whatsapp/whatsapp-sender-modal
 
 const GENDER_OPTIONS = [
   { value: '', label: 'Non précisé' },
-  { value: 'MALE', label: 'Homme' },
-  { value: 'FEMALE', label: 'Femme' },
-  { value: 'OTHER', label: 'Autre' },
+  { value: 'homme', label: 'Homme' },
+  { value: 'femme', label: 'Femme' },
 ];
 
 export default function CustomerDetailPage() {
@@ -38,13 +37,21 @@ export default function CustomerDetailPage() {
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [measurementToDelete, setMeasurementToDelete] = useState<MeasurementProfile | null>(null);
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+
+  const initialGender =
+    customer?.gender === 'MALE' || customer?.gender === 'homme'
+      ? 'homme'
+      : customer?.gender === 'FEMALE' || customer?.gender === 'femme'
+      ? 'femme'
+      : '';
+
   const [editForm, setEditForm] = useState({
     full_name: customer?.full_name || '',
     phone: customer?.phone || '',
     email: customer?.email || '',
     address: customer?.address || '',
     city: customer?.city || '',
-    gender: (customer?.gender || '') as GenderType | '',
+    gender: initialGender as GenderType | '',
     notes: customer?.notes || '',
   });
   const [editLoading, setEditLoading] = useState(false);
@@ -62,7 +69,11 @@ export default function CustomerDetailPage() {
     [payments, id]
   );
 
-  const measurementProfiles = getMeasurementProfiles(id);
+  const customerMeasurements = useMemo(() =>
+    getMeasurementProfiles(id),
+    [getMeasurementProfiles, id]
+  );
+  const measurementProfiles = customerMeasurements;
 
   const totalSpent = customerOrders.reduce((s, o) => s + o.total_amount, 0);
   const totalPaid = customerOrders.reduce((s, o) => {
@@ -72,10 +83,10 @@ export default function CustomerDetailPage() {
   }, 0);
   const balance = totalSpent - totalPaid;
 
-  if (!customer || customer.deleted_at) {
+  if (!customer) {
     return (
-      <div className="space-y-5">
-        <Button variant="ghost" leftIcon={<ArrowLeft className="h-4 w-4" />} onClick={() => router.back()}>
+      <div className="space-y-4">
+        <Button variant="ghost" size="sm" leftIcon={<ArrowLeft className="h-4 w-4" />} onClick={() => router.back()}>
           Retour
         </Button>
         <EmptyState title="Client introuvable" description="Ce client n'existe pas ou a été archivé." />
@@ -88,13 +99,23 @@ export default function CustomerDetailPage() {
     if (!editForm.full_name.trim() || !editForm.phone.trim()) return;
     setEditLoading(true);
     try {
+      const normalizedGender =
+        typeof editForm.gender === 'string'
+          ? editForm.gender.trim().toLowerCase()
+          : null;
+
+      const safeGender: GenderType | undefined =
+        normalizedGender === 'homme' || normalizedGender === 'femme'
+          ? (normalizedGender as GenderType)
+          : undefined;
+
       updateCustomer(id, {
         full_name: editForm.full_name.trim(),
         phone: editForm.phone.trim(),
         email: editForm.email.trim() || undefined,
         address: editForm.address.trim() || undefined,
         city: editForm.city.trim() || undefined,
-        gender: editForm.gender as GenderType || undefined,
+        gender: safeGender,
         notes: editForm.notes.trim() || undefined,
       });
       success('Client mis à jour !');

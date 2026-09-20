@@ -14,9 +14,8 @@ import { PlanQuotaWidget } from '@/components/billing/plan-quota-widget';
 
 const GENDER_OPTIONS = [
   { value: '', label: 'Non précisé' },
-  { value: 'MALE', label: 'Homme' },
-  { value: 'FEMALE', label: 'Femme' },
-  { value: 'OTHER', label: 'Autre' },
+  { value: 'homme', label: 'Homme' },
+  { value: 'femme', label: 'Femme' },
 ];
 
 export default function NewCustomerPage() {
@@ -55,13 +54,24 @@ export default function NewCustomerPage() {
     setLoading(true);
 
     try {
+      // Normalisation de sécurité
+      const normalizedGender =
+        typeof form.gender === 'string'
+          ? form.gender.trim().toLowerCase()
+          : null;
+
+      const safeGender: GenderType | undefined =
+        normalizedGender === 'homme' || normalizedGender === 'femme'
+          ? (normalizedGender as GenderType)
+          : undefined;
+
       const customer = await createCustomer({
         full_name: form.full_name.trim(),
         phone: form.phone.trim(),
         email: form.email.trim() || undefined,
         address: form.address.trim() || undefined,
         city: form.city.trim() || undefined,
-        gender: form.gender as GenderType || undefined,
+        gender: safeGender,
         notes: form.notes.trim() || undefined,
       });
       success('Client créé !', `${customer.full_name} a été ajouté.`);
