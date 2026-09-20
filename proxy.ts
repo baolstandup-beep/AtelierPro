@@ -26,20 +26,39 @@ const PUBLIC_PREFIXES = [
   '/legal',
   '/offline',
   '/onboarding',
+  '/pricing',
+  '/signup',
+  '/api/subscription/plans',
+  '/api/subscription/init-payment',
+  '/api/subscription/complete',
+  '/api/webhooks',
+  '/blog',
+];
+
+// Routes redirigées (plus de création directe de compte sans paiement)
+const SIGNUP_REDIRECT_ROUTES = [
+  '/auth/register',
 ];
 
 // Sensitive authentication & API routes subject to strict anti-brute-force rate limiting
 const SENSITIVE_AUTH_PREFIXES = [
   '/auth/login',
-  '/auth/register',
   '/auth/forgot-password',
   '/api/auth',
   '/api/stripe',
+  '/api/subscription/init-payment',
 ];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const ip = getClientIp(request.headers);
+
+  // ─── 0. Bloquer /auth/register → rediriger vers /pricing ─────────────────
+  if (SIGNUP_REDIRECT_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'))) {
+    const pricingUrl = new URL('/pricing', request.url);
+    pricingUrl.searchParams.set('from', 'register');
+    return NextResponse.redirect(pricingUrl, { status: 301 });
+  }
 
   // ─── 1. Anti-Brute-Force Rate Limiting (Max 5 attempts per IP on POST requests) ───
   const isSensitiveAuthRoute =

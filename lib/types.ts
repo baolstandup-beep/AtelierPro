@@ -324,24 +324,109 @@ export interface CreateMeasurementInput {
   values: { measurement_type_id: string; value: number; unit: string }[];
 }
 
-// ------- SaaS Payments types -------
+// ------- SaaS Subscription Types -------
+
 export type SaaSProvider = 'WAVE' | 'ORANGE_MONEY' | 'STRIPE' | 'MANUAL';
-export type SaaSStatus = 'pending' | 'processing' | 'paid' | 'failed' | 'cancelled' | 'expired';
+
+export type SaaSPaymentStatus = 'pending' | 'processing' | 'paid' | 'failed' | 'cancelled' | 'refunded';
+
+export type SubscriptionStatus =
+  | 'pending'
+  | 'active'
+  | 'grace_period'
+  | 'expired'
+  | 'cancelled'
+  | 'suspended';
+
+export type SubscriptionAccessLevel = 'ACTIVE' | 'GRACE' | 'READ_ONLY' | 'BLOCKED';
+
+export type PendingSignupStatus =
+  | 'pending'
+  | 'payment_processing'
+  | 'paid'
+  | 'completed'
+  | 'expired'
+  | 'failed'
+  | 'cancelled';
+
+export interface Plan {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  price: number;
+  currency: string;
+  duration_days: number;
+  billing_interval: 'day' | 'week' | 'month' | 'year';
+  features: string[];
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Subscription {
+  id: string;
+  atelier_id: string;
+  plan_id: string;
+  status: SubscriptionStatus;
+  started_at?: string;
+  current_period_start?: string;
+  current_period_end?: string;
+  grace_period_end?: string;
+  cancelled_at?: string;
+  suspended_at?: string;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  plan?: Plan;
+}
+
+export interface SubscriptionAccess {
+  level: SubscriptionAccessLevel;
+  subscription?: Subscription;
+  daysRemaining?: number;
+  graceDaysRemaining?: number;
+  message?: string;
+}
+
+export interface PendingSignup {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  workshop_name: string;
+  plan_id?: string;
+  payment_reference?: string;
+  status: PendingSignupStatus;
+  expires_at: string;
+  paid_at?: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  plan?: Plan;
+}
 
 export interface SubscriptionPayment {
   id: string;
-  workshop_id: string;
+  atelier_id?: string;
+  pending_signup_id?: string;
+  subscription_id?: string;
   plan_id: string;
   provider: SaaSProvider;
   provider_transaction_id?: string;
-  reference: string;
+  provider_reference?: string;
   amount: number;
   currency: string;
-  status: SaaSStatus;
+  status: SaaSPaymentStatus;
+  period_start?: string;
+  period_end?: string;
+  paid_at?: string;
   created_at: string;
   updated_at: string;
-  paid_at?: string;
-  raw_metadata?: Record<string, unknown>;
+  // Joined
+  plan?: Plan;
 }
 
 export interface PaymentWebhookEvent {
@@ -356,4 +441,20 @@ export interface PaymentWebhookEvent {
   processed_at?: string;
   payload: Record<string, unknown>;
 }
+
+export interface SubscriptionNotification {
+  id: string;
+  subscription_id: string;
+  notification_type:
+    | 'expiry_7_days'
+    | 'expiry_3_days'
+    | 'expiry_1_day'
+    | 'expired'
+    | 'grace_period'
+    | 'reactivated';
+  sent_at: string;
+}
+
+// Legacy alias for backward compat
+export type SaaSStatus = SaaSPaymentStatus;
 
