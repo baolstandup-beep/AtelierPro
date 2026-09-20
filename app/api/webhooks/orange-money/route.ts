@@ -100,27 +100,23 @@ export async function POST(request: Request) {
       });
     }
 
-    // Confirmer
-    const { data: result, error: confirmErr } = await sb.rpc(
-      'confirm_initial_subscription_payment',
-      {
-        p_payment_reference: orderId,
-        p_provider: 'ORANGE_MONEY',
-        p_event_id: eventId,
-        p_amount_received: amountReceived,
-      }
+    // Confirmer via transaction résiliente
+    const { confirmSubscriptionPaymentTransaction } = await import('@/lib/billing/payment-service');
+    const result = await confirmSubscriptionPaymentTransaction(
+      orderId,
+      'ORANGE_MONEY',
+      amountReceived,
+      eventId
     );
 
-    const typedResult = result as { success?: boolean; error?: string } | null;
-
-    if (confirmErr || !typedResult?.success) {
-      console.error('[OM_CONFIRM_ERROR]', confirmErr || result);
+    if (!result.success) {
+      console.error('[OM_CONFIRM_ERROR]', result.error);
       await sb
         .from('webhook_events')
-        .update({ processing_status: 'error', error_message: confirmErr?.message || 'Failed' })
+        .update({ processing_status: 'error', error_message: result.error || 'Failed' })
         .eq('event_id', eventId)
         .eq('provider', 'ORANGE_MONEY');
-      return NextResponse.json({ error: 'Confirmation failed' }, { status: 500 });
+      return NextResponse.json({ error: result.error || 'Confirmation failed' }, { status: 500 });
     }
 
     await sb

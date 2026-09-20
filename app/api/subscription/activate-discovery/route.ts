@@ -76,8 +76,6 @@ export async function POST(req: NextRequest) {
         .insert({
           name: atelierName,
           currency: 'XOF',
-          currency_symbol: 'FCFA',
-          is_active: true,
         })
         .select('id')
         .single();

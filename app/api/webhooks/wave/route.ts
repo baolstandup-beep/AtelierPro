@@ -121,55 +121,32 @@ export async function POST(request: Request) {
       });
     }
 
-    // ─── 5. Confirmer le paiement via RPC atomique ─────────────────────────
+    // ─── 5. Confirmer le paiement via RPC ou transaction sécurisée ──────
     console.info('[WAVE_PAYMENT_CONFIRMING] Reference:', clientReference);
 
-    const { data: confirmResult, error: confirmErr } = await sb.rpc(
-      'confirm_initial_subscription_payment',
-      {
-        p_payment_reference: clientReference,
-        p_provider: 'WAVE',
-        p_event_id: eventId,
-        p_amount_received: amountReceived,
-      }
+    const { confirmSubscriptionPaymentTransaction } = await import('@/lib/billing/payment-service');
+    const result = await confirmSubscriptionPaymentTransaction(
+      clientReference,
+      'WAVE',
+      amountReceived,
+      eventId
     );
 
-    if (confirmErr) {
-      console.error('[WAVE_CONFIRM_ERROR]', confirmErr);
-
-      // Mettre à jour l'événement comme erreur
-      await sb
-        .from('webhook_events')
-        .update({
-          processing_status: 'error',
-          error_message: confirmErr.message,
-        })
-        .eq('event_id', eventId)
-        .eq('provider', 'WAVE');
-
-      return NextResponse.json(
-        { error: 'Erreur lors de la confirmation du paiement' },
-        { status: 500 }
-      );
-    }
-
-    const result = confirmResult as { success?: boolean; error?: string; type?: string } | null;
-
-    if (!result?.success) {
-      console.error('[WAVE_CONFIRM_FAILED]', result?.error);
-      const isAmountMismatch = result?.error === 'amount_mismatch';
+    if (!result.success) {
+      console.error('[WAVE_CONFIRM_FAILED]', result.error);
+      const isAmountMismatch = result.error === 'amount_mismatch';
 
       await sb
         .from('webhook_events')
         .update({
           processing_status: 'error',
-          error_message: result?.error || 'Confirmation échouée',
+          error_message: result.error || 'Confirmation échouée',
         })
         .eq('event_id', eventId)
         .eq('provider', 'WAVE');
 
       return NextResponse.json(
-        { error: result?.error || 'Confirmation échouée' },
+        { error: result.error || 'Confirmation échouée' },
         { status: isAmountMismatch ? 400 : 500 }
       );
     }

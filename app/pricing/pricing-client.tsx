@@ -41,24 +41,31 @@ export default function PricingClient({ plans }: Props) {
   });
 
   async function handleSelectPlan(plan: Plan) {
-    if (plan.slug === 'discovery') {
-      setActivatingDiscovery(true);
-      try {
-        const res = await fetch('/api/subscription/activate-discovery', {
-          method: 'POST',
-        });
-        if (res.ok) {
-          router.push('/dashboard');
-          return;
+    // Vérifier si l'utilisateur est déjà connecté
+    try {
+      const authCheck = await fetch('/api/subscription/renew');
+      if (authCheck.ok) {
+        // Utilisateur connecté : redirection directe vers l'espace abonnement interne
+        if (plan.slug === 'discovery') {
+          setActivatingDiscovery(true);
+          const res = await fetch('/api/subscription/activate-discovery', { method: 'POST' });
+          if (res.ok) {
+            router.push('/dashboard');
+            return;
+          }
         }
-      } catch {}
-      // Si non connecté ou erreur, redirection vers le tunnel d'inscription Découverte
+        router.push(`/abonnement?plan=${plan.slug}`);
+        return;
+      }
+    } catch {}
+
+    // Utilisateur NON connecté : tunnel d'inscription standard
+    if (plan.slug === 'discovery') {
       router.push(`/signup?plan=${plan.id || 'discovery'}`);
-      setActivatingDiscovery(false);
       return;
     }
 
-    // Plans payants : tunnel de commande et paiement Wave / Orange Money
+    // Plans payants pour nouveaux utilisateurs
     router.push(`/signup?plan=${plan.id || plan.slug}`);
   }
 

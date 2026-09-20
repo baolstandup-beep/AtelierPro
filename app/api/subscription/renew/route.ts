@@ -47,31 +47,82 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Aucun atelier trouvé.', code: 'NO_ATELIER' }, { status: 404 });
     }
 
-    // Récupérer l'abonnement existant
     const sb = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false } }
     );
 
-    const { data: sub } = await sb
+    // Résoudre le plan cible (accepte soit UUID, soit slug 'starter' / 'pro' / 'discovery')
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId);
+    let planQuery = sb.from('plans').select('id, slug, name, price').eq('is_active', true);
+    if (isUuid) {
+      planQuery = planQuery.eq('id', planId);
+    } else {
+      planQuery = planQuery.eq('slug', planId.toLowerCase());
+    }
+    const { data: targetPlan, error: planErr } = await planQuery.maybeSingle();
+
+    if (planErr || !targetPlan) {
+      return NextResponse.json({ error: 'Plan introuvable.', code: 'PLAN_NOT_FOUND' }, { status: 404 });
+    }
+
+    // Récupérer ou initialiser l'abonnement existant de cet atelier
+    let { data: sub } = await sb
       .from('subscriptions')
       .select('id, status, plan_id')
       .eq('atelier_id', atelierId)
-      .in('status', ['active', 'grace_period', 'expired', 'pending'])
-      .order('created_at', { ascending: false })
-      .limit(1)
       .maybeSingle();
 
     if (!sub) {
-      return NextResponse.json({ error: 'Aucun abonnement trouvé.', code: 'NO_SUBSCRIPTION' }, { status: 404 });
+      const { data: newSub, error: subCreateErr } = await sb
+        .from('subscriptions')
+        .insert({
+          atelier_id: atelierId,
+          plan_id: targetPlan.id,
+          status: 'active',
+          started_at: new Date().toISOString(),
+          current_period_start: new Date().toISOString(),
+          current_period_end: targetPlan.slug === 'discovery' ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        })
+        .select('id, status, plan_id')
+        .single();
+
+      if (subCreateErr || !newSub) {
+        return NextResponse.json({ error: 'Impossible d\'initialiser l\'abonnement atelier.', code: 'SUB_INIT_ERROR' }, { status: 500 });
+      }
+      sub = newSub;
     }
 
-    const result = await initRenewalPayment(atelierId, sub.id, planId, provider);
+    // CAS SPÉCIAL : Passage à la formule Découverte (0 FCFA)
+    if (targetPlan.slug === 'discovery' || Number(targetPlan.price) === 0) {
+      await sb
+        .from('subscriptions')
+        .update({
+          plan_id: targetPlan.id,
+          status: 'active',
+          current_period_end: null,
+          grace_period_end: null,
+          suspended_at: null,
+          cancelled_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', sub.id);
+
+      return NextResponse.json({
+        success: true,
+        plan: 'discovery',
+        message: 'Votre atelier est désormais sur la formule Découverte gratuite.',
+        redirect: '/dashboard',
+      });
+    }
+
+    // PLANS PAYANTS (Starter, Pro) : initier transaction Wave ou Orange Money
+    const result = await initRenewalPayment(atelierId, sub.id, targetPlan.id, provider);
 
     if (!result.success) {
       return NextResponse.json(
-        { error: result.error || 'Erreur lors de l\'initiation du renouvellement.', code: 'RENEWAL_INIT_ERROR' },
+        { error: result.error || 'Erreur lors de l\'initiation du paiement.', code: 'PAYMENT_INIT_ERROR' },
         { status: 502 }
       );
     }
