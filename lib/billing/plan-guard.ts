@@ -198,4 +198,4 @@ export function hasPlanFeature(
  */
 export const FREE_PLAN_CLIENT_LIMIT_REACHED = 'FREE_PLAN_CLIENT_LIMIT_REACHED';
 export const FREE_PLAN_CLIENT_LIMIT_MESSAGE =
-  'Vous avez atteint la limite de 5 clients du plan Découverte.';
+  'Vous avez atteint la limite de 5 clients du plan Découverte. Passez à Starter ou Pro pour continuer.';

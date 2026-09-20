@@ -95,16 +95,39 @@ export async function POST(request: Request) {
     }
 
     // ─── Vérifier que le plan existe ────────────────────────────────────────
-    const { data: plan } = await sb
+    let plan: any = null;
+    const { data: dbPlan } = await sb
       .from('plans')
-      .select('id, name, price, is_active')
+      .select('id, name, slug, price, is_active')
       .eq('id', planId)
       .maybeSingle();
+
+    if (dbPlan) {
+      plan = dbPlan;
+    } else if (planId === 'plan-discovery' || planId === 'discovery') {
+      plan = { id: 'plan-discovery', name: 'Découverte', slug: 'discovery', price: 0, is_active: true };
+    } else if (planId === 'plan-starter' || planId === 'starter') {
+      plan = { id: 'plan-starter', name: 'Starter', slug: 'starter', price: 5000, is_active: true };
+    } else if (planId === 'plan-pro' || planId === 'pro') {
+      plan = { id: 'plan-pro', name: 'Pro', slug: 'pro', price: 15000, is_active: true };
+    }
 
     if (!plan || !plan.is_active) {
       return NextResponse.json(
         { error: 'Plan invalide ou inactif.', code: 'INVALID_PLAN' },
         { status: 404 }
+      );
+    }
+
+    // ─── INTERDICTION STRICTE : Pas de paiement Wave/OM pour le plan Découverte ─
+    if (Number(plan.price) === 0 || plan.slug === 'discovery' || plan.slug === 'decouverte') {
+      console.warn('[PAYMENT_BLOCKED] Tentative d’initialisation de paiement pour le plan gratuit Découverte.');
+      return NextResponse.json(
+        {
+          error: 'Le plan Découverte est 100% gratuit. Aucun paiement Wave ou Orange Money n\'est requis.',
+          code: 'FREE_PLAN_NO_PAYMENT_REQUIRED',
+        },
+        { status: 400 }
       );
     }
 

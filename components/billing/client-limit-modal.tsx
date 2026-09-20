@@ -139,8 +139,17 @@ export function ClientLimitModal({ isOpen, onClose, currentCount = 5 }: ClientLi
           </div>
 
           {/* Footer Info */}
-          <div className="px-6 py-4 bg-stone-100/80 border-t border-[#E7E2D8] text-center text-xs text-stone-500">
-            Activation instantanée par Wave &amp; Orange Money. Vos données actuelles sont conservées à 100%.
+          <div className="px-6 py-4 bg-stone-100/80 border-t border-[#E7E2D8] flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left text-xs text-stone-600">
+            <span>Paiement Wave &amp; Orange Money • Vos données sont conservées</span>
+            <button
+              onClick={() => {
+                onClose();
+                router.push('/pricing');
+              }}
+              className="px-3 py-1.5 rounded-lg bg-white border border-[#E7E2D8] text-xs font-bold text-[#0F3B32] hover:bg-[#0F3B32] hover:text-white transition-all cursor-pointer shadow-sm"
+            >
+              Voir les abonnements
+            </button>
           </div>
         </motion.div>
       </div>

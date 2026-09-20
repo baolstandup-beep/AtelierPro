@@ -9,6 +9,7 @@ import {
   User, Building2, Lock, Eye, EyeOff, Loader2, AlertCircle,
   CreditCard, ArrowRight, Phone
 } from 'lucide-react';
+import { getSupabase } from '@/lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Plan {
@@ -48,11 +49,19 @@ function SignupInner() {
     lastName: '',
     phone: '',
     workshopName: '',
+    pin: '',
   });
+  const [showPin, setShowPin] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const [provider, setProvider] = useState<'WAVE' | 'ORANGE_MONEY' | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Détection stricte du plan gratuit Découverte
+  const isFreePlan =
+    selectedPlan?.slug === 'decouverte' ||
+    selectedPlan?.slug === 'discovery' ||
+    Number(selectedPlan?.price) === 0;
 
   // Charger les plans
   useEffect(() => {
@@ -63,7 +72,7 @@ function SignupInner() {
           const data = await res.json();
           setPlans(data.plans || []);
           if (preSelectedPlanId) {
-            const found = (data.plans || []).find((p: Plan) => p.id === preSelectedPlanId);
+            const found = (data.plans || []).find((p: Plan) => p.id === preSelectedPlanId || p.slug === preSelectedPlanId);
             if (found) setSelectedPlan(found);
           }
         }
@@ -80,14 +89,86 @@ function SignupInner() {
     const phone = form.phone.replace(/\s+/g, '');
     if (!phone || phone.length < 9) errs.phone = 'Numéro invalide (min 9 chiffres).';
     if (!form.workshopName.trim()) errs.workshopName = 'Nom de l\'atelier requis.';
+    if (form.pin && !/^\d{4}$/.test(form.pin)) {
+      errs.pin = 'Le code PIN doit comporter 4 chiffres.';
+    }
     return errs;
   }
 
+  // ─── Activation Gratuite Découverte (0 FCFA - Aucun provider de paiement) ───
+  async function handleActivateFree() {
+    if (submitting) return;
+    const errs = validateStep2();
+    if (Object.keys(errs).length) {
+      setFormErrors(errs);
+      setStep(2);
+      return;
+    }
+    if (!selectedPlan) return;
+
+    setSubmitting(true);
+    setError('');
+
+    let normalizedPhone = form.phone.replace(/\s+/g, '');
+    if (!normalizedPhone.startsWith('+') && normalizedPhone.length === 9) {
+      normalizedPhone = '+221' + normalizedPhone;
+    }
+
+    try {
+      const res = await fetch('/api/subscriptions/activate-free', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
+          phone: normalizedPhone,
+          workshopName: form.workshopName.trim(),
+          pin: form.pin || undefined,
+          planId: selectedPlan.id,
+          slug: selectedPlan.slug,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Une erreur est survenue lors de l’activation.');
+        setSubmitting(false);
+        return;
+      }
+
+      // Injecter la session Supabase si disponible
+      if (data.session?.access_token) {
+        try {
+          const sb = getSupabase();
+          await sb?.auth.setSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+          });
+        } catch (sessErr) {
+          console.warn('[Session set warning]', sessErr);
+        }
+      }
+
+      // Redirection immédiate vers le dashboard
+      router.push('/dashboard');
+    } catch {
+      setError('Erreur réseau. Vérifiez votre connexion et réessayez.');
+      setSubmitting(false);
+    }
+  }
+
+  // ─── Paiement Plans Payants (Starter / Pro via Wave / OM) ───────────────────
   async function handlePay(chosenProvider: 'WAVE' | 'ORANGE_MONEY') {
     if (submitting) return;
     const errs = validateStep2();
     if (Object.keys(errs).length) { setFormErrors(errs); return; }
     if (!selectedPlan) return;
+
+    // Protection supplémentaire : interdiction de paiement pour plan gratuit
+    if (isFreePlan) {
+      return handleActivateFree();
+    }
 
     setSubmitting(true);
     setProvider(chosenProvider);
@@ -134,7 +215,7 @@ function SignupInner() {
     }
   }
 
-  const stepLabels = ['Formule', 'Informations', 'Paiement'];
+  const stepLabels = ['Formule', 'Informations', isFreePlan ? 'Activation' : 'Paiement'];
 
   return (
     <div className="min-h-screen bg-[#FBF9F5] font-sans antialiased">
@@ -340,12 +421,39 @@ function SignupInner() {
                   </div>
                   {formErrors.workshopName && <p className="text-[11px] text-red-500 mt-1">{formErrors.workshopName}</p>}
                 </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700">Code PIN de connexion (4 chiffres)</label>
+                    <span className="text-[10px] text-slate-400">Optionnel (défaut: 4 derniers chiffres)</span>
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type={showPin ? 'text' : 'password'}
+                      inputMode="numeric"
+                      maxLength={4}
+                      value={form.pin}
+                      onChange={e => setForm(f => ({ ...f, pin: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                      placeholder="1234"
+                      className={`w-full pl-9 pr-10 py-2.5 rounded-xl border text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F3B32] transition-all ${formErrors.pin ? 'border-red-400' : 'border-slate-200'}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {formErrors.pin && <p className="text-[11px] text-red-500 mt-1">{formErrors.pin}</p>}
+                </div>
               </div>
 
               <div className="mt-6 flex gap-3">
                 <button
                   onClick={() => setStep(1)}
-                  className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" /> Retour
                 </button>
@@ -356,7 +464,7 @@ function SignupInner() {
                     setFormErrors({});
                     setStep(3);
                   }}
-                  className="flex-[2] py-3.5 rounded-2xl bg-[#0F3B32] text-white text-sm font-bold hover:bg-[#185c4e] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20"
+                  className="flex-[2] py-3.5 rounded-2xl bg-[#0F3B32] text-white text-sm font-bold hover:bg-[#185c4e] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 cursor-pointer"
                 >
                   Continuer <ArrowRight className="w-4 h-4" />
                 </button>
@@ -364,7 +472,7 @@ function SignupInner() {
             </motion.div>
           )}
 
-          {/* ─── Étape 3 : Paiement ─── */}
+          {/* ─── Étape 3 : Activation (Découverte) ou Paiement (Starter/Pro) ─── */}
           {step === 3 && selectedPlan && (
             <motion.div
               key="step3"
@@ -373,96 +481,170 @@ function SignupInner() {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
             >
-              <h1 className="text-2xl font-extrabold text-[#111827] font-serif-luxury mb-2 text-center">
-                Activez votre atelier
-              </h1>
-              <p className="text-sm text-slate-500 text-center mb-8">
-                Paiement sécurisé — aucune carte bancaire requise.
-              </p>
+              {isFreePlan ? (
+                /* ─── INTERFACE PLAN DÉCOUVERTE (0 FCFA - Aucun paiement requis) ─── */
+                <>
+                  <h1 className="text-2xl font-extrabold text-[#111827] font-serif-luxury mb-2 text-center">
+                    Activez gratuitement votre atelier
+                  </h1>
+                  <p className="text-sm text-slate-500 text-center mb-8">
+                    Commencez immédiatement avec AtelierPro. Aucun paiement requis.
+                  </p>
 
-              {/* Récapitulatif */}
-              <div className="bg-white rounded-2xl border border-[#EBE7DF] p-5 mb-6">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-slate-500">Plan sélectionné</span>
-                  <span className="font-bold text-[#0F3B32]">{selectedPlan.name}</span>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-slate-500">Durée</span>
-                  <span className="text-sm font-medium text-slate-700">
-                    {selectedPlan.billing_interval === 'month' ? '1 mois' : '1 an'}
-                  </span>
-                </div>
-                <div className="border-t border-[#EBE7DF] mt-3 pt-3 flex justify-between items-center">
-                  <span className="font-bold text-slate-700">Total à payer</span>
-                  <span className="text-xl font-extrabold text-[#0F3B32]">
-                    {formatPrice(selectedPlan.price)}
-                  </span>
-                </div>
-              </div>
+                  {/* Récapitulatif Découverte */}
+                  <div className="bg-white rounded-2xl border border-[#EBE7DF] p-5 mb-6 shadow-sm">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-slate-500">Plan sélectionné</span>
+                      <span className="font-bold text-[#0F3B32]">Découverte</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-slate-500">Clients inclus</span>
+                      <span className="text-sm font-medium text-slate-700">Jusqu’à 5 clients</span>
+                    </div>
+                    <div className="border-t border-[#EBE7DF] mt-3 pt-3 flex justify-between items-center">
+                      <span className="font-bold text-slate-700">Total à payer</span>
+                      <span className="text-xl font-extrabold text-[#0F3B32]">
+                        0 FCFA
+                      </span>
+                    </div>
+                  </div>
 
-              {error && (
-                <div className="mb-5 flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm">{error}</p>
-                </div>
+                  {error && (
+                    <div className="mb-5 flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm">{error}</p>
+                    </div>
+                  )}
+
+                  {/* Bouton unique d'activation directe */}
+                  <div className="space-y-3">
+                    <button
+                      onClick={handleActivateFree}
+                      disabled={submitting}
+                      className={`w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-3 transition-all cursor-pointer ${
+                        submitting
+                          ? 'bg-[#0F3B32]/70 text-white cursor-wait'
+                          : 'bg-[#0F3B32] hover:bg-[#185c4e] text-white shadow-lg shadow-emerald-900/20'
+                      }`}
+                    >
+                      {submitting ? (
+                        <><Loader2 className="w-5 h-5 animate-spin" /> Activation de votre atelier...</>
+                      ) : (
+                        <>
+                          <span>Commencer gratuitement</span>
+                          <ArrowRight className="w-5 h-5" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setStep(2)}
+                    disabled={submitting}
+                    className="mt-4 w-full py-3 text-xs text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" /> Modifier mes informations
+                  </button>
+
+                  <p className="text-center text-[11px] text-slate-400 mt-4">
+                    🔒 Activation sécurisée
+                  </p>
+                </>
+              ) : (
+                /* ─── INTERFACE PLANS PAYANTS (Starter / Pro via Wave & OM) ─── */
+                <>
+                  <h1 className="text-2xl font-extrabold text-[#111827] font-serif-luxury mb-2 text-center">
+                    Activez votre atelier
+                  </h1>
+                  <p className="text-sm text-slate-500 text-center mb-8">
+                    Paiement sécurisé — aucune carte bancaire requise.
+                  </p>
+
+                  {/* Récapitulatif Payant */}
+                  <div className="bg-white rounded-2xl border border-[#EBE7DF] p-5 mb-6 shadow-sm">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-slate-500">Plan sélectionné</span>
+                      <span className="font-bold text-[#0F3B32]">{selectedPlan.name}</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-slate-500">Durée</span>
+                      <span className="text-sm font-medium text-slate-700">
+                        {selectedPlan.billing_interval === 'month' ? '1 mois' : '1 an'}
+                      </span>
+                    </div>
+                    <div className="border-t border-[#EBE7DF] mt-3 pt-3 flex justify-between items-center">
+                      <span className="font-bold text-slate-700">Total à payer</span>
+                      <span className="text-xl font-extrabold text-[#0F3B32]">
+                        {formatPrice(selectedPlan.price)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="mb-5 flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm">{error}</p>
+                    </div>
+                  )}
+
+                  {/* Boutons Wave & Orange Money */}
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => handlePay('WAVE')}
+                      disabled={submitting}
+                      className={`w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-3 transition-all cursor-pointer ${
+                        submitting && provider === 'WAVE'
+                          ? 'bg-blue-400 text-white cursor-wait'
+                          : submitting
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          : 'bg-[#1B74E4] hover:bg-[#1564CE] text-white shadow-lg shadow-blue-900/20'
+                      }`}
+                    >
+                      {submitting && provider === 'WAVE' ? (
+                        <><Loader2 className="w-5 h-5 animate-spin" /> Redirection Wave...</>
+                      ) : (
+                        <>
+                          <img src="/logos/wave-logo.svg" alt="Wave" className="h-5 w-auto" onError={e => (e.currentTarget.style.display='none')} />
+                          Payer avec Wave
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={() => handlePay('ORANGE_MONEY')}
+                      disabled={submitting}
+                      className={`w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-3 transition-all cursor-pointer ${
+                        submitting && provider === 'ORANGE_MONEY'
+                          ? 'bg-orange-400 text-white cursor-wait'
+                          : submitting
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          : 'bg-[#FF6600] hover:bg-[#e55a00] text-white shadow-lg shadow-orange-900/20'
+                      }`}
+                    >
+                      {submitting && provider === 'ORANGE_MONEY' ? (
+                        <><Loader2 className="w-5 h-5 animate-spin" /> Redirection Orange Money...</>
+                      ) : (
+                        <>
+                          <img src="/logos/orange-money-logo.svg" alt="Orange Money" className="h-5 w-auto" onError={e => (e.currentTarget.style.display='none')} />
+                          Payer avec Orange Money
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setStep(2)}
+                    disabled={submitting}
+                    className="mt-4 w-full py-3 text-xs text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" /> Modifier mes informations
+                  </button>
+
+                  <p className="text-center text-[11px] text-slate-400 mt-4">
+                    🔒 Paiement sécurisé — Vos données ne sont jamais stockées côté AtelierPro
+                  </p>
+                </>
               )}
-
-              {/* Boutons de paiement */}
-              <div className="space-y-3">
-                <button
-                  onClick={() => handlePay('WAVE')}
-                  disabled={submitting}
-                  className={`w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-3 transition-all ${
-                    submitting && provider === 'WAVE'
-                      ? 'bg-blue-400 text-white cursor-wait'
-                      : submitting
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-[#1B74E4] hover:bg-[#1564CE] text-white shadow-lg shadow-blue-900/20'
-                  }`}
-                >
-                  {submitting && provider === 'WAVE' ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> Redirection Wave...</>
-                  ) : (
-                    <>
-                      <img src="/logos/wave-logo.svg" alt="Wave" className="h-5 w-auto" onError={e => (e.currentTarget.style.display='none')} />
-                      Payer avec Wave
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={() => handlePay('ORANGE_MONEY')}
-                  disabled={submitting}
-                  className={`w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-3 transition-all ${
-                    submitting && provider === 'ORANGE_MONEY'
-                      ? 'bg-orange-400 text-white cursor-wait'
-                      : submitting
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-[#FF6600] hover:bg-[#e55a00] text-white shadow-lg shadow-orange-900/20'
-                  }`}
-                >
-                  {submitting && provider === 'ORANGE_MONEY' ? (
-                    <><Loader2 className="w-5 h-5 animate-spin" /> Redirection Orange Money...</>
-                  ) : (
-                    <>
-                      <img src="/logos/orange-money-logo.svg" alt="Orange Money" className="h-5 w-auto" onError={e => (e.currentTarget.style.display='none')} />
-                      Payer avec Orange Money
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <button
-                onClick={() => setStep(2)}
-                disabled={submitting}
-                className="mt-4 w-full py-3 text-xs text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center gap-1"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" /> Modifier mes informations
-              </button>
-
-              <p className="text-center text-[11px] text-slate-400 mt-4">
-                🔒 Paiement sécurisé — Vos données ne sont jamais stockées côté AtelierPro
-              </p>
             </motion.div>
           )}
         </AnimatePresence>
