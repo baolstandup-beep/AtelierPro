@@ -1,23 +1,29 @@
 /**
  * POST /api/subscriptions/activate-free
- * Activation directe et sécurisée du plan Découverte (0 FCFA).
- * NE PASSER JAMAIS PAR WAVE OU ORANGE MONEY.
+ * Activation atomique, sécurisée et idempotente du plan Découverte (0 FCFA).
+ * NE PASSE JAMAIS PAR WAVE OU ORANGE MONEY.
  * 
- * Accessible aux utilisateurs connectés ou aux nouveaux inscrits.
- * Valide strictement côté serveur que le plan est gratuit (slug 'discovery' ou 'decouverte', prix = 0).
- * Refuse toute tentative d'activation gratuite des plans Starter ou Pro (403 PLAN_NOT_FREE).
+ * Diagnostic complet en 7 étapes :
+ * STEP 1 — AUTH USER
+ * STEP 2 — PROFILE
+ * STEP 3 — ATELIER
+ * STEP 4 — DISCOVERY PLAN
+ * STEP 5 — EXISTING SUBSCRIPTION
+ * STEP 6 — CREATE/ACTIVATE SUBSCRIPTION
+ * STEP 7 — FINAL VERIFICATION
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { computePinHash, generateUserSalt, CURRENT_CREDENTIAL_VERSION } from '@/lib/crypto-pin';
-import { getPlanDefinition, CANONICAL_PLANS } from '@/lib/billing/plan-guard';
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
-    throw new Error('Supabase admin non configuré.');
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY ou NEXT_PUBLIC_SUPABASE_URL non configuré côté serveur.');
   }
   return createClient(url, key, { auth: { persistSession: false } });
 }
@@ -30,9 +36,12 @@ function getAnonClient() {
   );
 }
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
+  const sbAdmin = getAdminClient();
+  const sbAnon = getAnonClient();
+
   try {
-    const body = await request.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
     const {
       firstName,
       lastName,
@@ -43,157 +52,118 @@ export async function POST(request: Request) {
       slug,
     } = body;
 
-    console.log('[FREE PLAN] activation requested', {
-      phone,
-      planId,
+    console.log('[FREE ACTIVATION] Requested at', new Date().toISOString(), {
+      hasPhone: !!phone,
+      hasPlanId: !!planId,
       slug,
-      timestamp: new Date().toISOString(),
     });
 
-    const sbAdmin = getAdminClient();
-    const sbAnon = getAnonClient();
-
-    // ─── 1. Vérifier le Plan Côté Serveur (Protection Anti-Fraude) ──────────────
-    let planData: any = null;
-
-    if (planId) {
-      const { data, error } = await sbAdmin
-        .from('plans')
-        .select('*')
-        .eq('id', planId)
-        .maybeSingle();
-
-      if (!error && data) {
-        planData = data;
-      }
-    }
-
-    if (!planData && (slug || planId)) {
-      const targetSlug = slug || (planId === 'plan-discovery' ? 'discovery' : planId);
-      const { data, error } = await sbAdmin
-        .from('plans')
-        .select('*')
-        .or(`slug.eq.${targetSlug},slug.eq.discovery,slug.eq.decouverte`)
-        .maybeSingle();
-
-      if (!error && data) {
-        planData = data;
-      }
-    }
-
-    // Fallback canonique si la table plans n'est pas encore migrée
-    if (!planData) {
-      if (slug === 'starter' || planId === 'plan-starter' || slug === 'pro' || planId === 'plan-pro') {
-        const canonical = getPlanDefinition(slug);
-        if (canonical) planData = canonical;
-      } else {
-        planData = getPlanDefinition('discovery');
-      }
-    }
-
-    const planSlug = String(planData?.slug || slug || '').toLowerCase();
-    const planPrice = Number(planData?.price ?? (planSlug === 'discovery' || planSlug === 'decouverte' ? 0 : 999999));
-
-    // ─── 2. Sécurité : Vérifier que c'est UNIQUEMENT le plan Découverte gratuit ──
-    const isActuallyFree =
-      (planSlug === 'discovery' || planSlug === 'decouverte') &&
-      planPrice === 0;
-
-    if (!isActuallyFree) {
-      console.error('[FREE PLAN ACTIVATION FAILED]', {
-        code: 'PLAN_NOT_FREE',
-        message: 'Tentative d’activation gratuite d’un plan payant.',
-        details: { planSlug, planPrice, planId, requestedSlug: slug },
-      });
-
-      return NextResponse.json(
-        {
-          error: 'Ce plan n\'est pas gratuit. Le paiement Wave ou Orange Money est obligatoire.',
-          code: 'PLAN_NOT_FREE',
-        },
-        { status: 403 }
-      );
-    }
-
-    console.log('[FREE PLAN] plan verified', { slug: planSlug, price: planPrice });
-
-    // ─── 3. Vérifier l'Utilisateur Connecté ou Créer le Compte ───────────────────
+    // ─── STEP 1 — AUTH USER ──────────────────────────────────────────────────
     let userId: string | null = null;
-    let atelierId: string | null = null;
     let userPhone: string = '';
     let userFullName: string = '';
     let sessionData: any = null;
 
-    // A. Vérifier si un token JWT est transmis dans Authorization header ou Cookie
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    // A. Tenter d'abord de lire la session active via Cookies (@supabase/ssr)
+    try {
+      const cookieStore = await cookies();
+      const ssrClient = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return cookieStore.getAll();
+            },
+            setAll(cookiesToSet) {
+              try {
+                cookiesToSet.forEach(({ name, value, options }) =>
+                  cookieStore.set(name, value, options)
+                );
+              } catch {}
+            },
+          },
+        }
+      );
 
-    if (token) {
-      const { data: userData, error: userErr } = await sbAdmin.auth.getUser(token);
-      if (!userErr && userData?.user) {
-        userId = userData.user.id;
-        userPhone = userData.user.phone || (userData.user.user_metadata?.phone ?? '');
-        userFullName = userData.user.user_metadata?.full_name || '';
+      const { data: { user: cookieUser } } = await ssrClient.auth.getUser();
+      if (cookieUser) {
+        userId = cookieUser.id;
+        userPhone = cookieUser.phone || cookieUser.user_metadata?.phone || '';
+        userFullName = cookieUser.user_metadata?.full_name || '';
+      }
+    } catch (cookieErr: any) {
+      console.warn('[FREE ACTIVATION] Cookie auth check skipped:', cookieErr?.message);
+    }
 
-        // Identifier l'atelier rattaché
-        const { data: profile } = await sbAdmin
-          .from('profiles')
-          .select('atelier_id, full_name, phone')
-          .eq('id', userId)
-          .maybeSingle();
-
-        if (profile?.atelier_id) {
-          atelierId = profile.atelier_id;
-          userPhone = profile.phone || userPhone;
-          userFullName = profile.full_name || userFullName;
+    // B. Si non trouvé via cookies, tenter via header Authorization: Bearer
+    if (!userId) {
+      const authHeader = req.headers.get('authorization');
+      const token = authHeader?.replace('Bearer ', '');
+      if (token) {
+        const { data: tokenUser, error: tokenErr } = await sbAdmin.auth.getUser(token);
+        if (!tokenErr && tokenUser?.user) {
+          userId = tokenUser.user.id;
+          userPhone = tokenUser.user.phone || tokenUser.user.user_metadata?.phone || '';
+          userFullName = tokenUser.user.user_metadata?.full_name || '';
         }
       }
     }
 
-    // B. Si l'utilisateur n'est pas encore connecté, traiter l'inscription
+    // C. Si toujours non authentifié, vérifier si c'est une inscription complète
     if (!userId) {
       const cleanFirstName = String(firstName || '').trim();
       const cleanLastName = String(lastName || '').trim();
       const rawPhone = String(phone || '').replace(/\s+/g, '');
-      const rawWorkshop = String(workshopName || '').trim();
 
-      if (!cleanFirstName || !cleanLastName) {
+      if (!cleanFirstName || !cleanLastName || !rawPhone || rawPhone.length < 9) {
+        console.error({
+          step: 'STEP 1 — AUTH USER',
+          code: 'FREE_ACTIVATION_AUTH_REQUIRED',
+          message: 'Utilisateur non authentifié et données d’inscription incomplètes.',
+        });
         return NextResponse.json(
-          { error: 'Prénom et nom requis.', code: 'VALIDATION_ERROR' },
-          { status: 400 }
+          {
+            error: 'Veuillez vous connecter ou renseigner vos coordonnées complètes.',
+            code: 'FREE_ACTIVATION_AUTH_REQUIRED',
+          },
+          { status: 401 }
         );
       }
 
-      if (!rawPhone || rawPhone.length < 9) {
-        return NextResponse.json(
-          { error: 'Numéro de téléphone invalide.', code: 'VALIDATION_ERROR' },
-          { status: 400 }
-        );
-      }
+      const normalizedPhone = rawPhone.startsWith('+')
+        ? rawPhone
+        : (rawPhone.startsWith('221') ? `+${rawPhone}` : `+221${rawPhone}`);
+      const cleanDigits = normalizedPhone.replace('+', '').trim();
+      const internalEmail = `user${cleanDigits}@atelierpro.app`;
+      const wName = (workshopName || `Atelier ${cleanFirstName}`).trim();
 
-      const normalizedPhone = rawPhone.startsWith('+') ? rawPhone : (rawPhone.startsWith('221') ? `+${rawPhone}` : `+221${rawPhone}`);
-      const cleanPhoneDigits = normalizedPhone.replace('+', '').trim();
-      const internalEmail = `user${cleanPhoneDigits}@atelierpro.app`;
-      const wName = rawWorkshop || `Atelier ${cleanFirstName}`;
-
-      // Vérifier si un profil existe déjà
-      const { data: existingProfile } = await sbAdmin
+      // Vérifier si un profil existe déjà avec ce téléphone
+      const { data: existingProf, error: profLookupErr } = await sbAdmin
         .from('profiles')
         .select('id, atelier_id, full_name, phone')
         .eq('phone', normalizedPhone)
         .maybeSingle();
 
-      if (existingProfile) {
-        userId = existingProfile.id;
-        atelierId = existingProfile.atelier_id;
-        userPhone = existingProfile.phone || normalizedPhone;
-        userFullName = existingProfile.full_name || `${cleanFirstName} ${cleanLastName}`;
+      if (profLookupErr) {
+        console.error({
+          step: 'STEP 1 — AUTH USER',
+          code: profLookupErr.code,
+          message: profLookupErr.message,
+          details: profLookupErr.details,
+          hint: profLookupErr.hint,
+        });
+      }
+
+      if (existingProf) {
+        userId = existingProf.id;
+        userPhone = existingProf.phone || normalizedPhone;
+        userFullName = existingProf.full_name || `${cleanFirstName} ${cleanLastName}`;
       } else {
-        // Définition du code PIN (4 chiffres)
+        // Définir le PIN (4 chiffres)
         let effectivePin = String(pin || '').trim();
         if (!effectivePin || !/^\d{4}$/.test(effectivePin)) {
-          // Si non fourni, utiliser les 4 derniers chiffres du numéro ou 0000
-          effectivePin = cleanPhoneDigits.slice(-4);
+          effectivePin = cleanDigits.slice(-4);
           if (!/^\d{4}$/.test(effectivePin)) effectivePin = '0000';
         }
 
@@ -201,8 +171,7 @@ export async function POST(request: Request) {
         const pinHash = computePinHash(effectivePin, userSalt, CURRENT_CREDENTIAL_VERSION);
         const virtualPassword = `${effectivePin}_${process.env.PIN_SECRET || 'AtelierPro_Secure_Salt_2024'}`;
 
-        // 1. Créer dans auth.users
-        const { data: newUser, error: createErr } = await sbAdmin.auth.admin.createUser({
+        const { data: newUser, error: createAuthErr } = await sbAdmin.auth.admin.createUser({
           email: internalEmail,
           password: virtualPassword,
           email_confirm: true,
@@ -220,19 +189,20 @@ export async function POST(request: Request) {
           },
         });
 
-        if (createErr || !newUser?.user) {
-          // Si l'utilisateur auth existe déjà mais pas le profil
+        if (createAuthErr || !newUser?.user) {
+          // Si l'utilisateur auth existe déjà
           const { data: listData } = await sbAdmin.auth.admin.listUsers();
           const found = listData?.users?.find((u) => u.email === internalEmail);
           if (found) {
             userId = found.id;
           } else {
-            console.error('[FREE PLAN ACTIVATION FAILED]', {
-              code: 'AUTH_USER_CREATION_FAILED',
-              message: createErr?.message,
+            console.error({
+              step: 'STEP 1 — AUTH USER',
+              code: createAuthErr?.code || 'AUTH_CREATE_FAILED',
+              message: createAuthErr?.message || 'Échec création auth.users',
             });
             return NextResponse.json(
-              { error: 'Erreur lors de la création du compte.', code: 'AUTH_ERROR' },
+              { error: 'Erreur lors de la création du compte.', code: 'AUTH_USER_CREATION_FAILED' },
               { status: 500 }
             );
           }
@@ -240,40 +210,11 @@ export async function POST(request: Request) {
           userId = newUser.user.id;
         }
 
-        // 2. Créer l'atelier dans la table canonique 'ateliers'
-        const { data: newAtelier, error: atelierErr } = await sbAdmin
-          .from('ateliers')
-          .insert({
-            name: wName,
-            phone: normalizedPhone,
-            currency: 'XOF',
-            currency_symbol: 'FCFA',
-            is_active: true,
-          })
-          .select('id')
-          .single();
-
-        if (atelierErr || !newAtelier) {
-          console.error('[FREE PLAN] Erreur création atelier, utilisation du fallback:', atelierErr);
-          atelierId = userId; // fallback sécurisé si table non migrée
-        } else {
-          atelierId = newAtelier.id;
-        }
-
-        // 3. Créer ou mettre à jour le profil utilisateur
-        await sbAdmin.from('profiles').upsert({
-          id: userId,
-          atelier_id: atelierId,
-          full_name: `${cleanFirstName} ${cleanLastName}`,
-          phone: normalizedPhone,
-          role: 'owner',
-        });
-
         userPhone = normalizedPhone;
         userFullName = `${cleanFirstName} ${cleanLastName}`;
       }
 
-      // 4. Émettre une session JWT pour connecter l'utilisateur directement
+      // Générer une session JWT pour connecter l'utilisateur immédiatement
       try {
         const linkRes = await sbAdmin.auth.admin.generateLink({
           type: 'magiclink',
@@ -293,49 +234,226 @@ export async function POST(request: Request) {
             };
           }
         }
-      } catch (sessErr) {
-        console.warn('[FREE PLAN] Warning session generation:', sessErr);
+      } catch (sessErr: any) {
+        console.warn('[FREE ACTIVATION] Session token generation warning:', sessErr?.message);
       }
     }
 
     if (!userId) {
-      console.error('[FREE PLAN ACTIVATION FAILED]', {
-        code: 'USER_NOT_IDENTIFIED',
-        message: 'Impossible d\'identifier ou de créer l\'utilisateur.',
+      console.error({
+        step: 'STEP 1 — AUTH USER',
+        code: 'FREE_ACTIVATION_AUTH_REQUIRED',
+        message: 'Impossible de valider ou créer l’utilisateur auth.',
       });
       return NextResponse.json(
-        { error: 'Utilisateur introuvable.', code: 'USER_NOT_FOUND' },
-        { status: 400 }
+        { error: 'Authentification requise pour activer l’atelier.', code: 'FREE_ACTIVATION_AUTH_REQUIRED' },
+        { status: 401 }
       );
     }
 
-    console.log('[FREE PLAN] user verified', userId);
+    console.log('[FREE ACTIVATION] STEP 1 AUTH USER PASS', { userId });
 
-    if (!atelierId) {
-      atelierId = userId;
+    // ─── STEP 2 — PROFILE ────────────────────────────────────────────────────
+    let { data: profile, error: profErr } = await sbAdmin
+      .from('profiles')
+      .select('id, atelier_id, full_name, phone, role')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profErr) {
+      console.error({
+        step: 'STEP 2 — PROFILE',
+        code: profErr.code,
+        message: profErr.message,
+        details: profErr.details,
+        hint: profErr.hint,
+      });
     }
 
-    console.log('[FREE PLAN] atelier verified', atelierId);
+    console.log('[FREE ACTIVATION] STEP 2 PROFILE PASS', {
+      profileExists: !!profile,
+      hasAtelierId: !!profile?.atelier_id,
+    });
 
-    // ─── 4. Créer ou Activer l'Abonnement Découverte dans Supabase ──────────────
-    // Structure requise :
-    // - atelier_id
-    // - plan_id
-    // - status = 'active'
-    // - starts_at = now()
-    // - current_period_start = now()
-    // - current_period_end = null
-    // - amount = 0
-    // - payment_provider = null
-    // - payment_reference = null
-    const nowIso = new Date().toISOString();
-    const effectivePlanId = planData?.id || 'plan-discovery';
+    // ─── STEP 3 — ATELIER ────────────────────────────────────────────────────
+    let atelierId: string | null = profile?.atelier_id || null;
 
-    try {
-      await sbAdmin.from('subscriptions').upsert(
+    // Si le profil a un atelier_id, vérifier qu'il existe réellement dans la table ateliers
+    if (atelierId) {
+      const { data: existingAtelier } = await sbAdmin
+        .from('ateliers')
+        .select('id, name')
+        .eq('id', atelierId)
+        .maybeSingle();
+
+      if (!existingAtelier) {
+        console.warn('[FREE ACTIVATION] atelier_id dans profil orphelin, recréation requise.');
+        atelierId = null;
+      } else {
+        console.log('[FREE ACTIVATION] STEP 3 ATELIER REUSED', { atelierId, name: existingAtelier.name });
+      }
+    }
+
+    // Si aucun atelier existant, le créer proprement
+    // Colonnes réelles vérifiées : id, name, created_at, phone, address, currency
+    if (!atelierId) {
+      const wName = (workshopName || `Atelier ${userFullName || 'Couture'}`).trim();
+      const { data: newAtelier, error: createAtelierErr } = await sbAdmin
+        .from('ateliers')
+        .insert({
+          name: wName,
+          phone: userPhone || null,
+          currency: 'XOF',
+        })
+        .select('id, name')
+        .single();
+
+      if (createAtelierErr || !newAtelier) {
+        console.error({
+          step: 'STEP 3 — ATELIER',
+          code: createAtelierErr?.code || 'ATELIER_CREATION_FAILED',
+          message: createAtelierErr?.message || 'Erreur insertion table ateliers',
+          details: createAtelierErr?.details,
+          hint: createAtelierErr?.hint,
+        });
+
+        return NextResponse.json(
+          { error: 'Impossible de créer votre atelier. Veuillez réessayer.', code: 'ATELIER_CREATION_FAILED' },
+          { status: 500 }
+        );
+      }
+
+      atelierId = newAtelier.id;
+
+      // Mettre à jour le profil avec cet atelier_id
+      const { error: upsertProfErr } = await sbAdmin.from('profiles').upsert({
+        id: userId,
+        atelier_id: atelierId,
+        full_name: userFullName || 'Tailleur',
+        phone: userPhone || null,
+        role: 'owner',
+      });
+
+      if (upsertProfErr) {
+        console.error({
+          step: 'STEP 3 — ATELIER (profile link)',
+          code: upsertProfErr.code,
+          message: upsertProfErr.message,
+          details: upsertProfErr.details,
+          hint: upsertProfErr.hint,
+        });
+      }
+
+      console.log('[FREE ACTIVATION] STEP 3 ATELIER CREATED', { atelierId });
+    }
+
+    console.log('[FREE ACTIVATION] STEP 3 ATELIER PASS', { atelierId });
+
+    // ─── STEP 4 — DISCOVERY PLAN ─────────────────────────────────────────────
+    // Récupération stricte par slug 'discovery'
+    const { data: discoveryPlan, error: planErr } = await sbAdmin
+      .from('plans')
+      .select('id, slug, name, price, currency, max_clients, is_active')
+      .eq('slug', 'discovery')
+      .maybeSingle();
+
+    if (planErr || !discoveryPlan) {
+      console.error({
+        step: 'STEP 4 — DISCOVERY PLAN',
+        code: planErr?.code || 'DISCOVERY_PLAN_NOT_FOUND',
+        message: planErr?.message || 'Plan Découverte introuvable dans la table plans',
+        details: planErr?.details,
+        hint: planErr?.hint,
+      });
+
+      return NextResponse.json(
+        { error: 'Le plan Découverte est introuvable.', code: 'DISCOVERY_PLAN_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+
+    // Protection anti-fraude absolue : prix DOIT être 0
+    if (Number(discoveryPlan.price) !== 0) {
+      console.error({
+        step: 'STEP 4 — DISCOVERY PLAN',
+        code: 'PLAN_NOT_FREE',
+        message: 'Le plan Découverte en DB a un prix non nul !',
+        details: { price: discoveryPlan.price },
+      });
+      return NextResponse.json(
+        { error: 'Ce plan n’est pas gratuit.', code: 'PLAN_NOT_FREE' },
+        { status: 403 }
+      );
+    }
+
+    console.log('[FREE ACTIVATION] STEP 4 DISCOVERY PLAN PASS', {
+      planId: discoveryPlan.id,
+      slug: discoveryPlan.slug,
+      price: discoveryPlan.price,
+    });
+
+    // ─── STEP 5 — EXISTING SUBSCRIPTION (IDEMPOTENCE) ────────────────────────
+    const { data: existingSub, error: subCheckErr } = await sbAdmin
+      .from('subscriptions')
+      .select('id, plan_id, status, current_period_end')
+      .eq('atelier_id', atelierId)
+      .maybeSingle();
+
+    if (subCheckErr) {
+      console.error({
+        step: 'STEP 5 — EXISTING SUBSCRIPTION',
+        code: subCheckErr.code,
+        message: subCheckErr.message,
+        details: subCheckErr.details,
+        hint: subCheckErr.hint,
+      });
+    }
+
+    if (existingSub && existingSub.status === 'active' && existingSub.plan_id === discoveryPlan.id) {
+      console.log('[FREE ACTIVATION] STEP 5 EXISTING SUBSCRIPTION ALREADY ACTIVE', {
+        subscriptionId: existingSub.id,
+      });
+
+      return NextResponse.json({
+        success: true,
+        code: 'FREE_PLAN_ALREADY_ACTIVE',
+        message: 'Votre atelier possède déjà le plan Découverte actif.',
+        redirect: '/dashboard',
+        plan: {
+          slug: 'discovery',
+          name: discoveryPlan.name,
+          price: 0,
+          currency: 'XOF',
+          client_limit: 5,
+        },
+        session: sessionData,
+        atelier_id: atelierId,
+      });
+    }
+
+    console.log('[FREE ACTIVATION] STEP 5 EXISTING SUBSCRIPTION PASS');
+
+    // ─── STEP 6 — CREATE / ACTIVATE SUBSCRIPTION ─────────────────────────────
+    // Appel de la RPC atomique activate_discovery_subscription
+    const { data: rpcData, error: rpcErr } = await sbAdmin.rpc('activate_discovery_subscription', {
+      p_atelier_id: atelierId,
+    });
+
+    if (rpcErr) {
+      console.error({
+        step: 'STEP 6 — CREATE/ACTIVATE SUBSCRIPTION (RPC)',
+        code: rpcErr.code,
+        message: rpcErr.message,
+        details: rpcErr.details,
+        hint: rpcErr.hint,
+      });
+
+      // Fallback direct en cas d'indisponibilité RPC
+      const nowIso = new Date().toISOString();
+      const { error: upsertSubErr } = await sbAdmin.from('subscriptions').upsert(
         {
           atelier_id: atelierId,
-          plan_id: effectivePlanId,
+          plan_id: discoveryPlan.id,
           status: 'active',
           started_at: nowIso,
           current_period_start: nowIso,
@@ -345,27 +463,69 @@ export async function POST(request: Request) {
         },
         { onConflict: 'atelier_id' }
       );
-    } catch (subErr) {
-      console.warn('[FREE PLAN] Subscriptions table note:', subErr);
+
+      if (upsertSubErr) {
+        console.error({
+          step: 'STEP 6 — CREATE/ACTIVATE SUBSCRIPTION (Fallback)',
+          code: upsertSubErr.code,
+          message: upsertSubErr.message,
+          details: upsertSubErr.details,
+          hint: upsertSubErr.hint,
+        });
+
+        return NextResponse.json(
+          {
+            error: 'Erreur lors de l’activation de l’abonnement Découverte.',
+            code: 'SUBSCRIPTION_CREATION_FAILED',
+          },
+          { status: 500 }
+        );
+      }
+    } else {
+      console.log('[FREE ACTIVATION] STEP 6 RPC SUCCESS', rpcData);
     }
 
-    console.log('[FREE PLAN] subscription activated', {
-      atelierId,
-      planId: effectivePlanId,
-      slug: 'discovery',
-      amount: 0,
-      status: 'active',
-    });
+    console.log('[FREE ACTIVATION] STEP 6 CREATE/ACTIVATE SUBSCRIPTION PASS');
 
-    console.log('[FREE PLAN] redirect dashboard');
+    // ─── STEP 7 — FINAL VERIFICATION ─────────────────────────────────────────
+    const { data: verifiedSub, error: verifyErr } = await sbAdmin
+      .from('subscriptions')
+      .select('id, status, plan_id, atelier_id')
+      .eq('atelier_id', atelierId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (verifyErr || !verifiedSub) {
+      console.error({
+        step: 'STEP 7 — FINAL VERIFICATION',
+        code: verifyErr?.code || 'SUBSCRIPTION_NOT_VERIFIED',
+        message: verifyErr?.message || 'Abonnement non trouvé comme actif après insertion.',
+        details: verifyErr?.details,
+        hint: verifyErr?.hint,
+      });
+
+      return NextResponse.json(
+        {
+          error: 'Échec de la vérification finale de l’abonnement.',
+          code: 'SUBSCRIPTION_CREATION_FAILED',
+        },
+        { status: 500 }
+      );
+    }
+
+    console.log('[FREE ACTIVATION] STEP 7 FINAL VERIFICATION PASS', {
+      subscriptionId: verifiedSub.id,
+      atelierId,
+      status: verifiedSub.status,
+    });
 
     return NextResponse.json({
       success: true,
-      message: 'Abonnement Découverte activé avec succès.',
+      message: 'Votre atelier est activé !',
       redirect: '/dashboard',
       plan: {
         slug: 'discovery',
-        name: 'Découverte',
+        name: discoveryPlan.name,
         price: 0,
         currency: 'XOF',
         client_limit: 5,
@@ -379,14 +539,18 @@ export async function POST(request: Request) {
       atelier_id: atelierId,
     });
   } catch (err: any) {
-    console.error('[FREE PLAN ACTIVATION FAILED]', {
-      code: 'INTERNAL_ERROR',
+    console.error({
+      step: 'GLOBAL UNCAUGHT ERROR',
+      code: err?.code || 'INTERNAL_ERROR',
       message: err?.message || 'Erreur inattendue.',
-      details: err,
+      stack: err?.stack,
     });
 
     return NextResponse.json(
-      { error: 'Erreur interne lors de l\'activation gratuite.', code: 'INTERNAL_ERROR' },
+      {
+        error: 'Erreur interne lors de l’activation gratuite.',
+        code: 'INTERNAL_ERROR',
+      },
       { status: 500 }
     );
   }

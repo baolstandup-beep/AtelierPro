@@ -118,6 +118,7 @@ function SignupInner() {
       const res = await fetch('/api/subscriptions/activate-free', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
