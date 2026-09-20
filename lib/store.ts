@@ -284,7 +284,7 @@ export const useAppStore = create<AppStore>()(
 
         // Forcer la redirection propre et le déchargement mémoire
         if (typeof window !== 'undefined') {
-          window.location.href = '/login';
+          window.location.href = '/auth/login';
         }
       },
 
