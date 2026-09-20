@@ -109,8 +109,26 @@ export async function POST(req: NextRequest) {
     });
 
     if (!rpcErr && rpcData) {
-      if (rpcData.success) {
-        return NextResponse.json({ success: true, client: rpcData.client }, { status: 201 });
+      if (rpcData.success && rpcData.client) {
+        const c = rpcData.client;
+        return NextResponse.json(
+          {
+            success: true,
+            client: {
+              id: c.id,
+              workshop_id: c.atelier_id || atelierId,
+              atelier_id: c.atelier_id || atelierId,
+              name: c.name || fullName,
+              full_name: c.name || c.full_name || fullName,
+              phone: c.phone || phone || '',
+              gender: c.gender || safeGender || null,
+              notes: c.notes || notes || '',
+              created_at: c.created_at,
+              updated_at: c.updated_at || c.created_at,
+            },
+          },
+          { status: 201 }
+        );
       }
 
       if (rpcData.error_code === FREE_PLAN_CLIENT_LIMIT_REACHED) {

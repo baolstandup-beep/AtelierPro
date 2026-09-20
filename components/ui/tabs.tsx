@@ -108,13 +108,15 @@ interface StatusBadgeProps {
 }
 
 export function OrderStatusBadge({ status, isLate, size = 'md' }: StatusBadgeProps) {
-  const colorClass = isLate && status !== 'DELIVERED' && status !== 'CANCELLED'
+  const safeStatus = status || 'NEW';
+  const colorClass = isLate && safeStatus !== 'DELIVERED' && safeStatus !== 'CANCELLED'
     ? 'bg-red-100 text-red-700'
-    : ORDER_STATUS_COLORS[status];
+    : ORDER_STATUS_COLORS[safeStatus] || 'bg-gray-100 text-gray-700';
 
-  const label = isLate && status !== 'DELIVERED' && status !== 'CANCELLED'
-    ? `⚠ ${ORDER_STATUS_LABELS[status]} — Retard`
-    : ORDER_STATUS_LABELS[status];
+  const baseLabel = ORDER_STATUS_LABELS[safeStatus] || String(safeStatus);
+  const label = isLate && safeStatus !== 'DELIVERED' && safeStatus !== 'CANCELLED'
+    ? `⚠ ${baseLabel} — Retard`
+    : baseLabel;
 
   return (
     <span

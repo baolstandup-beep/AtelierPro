@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { Card, Avatar, SectionHeader, EmptyState } from '@/components/ui/card';
@@ -29,7 +29,51 @@ export default function CustomerDetailPage() {
   const { getCustomer, updateCustomer, archiveCustomer, orders, payments, getMeasurementProfiles, deleteMeasurementProfile, currentWorkshop } = useAppStore();
   const { success, error: showError } = useToast();
 
-  const customer = getCustomer(id);
+  const storeCustomer = getCustomer(id);
+  const [fetchedCustomer, setFetchedCustomer] = useState<any | null>(null);
+  const [fetching, setFetching] = useState(false);
+
+  // Charger le client directement depuis Supabase s'il n'est pas encore présent dans le store (ex: accès direct ou refresh F5)
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCustomer() {
+      if (!storeCustomer && id) {
+        setFetching(true);
+        try {
+          const { supabase } = await import('@/lib/supabase');
+          if (!supabase) return;
+          const { data, error } = await supabase
+            .from('clients')
+            .select('*')
+            .eq('id', id)
+            .maybeSingle();
+
+          if (isMounted && data && !error) {
+            setFetchedCustomer({
+              id: data.id,
+              workshop_id: data.atelier_id,
+              full_name: data.name || 'Client',
+              phone: data.phone || '',
+              gender: data.gender || 'homme',
+              notes: data.notes || '',
+              created_at: data.created_at,
+              updated_at: data.updated_at || data.created_at,
+            });
+          }
+        } catch (err) {
+          console.error('Erreur chargement client Supabase:', err);
+        } finally {
+          if (isMounted) setFetching(false);
+        }
+      }
+    }
+    loadCustomer();
+    return () => {
+      isMounted = false;
+    };
+  }, [storeCustomer, id]);
+
+  const customer = storeCustomer || fetchedCustomer;
   const ws = currentWorkshop;
 
   const [tab, setTab] = useState('orders');
@@ -46,14 +90,35 @@ export default function CustomerDetailPage() {
       : '';
 
   const [editForm, setEditForm] = useState({
-    full_name: customer?.full_name || '',
+    full_name: customer?.full_name || (customer as any)?.name || '',
     phone: customer?.phone || '',
     email: customer?.email || '',
     address: customer?.address || '',
     city: customer?.city || '',
-    gender: initialGender as GenderType | '',
+    gender: (initialGender || '') as GenderType | '',
     notes: customer?.notes || '',
   });
+
+  useEffect(() => {
+    if (customer) {
+      const g =
+        customer.gender === 'MALE' || customer.gender === 'homme'
+          ? 'homme'
+          : customer.gender === 'FEMALE' || customer.gender === 'femme'
+          ? 'femme'
+          : '';
+      setEditForm({
+        full_name: customer.full_name || (customer as any)?.name || '',
+        phone: customer.phone || '',
+        email: customer.email || '',
+        address: customer.address || '',
+        city: customer.city || '',
+        gender: (g || '') as GenderType | '',
+        notes: customer.notes || '',
+      });
+    }
+  }, [customer]);
+
   const [editLoading, setEditLoading] = useState(false);
   const [archiveLoading, setArchiveLoading] = useState(false);
 
@@ -75,13 +140,22 @@ export default function CustomerDetailPage() {
   );
   const measurementProfiles = customerMeasurements;
 
-  const totalSpent = customerOrders.reduce((s, o) => s + o.total_amount, 0);
+  const totalSpent = customerOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
   const totalPaid = customerOrders.reduce((s, o) => {
     const paid = payments.filter(p => p.order_id === o.id && p.status === 'CONFIRMED')
-      .reduce((a, p) => a + p.amount, 0);
+      .reduce((a, p) => a + (p.amount || 0), 0);
     return s + paid;
   }, 0);
   const balance = totalSpent - totalPaid;
+
+  if (fetching) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] space-y-3">
+        <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-slate-500">Chargement de la fiche client...</p>
+      </div>
+    );
+  }
 
   if (!customer) {
     return (
@@ -93,6 +167,8 @@ export default function CustomerDetailPage() {
       </div>
     );
   }
+
+  const customerName = customer.full_name || (customer as any).name || 'Client';
 
   async function handleEdit(e: React.FormEvent) {
     e.preventDefault();
@@ -157,9 +233,9 @@ export default function CustomerDetailPage() {
       {/* Header card */}
       <Card>
         <div className="flex items-start gap-4">
-          <Avatar name={customer.full_name} src={customer.photo_url} size="xl" />
+          <Avatar name={customerName} src={customer.photo_url} size="xl" />
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-gray-900 truncate">{customer.full_name}</h1>
+            <h1 className="text-lg font-bold text-gray-900 truncate">{customerName}</h1>
             <div className="flex items-center gap-1.5 text-sm text-gray-500 mt-1">
               <Phone className="h-3.5 w-3.5" />
               {formatPhone(customer.phone)}

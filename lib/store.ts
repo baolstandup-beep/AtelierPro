@@ -382,6 +382,8 @@ export const useAppStore = create<AppStore>()(
 
         return {
           ...customer,
+          full_name: customer.full_name || (customer as any).name || 'Client',
+          workshop_id: customer.workshop_id || (customer as any).atelier_id || '',
           total_orders: customerOrders.length,
           total_spent: totalSpent,
           total_paid: totalPaid,

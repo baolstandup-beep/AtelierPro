@@ -365,7 +365,17 @@ export async function dbCreateCustomer(workshopId: string, input: CreateCustomer
     }
 
     if (data.client) {
-      return data.client as Customer;
+      const c = data.client;
+      return {
+        id: c.id,
+        workshop_id: c.workshop_id || c.atelier_id || workshopId,
+        full_name: c.full_name || c.name || input.full_name.trim(),
+        phone: c.phone || input.phone.trim() || '',
+        gender: (c.gender as any) || undefined,
+        notes: c.notes || input.notes?.trim() || '',
+        created_at: c.created_at || new Date().toISOString(),
+        updated_at: c.updated_at || c.created_at || new Date().toISOString(),
+      } as Customer;
     }
   } catch (err: any) {
     if (err?.code === 'FREE_PLAN_CLIENT_LIMIT_REACHED' || err?.message?.includes('FREE_PLAN_CLIENT_LIMIT_REACHED')) {
@@ -387,13 +397,13 @@ export async function dbCreateCustomer(workshopId: string, input: CreateCustomer
       const c = rpcData.client;
       return {
         id: c.id,
-        workshop_id: c.atelier_id || workshopId,
-        full_name: c.name,
-        phone: c.phone || '',
+        workshop_id: c.atelier_id || c.workshop_id || workshopId,
+        full_name: c.name || c.full_name || input.full_name.trim(),
+        phone: c.phone || input.phone.trim() || '',
         gender: (c.gender as any) || undefined,
-        notes: c.notes || '',
-        created_at: c.created_at,
-        updated_at: c.created_at,
+        notes: c.notes || input.notes?.trim() || '',
+        created_at: c.created_at || new Date().toISOString(),
+        updated_at: c.created_at || new Date().toISOString(),
       };
     }
     if (rpcData.error_code === 'FREE_PLAN_CLIENT_LIMIT_REACHED') {
@@ -438,13 +448,13 @@ export async function dbCreateCustomer(workshopId: string, input: CreateCustomer
 
   return {
     id: client.id,
-    workshop_id: workshopId,
-    full_name: client.name,
-    phone: client.phone || '',
+    workshop_id: client.atelier_id || workshopId,
+    full_name: client.name || client.full_name || input.full_name.trim(),
+    phone: client.phone || input.phone.trim() || '',
     gender: (client.gender as any) || undefined,
-    notes: client.notes || '',
-    created_at: client.created_at,
-    updated_at: client.created_at,
+    notes: client.notes || input.notes?.trim() || '',
+    created_at: client.created_at || new Date().toISOString(),
+    updated_at: client.created_at || new Date().toISOString(),
   };
 }
 

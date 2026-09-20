@@ -103,18 +103,21 @@ export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
     xl: 'w-16 h-16 text-lg',
   };
 
-  const initials = name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((n) => n[0].toUpperCase())
-    .join('');
+  const safeName = typeof name === 'string' ? name.trim() : '';
+  const initials = safeName
+    ? safeName
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((n) => n[0].toUpperCase())
+        .join('')
+    : '?';
 
   if (src) {
     return (
       <img
         src={src}
-        alt={name}
+        alt={safeName || 'Avatar'}
         className={cn('rounded-full object-cover flex-shrink-0', sizes[size], className)}
       />
     );
