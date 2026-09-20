@@ -72,7 +72,11 @@ function SignupInner() {
           const data = await res.json();
           setPlans(data.plans || []);
           if (preSelectedPlanId) {
-            const found = (data.plans || []).find((p: Plan) => p.id === preSelectedPlanId || p.slug === preSelectedPlanId);
+            const found = (data.plans || []).find((p: Plan) => 
+              p.id === preSelectedPlanId || 
+              p.slug === preSelectedPlanId || 
+              p.slug === preSelectedPlanId.replace('plan-', '')
+            );
             if (found) setSelectedPlan(found);
           }
         }
