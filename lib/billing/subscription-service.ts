@@ -1,6 +1,6 @@
 /**
- * AtelierPro — Service centralisé d'abonnement
- * Source de vérité unique pour l'état des abonnements.
+ * AtelierPro — Service centralisé d'abonnement & quotas
+ * Source unique de vérité pour l'état des abonnements, quotas et droits.
  * Utilisé UNIQUEMENT côté serveur (Server Components, API Routes, Server Actions).
  */
 
@@ -8,9 +8,16 @@ import { createClient } from '@supabase/supabase-js';
 import type {
   Subscription,
   SubscriptionAccess,
-  SubscriptionAccessLevel,
-  SubscriptionStatus,
+  Plan,
 } from '@/lib/types';
+import {
+  CANONICAL_PLANS,
+  PlanSlug,
+  getPlanDefinition,
+  hasPlanFeature,
+  FREE_PLAN_CLIENT_LIMIT_REACHED,
+  FREE_PLAN_CLIENT_LIMIT_MESSAGE,
+} from './plan-guard';
 
 // ─── Client Supabase Admin (service_role) ───────────────────────────────────
 function getAdminClient() {
@@ -20,13 +27,11 @@ function getAdminClient() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-// ─── Constantes ─────────────────────────────────────────────────────────────
 const GRACE_PERIOD_DAYS = 3;
 
-// ─── Calcul de l'accès abonnement ───────────────────────────────────────────
 /**
  * Retourne l'état d'accès d'un atelier de manière centralisée.
- * Doit être appelé depuis des Server Components / API Routes uniquement.
+ * En modèle Freemium : tout atelier sans abonnement payant bénéficie du plan DÉCOUVERTE actif.
  */
 export async function getSubscriptionAccess(
   atelierId: string
@@ -39,7 +44,7 @@ export async function getSubscriptionAccess(
     const sb = getAdminClient();
     const now = new Date();
 
-    // Récupérer l'abonnement actif le plus récent
+    // 1. Récupérer l'abonnement en base
     const { data: sub, error } = await sb
       .from('subscriptions')
       .select('*, plan:plans(*)')
@@ -49,29 +54,61 @@ export async function getSubscriptionAccess(
       .limit(1)
       .maybeSingle();
 
-    if (error) {
-      console.error('[getSubscriptionAccess] Erreur DB:', error.message);
-      return { level: 'BLOCKED', message: 'Erreur de vérification de l\'abonnement.' };
-    }
+    // 2. Si aucun abonnement en base ou erreur de table, l'atelier est en DÉCOUVERTE (0 FCFA, gratuit)
+    if (error || !sub) {
+      const discoveryPlan: Plan = {
+        id: 'plan-discovery',
+        name: CANONICAL_PLANS.discovery.name,
+        slug: 'discovery',
+        description: 'Plan Découverte gratuit',
+        price: 0,
+        currency: 'XOF',
+        duration_days: 36500,
+        billing_interval: 'month',
+        features: CANONICAL_PLANS.discovery.features,
+        is_active: true,
+        sort_order: 1,
+        created_at: '',
+        updated_at: '',
+      };
 
-    // Aucun abonnement trouvé
-    if (!sub) {
+      const virtualDiscoverySub: Subscription = {
+        id: 'virtual-discovery-' + atelierId,
+        atelier_id: atelierId,
+        plan_id: discoveryPlan.id,
+        status: 'active',
+        started_at: new Date().toISOString(),
+        current_period_start: new Date().toISOString(),
+        current_period_end: undefined, // Sans expiration
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        plan: discoveryPlan,
+      };
+
       return {
-        level: 'BLOCKED',
-        message: 'Aucun abonnement actif. Veuillez souscrire à un plan.',
+        level: 'ACTIVE',
+        subscription: virtualDiscoverySub,
       };
     }
 
     const subscription = sub as Subscription;
-    const periodEnd = subscription.current_period_end
-      ? new Date(subscription.current_period_end)
-      : null;
+    const planSlug = (subscription.plan?.slug || 'discovery').toLowerCase() as PlanSlug;
+
+    // ─ Cas Découverte : actif en permanence sans date d'expiration ─
+    if (planSlug === 'discovery' || !subscription.current_period_end) {
+      return {
+        level: 'ACTIVE',
+        subscription,
+      };
+    }
+
+    const periodEnd = new Date(subscription.current_period_end);
     const gracePeriodEnd = subscription.grace_period_end
       ? new Date(subscription.grace_period_end)
       : null;
 
-    // ─ Cas 1 : Abonnement actif dans la période ─
-    if (subscription.status === 'active' && periodEnd && periodEnd > now) {
+    // ─ Cas 1 : Abonnement payant actif dans la période ─
+    if (subscription.status === 'active' && periodEnd > now) {
       const msRemaining = periodEnd.getTime() - now.getTime();
       const daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
       return {
@@ -84,10 +121,8 @@ export async function getSubscriptionAccess(
     // ─ Cas 2 : Période expirée mais grace_period encore valide ─
     if (
       (subscription.status === 'active' || subscription.status === 'grace_period') &&
-      periodEnd &&
       periodEnd <= now
     ) {
-      // Calculer ou utiliser la grace_period_end
       const graceEnd =
         gracePeriodEnd ||
         new Date(periodEnd.getTime() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
@@ -96,167 +131,127 @@ export async function getSubscriptionAccess(
         const msGrace = graceEnd.getTime() - now.getTime();
         const graceDaysRemaining = Math.ceil(msGrace / (1000 * 60 * 60 * 24));
 
-        // Mettre à jour le statut en base si pas encore fait
-        if (subscription.status !== 'grace_period') {
-          await _applyGracePeriod(atelierId, subscription.id, graceEnd);
-        }
-
         return {
           level: 'GRACE',
-          subscription: { ...subscription, status: 'grace_period' },
+          subscription,
           graceDaysRemaining,
-          message: `Votre abonnement a expiré. Il vous reste ${graceDaysRemaining} jour(s) pour renouveler.`,
+          message: `Votre abonnement ${subscription.plan?.name || 'AtelierPro'} a expiré. Période de grâce : ${graceDaysRemaining}j restants.`,
         };
       }
     }
 
-    // ─ Cas 3 : Grace period explicite active ─
-    if (subscription.status === 'grace_period' && gracePeriodEnd && gracePeriodEnd > now) {
-      const msGrace = gracePeriodEnd.getTime() - now.getTime();
-      const graceDaysRemaining = Math.ceil(msGrace / (1000 * 60 * 60 * 24));
-      return {
-        level: 'GRACE',
-        subscription,
-        graceDaysRemaining,
-        message: `Votre abonnement a expiré. Il vous reste ${graceDaysRemaining} jour(s) pour renouveler.`,
-      };
-    }
-
-    // ─ Cas 4 : Expiré définitivement (READ_ONLY) ─
-    if (
-      subscription.status === 'expired' ||
-      subscription.status === 'suspended' ||
-      subscription.status === 'cancelled' ||
-      (periodEnd && periodEnd <= now && (!gracePeriodEnd || gracePeriodEnd <= now))
-    ) {
-      // Mettre à jour en 'expired' si pas encore fait
-      if (subscription.status !== 'expired') {
-        await _expireSubscription(subscription.id);
-      }
-      return {
-        level: 'READ_ONLY',
-        subscription: { ...subscription, status: 'expired' },
-        daysRemaining: 0,
-        message:
-          'Votre abonnement a expiré. Vos données sont conservées. Renouvelez pour réactiver.',
-      };
-    }
-
-    // ─ Cas 5 : Pending (en attente de paiement) ─
+    // ─ Cas 3 : Expiré au-delà de la période de grâce ─
+    // IMPORTANT : Les données sont TOUJOURS conservées intactes !
+    // Mode READ_ONLY pour consulter l'historique et demander le renouvellement
     return {
-      level: 'BLOCKED',
+      level: 'READ_ONLY',
       subscription,
-      message: 'En attente de confirmation de paiement.',
+      message: 'Votre abonnement AtelierPro a expiré. Vos données sont intactes. Renouvelez votre abonnement pour continuer.',
     };
-  } catch (err) {
-    console.error('[getSubscriptionAccess] Exception:', err);
-    return { level: 'BLOCKED', message: 'Erreur interne de vérification.' };
+  } catch (err: any) {
+    console.error('[SubscriptionService Fatal]', err);
+    return { level: 'ACTIVE' }; // Tolérant en cas de panne réseau
   }
 }
 
-// ─── Appliquer la période de grâce ──────────────────────────────────────────
-async function _applyGracePeriod(
-  atelierId: string,
-  subscriptionId: string,
-  graceEnd: Date
-) {
-  try {
-    const sb = getAdminClient();
-    await sb
-      .from('subscriptions')
-      .update({
-        status: 'grace_period',
-        grace_period_end: graceEnd.toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', subscriptionId)
-      .eq('atelier_id', atelierId);
-
-    console.info(`[SUBSCRIPTION_GRACE_PERIOD] Atelier ${atelierId} en grâce jusqu'au ${graceEnd.toISOString()}`);
-  } catch (err) {
-    console.error('[_applyGracePeriod] Erreur:', err);
-  }
-}
-
-// ─── Expirer un abonnement ───────────────────────────────────────────────────
-async function _expireSubscription(subscriptionId: string) {
-  try {
-    const sb = getAdminClient();
-    await sb
-      .from('subscriptions')
-      .update({
-        status: 'expired',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', subscriptionId)
-      .in('status', ['active', 'grace_period', 'pending']);
-
-    console.info(`[SUBSCRIPTION_EXPIRED] Subscription ${subscriptionId} marqué expiré`);
-  } catch (err) {
-    console.error('[_expireSubscription] Erreur:', err);
-  }
-}
-
-// ─── Vérifier si une action mutante est autorisée ───────────────────────────
 /**
- * Retourne true si l'atelier peut effectuer des mutations (créer/modifier des données).
- * false = mode lecture seule.
+ * Récupère les métriques de quota client pour un atelier
  */
-export async function canMutate(atelierId: string): Promise<boolean> {
+export async function getAtelierClientQuota(atelierId: string): Promise<{
+  planSlug: PlanSlug;
+  clientCount: number;
+  clientLimit: number | null; // 5 pour discovery, null pour starter/pro
+  canCreate: boolean;
+  isNearLimit: boolean;
+  isLimitReached: boolean;
+}> {
   const access = await getSubscriptionAccess(atelierId);
-  return access.level === 'ACTIVE' || access.level === 'GRACE';
-}
+  const planSlug = (access.subscription?.plan?.slug || 'discovery').toLowerCase() as PlanSlug;
+  const planDef = getPlanDefinition(planSlug);
 
-// ─── Récupérer l'abonnement actif d'un atelier ──────────────────────────────
-export async function getActiveSubscription(
-  atelierId: string
-): Promise<Subscription | null> {
-  try {
-    const sb = getAdminClient();
-    const { data } = await sb
-      .from('subscriptions')
-      .select('*, plan:plans(*)')
-      .eq('atelier_id', atelierId)
-      .in('status', ['active', 'grace_period'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  const sb = getAdminClient();
+  const { count } = await sb
+    .from('clients')
+    .select('*', { count: 'exact', head: true })
+    .eq('atelier_id', atelierId);
 
-    return (data as Subscription) || null;
-  } catch {
-    return null;
+  const clientCount = count ?? 0;
+  const clientLimit = planDef.maxClients;
+
+  if (clientLimit === null) {
+    return {
+      planSlug,
+      clientCount,
+      clientLimit: null,
+      canCreate: true,
+      isNearLimit: false,
+      isLimitReached: false,
+    };
   }
+
+  const isLimitReached = clientCount >= clientLimit;
+  const isNearLimit = clientCount === clientLimit - 1;
+
+  return {
+    planSlug,
+    clientCount,
+    clientLimit,
+    canCreate: !isLimitReached,
+    isNearLimit,
+    isLimitReached,
+  };
 }
 
-// ─── Récupérer l'historique des paiements d'un atelier ──────────────────────
-export async function getPaymentHistory(atelierId: string) {
-  try {
-    const sb = getAdminClient();
-    const { data, error } = await sb
-      .from('subscription_payments')
-      .select('*, plan:plans(name, currency)')
-      .eq('atelier_id', atelierId)
-      .order('created_at', { ascending: false })
-      .limit(50);
+/**
+ * Vérifie si un atelier a le droit de créer un nouveau client.
+ * Lève ou retourne une erreur explicite FREE_PLAN_CLIENT_LIMIT_REACHED si la limite est atteinte.
+ */
+export async function canCreateClient(atelierId: string): Promise<{
+  allowed: boolean;
+  error?: string;
+  currentCount: number;
+  maxAllowed: number | null;
+}> {
+  const quota = await getAtelierClientQuota(atelierId);
 
-    if (error) return [];
-    return data || [];
-  } catch {
-    return [];
+  if (!quota.canCreate) {
+    return {
+      allowed: false,
+      error: FREE_PLAN_CLIENT_LIMIT_REACHED,
+      currentCount: quota.clientCount,
+      maxAllowed: quota.clientLimit,
+    };
   }
+
+  return {
+    allowed: true,
+    currentCount: quota.clientCount,
+    maxAllowed: quota.clientLimit,
+  };
 }
 
-// ─── Obtenir l'atelier_id depuis l'user_id ───────────────────────────────────
+/**
+ * Vérifie si un atelier dispose d'une fonctionnalité spécifique
+ */
+export async function hasFeature(
+  atelierId: string,
+  feature: keyof ReturnType<typeof getPlanDefinition>['permissions']
+): Promise<boolean> {
+  const access = await getSubscriptionAccess(atelierId);
+  const planSlug = (access.subscription?.plan?.slug || 'discovery').toLowerCase() as PlanSlug;
+  return hasPlanFeature(planSlug, feature);
+}
+
+/**
+ * Récupère l'ID de l'atelier associé à un utilisateur
+ */
 export async function getAtelierIdFromUserId(userId: string): Promise<string | null> {
-  try {
-    const sb = getAdminClient();
-    const { data } = await sb
-      .from('profiles')
-      .select('atelier_id')
-      .eq('id', userId)
-      .maybeSingle();
-    return data?.atelier_id || null;
-  } catch {
-    return null;
-  }
+  const sb = getAdminClient();
+  const { data: profile } = await sb
+    .from('profiles')
+    .select('atelier_id')
+    .eq('id', userId)
+    .maybeSingle();
+  return profile?.atelier_id || null;
 }
+

@@ -9,6 +9,8 @@ import { Card, PageHeader } from '@/components/ui/card';
 import { useToast } from '@/components/ui/toaster';
 import { ArrowLeft } from 'lucide-react';
 import type { GenderType } from '@/lib/types';
+import { ClientLimitModal } from '@/components/billing/client-limit-modal';
+import { PlanQuotaWidget } from '@/components/billing/plan-quota-widget';
 
 const GENDER_OPTIONS = [
   { value: '', label: 'Non précisé' },
@@ -19,9 +21,10 @@ const GENDER_OPTIONS = [
 
 export default function NewCustomerPage() {
   const router = useRouter();
-  const { createCustomer } = useAppStore();
+  const { createCustomer, customers } = useAppStore();
   const { success, error: showError } = useToast();
   const [loading, setLoading] = useState(false);
+  const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
   const [form, setForm] = useState({
     full_name: '',
     phone: '',
@@ -63,8 +66,12 @@ export default function NewCustomerPage() {
       });
       success('Client créé !', `${customer.full_name} a été ajouté.`);
       router.push(`/customers/${customer.id}`);
-    } catch (err) {
-      showError('Erreur', "Impossible de créer le client. Réessayez.");
+    } catch (err: any) {
+      if (err?.code === 'FREE_PLAN_CLIENT_LIMIT_REACHED' || err?.message?.includes('FREE_PLAN_CLIENT_LIMIT_REACHED')) {
+        setIsLimitModalOpen(true);
+      } else {
+        showError('Erreur', err?.message || "Impossible de créer le client. Réessayez.");
+      }
     } finally {
       setLoading(false);
     }
@@ -72,6 +79,17 @@ export default function NewCustomerPage() {
 
   return (
     <div className="space-y-5 max-w-lg">
+      <ClientLimitModal
+        isOpen={isLimitModalOpen}
+        onClose={() => setIsLimitModalOpen(false)}
+        currentCount={customers.length}
+      />
+
+      <PlanQuotaWidget
+        currentCount={customers.length}
+        onUpgradeClick={() => setIsLimitModalOpen(true)}
+      />
+
       <PageHeader
         title="Nouveau client"
         action={

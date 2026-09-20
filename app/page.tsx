@@ -1079,9 +1079,9 @@ export default function AtelierProOfficialLandingPage() {
         </div>
       </section>
 
-      {/* ─── 8. SECTION TARIFS (Formules en FCFA - Découverte, Starter, Pro, Business Évolutif) ─── */}
+      {/* ─── 8. SECTION TARIFS (Formules Freemium en FCFA - Découverte, Starter, Pro) ─── */}
       <section id="tarifs" className="py-16 sm:py-24 px-4 sm:px-6 bg-gradient-to-b from-white via-[#FBF9F5] to-white border-y border-[#EBE7DF]">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="text-center max-w-3xl mx-auto mb-12">
             <span className="px-4 py-1.5 rounded-full bg-[#FEF3C7] text-[#D97706] font-bold text-xs uppercase tracking-wider border border-[#D97706]/20 inline-flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-[#D97706]" />
@@ -1091,283 +1091,194 @@ export default function AtelierProOfficialLandingPage() {
               Investissez dans la réussite de votre atelier
             </h2>
             <p className="text-[#4B5563] text-sm sm:text-base leading-relaxed">
-              Rentabilisé dès la première commande. Commencez gratuitement et faites évoluer votre formule selon vos besoins.
+              Commencez gratuitement avec la formule Découverte ou accédez à l&apos;illimité avec Starter et Pro.
             </p>
-
-            {/* Monthly / Annual Switcher */}
-            <div className="mt-8 inline-flex items-center p-1.5 rounded-full bg-white border border-[#EBE7DF] shadow-sm">
-              <button
-                onClick={() => setBillingCycle('monthly')}
-                className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all ${
-                  billingCycle === 'monthly'
-                    ? 'bg-[#0F3B32] text-white shadow-sm'
-                    : 'text-[#4B5563] hover:text-[#0F3B32]'
-                }`}
-              >
-                Paiement Mensuel
-              </button>
-              <button
-                onClick={() => setBillingCycle('annual')}
-                className={`px-6 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  billingCycle === 'annual'
-                    ? 'bg-[#0F3B32] text-white shadow-sm'
-                    : 'text-[#4B5563] hover:text-[#0F3B32]'
-                }`}
-              >
-                <span>Paiement Annuel</span>
-                <span className="px-2 py-0.5 rounded-full bg-[#D97706] text-white text-[10px] font-extrabold shadow-sm">
-                  -20% (2 mois offerts)
-                </span>
-              </button>
-            </div>
           </div>
 
-          {/* 4-Column Pricing Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch mb-12">
+          {/* 3-Column Pricing Cards Grid (Desktop côte à côte, Tablette responsive, Mobile 1 carte) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch mb-12">
             
-            {/* Plan 1: Découverte (0 FCFA) */}
-            <div className="rounded-3xl bg-white border border-[#EBE7DF] p-6 sm:p-7 flex flex-col justify-between shadow-[0_4px_20px_rgba(15,59,50,0.03)] hover:shadow-lg transition-all">
+            {/* Plan 1: DÉCOUVERTE (0 FCFA) */}
+            <div className="rounded-3xl bg-white border border-[#EBE7DF] p-6 sm:p-8 flex flex-col justify-between shadow-[0_4px_20px_rgba(15,59,50,0.03)] hover:shadow-lg transition-all">
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FBF9F5] text-[#8A7A65] border border-[#EBE7DF]">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#FBF9F5] text-[#8A7A65] border border-[#EBE7DF]">
                     Gratuit à vie
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-[#0F3B32] font-serif-luxury">Découverte</h3>
-                <p className="text-xs text-[#4B5563] mt-1 min-h-[32px]">
-                  Pour les débutants et tailleurs indépendants
+                <h3 className="text-2xl font-black text-[#0F3B32] font-serif-luxury">Découverte</h3>
+                <p className="text-xs text-[#4B5563] mt-1.5 min-h-[34px]">
+                  Pour débuter la gestion de son atelier sans engagement financier.
                 </p>
 
-                <div className="mt-5 mb-6 pb-5 border-b border-[#EBE7DF]">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-extrabold text-[#111827] font-serif-luxury">0</span>
-                    <span className="text-xs font-semibold text-[#8A7A65]">FCFA / mois</span>
+                <div className="mt-6 mb-6 pb-6 border-b border-[#EBE7DF]">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-4xl font-black text-[#111827] font-serif-luxury">0</span>
+                    <span className="text-base font-extrabold text-[#111827]">FCFA</span>
+                    <span className="text-xs text-[#8A7A65] font-semibold">/ gratuit</span>
                   </div>
-                  <p className="text-[11px] text-[#8A7A65] mt-1">Sans carte bancaire</p>
+                  <p className="text-[11px] text-[#8A7A65] mt-1.5">Sans carte bancaire • Sans expiration</p>
                 </div>
 
-                <ul className="space-y-3 text-xs text-[#111827]">
-                  <li className="flex items-start gap-2">
+                <ul className="space-y-3.5 text-xs text-[#111827]">
+                  <li className="flex items-start gap-2.5">
                     <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>Jusqu&apos;à <strong>15 clients</strong> enregistrés</span>
+                    <span>Jusqu&apos;à <strong>5 clients</strong> enregistrés</span>
                   </li>
-                  <li className="flex items-start gap-2">
+                  <li className="flex items-start gap-2.5">
                     <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>Prise de mesures Homme / Femme / Enfant</span>
+                    <span>Carnet de mesures de base</span>
                   </li>
-                  <li className="flex items-start gap-2">
+                  <li className="flex items-start gap-2.5">
                     <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>Calcul des acomptes & restant dû</span>
+                    <span>Gestion basique des commandes</span>
                   </li>
-                  <li className="flex items-start gap-2">
+                  <li className="flex items-start gap-2.5">
                     <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>1 compte utilisateur</span>
+                    <span>Suivi de production</span>
                   </li>
-                  <li className="flex items-start gap-2 text-[#9CA3AF]">
-                    <X className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>Photos des tissus & coupons</span>
-                  </li>
-                  <li className="flex items-start gap-2 text-[#9CA3AF]">
-                    <X className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>Reçus automatiques WhatsApp</span>
+                  <li className="flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                    <span>Dashboard essentiel</span>
                   </li>
                 </ul>
               </div>
 
               <Link
-                href="/auth/register"
-                className="mt-8 w-full text-center py-3 rounded-full bg-[#FBF9F5] hover:bg-[#EBE7DF] text-[#0F3B32] font-bold text-xs uppercase tracking-wider border border-[#EBE7DF] shadow-sm transition-all"
+                href="/pricing"
+                className="mt-8 w-full text-center py-3.5 rounded-2xl bg-[#FBF9F5] hover:bg-[#EBE7DF] text-[#0F3B32] font-bold text-xs uppercase tracking-wider border border-[#EBE7DF] shadow-sm transition-all"
               >
-                Démarrer Gratuit
+                COMMENCER GRATUITEMENT
               </Link>
             </div>
 
-            {/* Plan 2: Starter (2 900 FCFA) */}
-            <div className="rounded-3xl bg-white border border-[#0F3B32]/30 p-6 sm:p-7 flex flex-col justify-between shadow-[0_4px_20px_rgba(15,59,50,0.05)] hover:shadow-xl transition-all relative">
+            {/* Plan 2: STARTER (5 000 FCFA / mois) */}
+            <div className="rounded-3xl bg-white border border-[#0F3B32]/30 p-6 sm:p-8 flex flex-col justify-between shadow-[0_6px_25px_rgba(15,59,50,0.06)] hover:shadow-xl transition-all relative">
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EBF7F1] text-[#0F3B32] border border-[#0F3B32]/15">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#EBF7F1] text-[#0F3B32] border border-[#0F3B32]/20">
                     Essentiel
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-[#0F3B32] font-serif-luxury">Starter</h3>
-                <p className="text-xs text-[#4B5563] mt-1 min-h-[32px]">
-                  Pour les couturiers et stylistes en pleine croissance
+                <h3 className="text-2xl font-black text-[#0F3B32] font-serif-luxury">Starter</h3>
+                <p className="text-xs text-[#4B5563] mt-1.5 min-h-[34px]">
+                  Pour les couturiers et stylistes qui veulent développer leur clientèle.
                 </p>
 
-                <div className="mt-5 mb-6 pb-5 border-b border-[#EBE7DF]">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-extrabold text-[#0F3B32] font-serif-luxury">
-                      {billingCycle === 'annual' ? '2 300' : '2 900'}
-                    </span>
-                    <span className="text-xs font-semibold text-[#8A7A65]">FCFA / mois</span>
+                <div className="mt-6 mb-6 pb-6 border-b border-[#EBE7DF]">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-4xl font-black text-[#0F3B32] font-serif-luxury">5 000</span>
+                    <span className="text-base font-extrabold text-[#0F3B32]">FCFA</span>
+                    <span className="text-xs text-[#8A7A65] font-semibold">/ mois</span>
                   </div>
-                  <p className="text-[11px] text-[#8A7A65] mt-1">
-                    {billingCycle === 'annual' ? 'Facturé 27 600 FCFA / an' : 'Sans engagement mensuel'}
-                  </p>
+                  <p className="text-[11px] text-[#8A7A65] mt-1.5">Paiement mensuel • Sans engagement</p>
                 </div>
 
-                <ul className="space-y-3 text-xs text-[#111827]">
-                  <li className="flex items-start gap-2">
+                <ul className="space-y-3.5 text-xs text-[#111827]">
+                  <li className="flex items-start gap-2.5">
                     <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>Jusqu&apos;à <strong>80 clients</strong> actifs</span>
+                    <span><strong>Clients illimités</strong></span>
                   </li>
-                  <li className="flex items-start gap-2">
+                  <li className="flex items-start gap-2.5">
                     <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span><strong>Photos des tissus & coupons</strong> (Caméra & Fichier)</span>
+                    <span>Mesures illimitées</span>
                   </li>
-                  <li className="flex items-start gap-2">
+                  <li className="flex items-start gap-2.5">
                     <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>Reçus & rappels WhatsApp en 1 clic</span>
+                    <span>Commandes illimitées</span>
                   </li>
-                  <li className="flex items-start gap-2">
+                  <li className="flex items-start gap-2.5">
                     <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>Suivi des commandes & dates de livraison</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>Calcul d&apos;acompte Wave & Orange Money</span>
-                  </li>
-                  <li className="flex items-start gap-2 text-[#9CA3AF]">
-                    <X className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>Tableau Kanban de production</span>
                   </li>
+                  <li className="flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                    <span>Paiements Wave &amp; Orange Money</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                    <span>Factures &amp; reçus PDF</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                    <span>Reçus &amp; rappels WhatsApp</span>
+                  </li>
                 </ul>
               </div>
 
               <Link
-                href="/auth/register"
-                className="mt-8 w-full text-center py-3 rounded-full bg-white hover:bg-[#EBF7F1] text-[#0F3B32] font-bold text-xs uppercase tracking-wider border-2 border-[#0F3B32] shadow-sm transition-all hover:scale-105"
+                href="/pricing"
+                className="mt-8 w-full text-center py-3.5 rounded-2xl bg-white hover:bg-[#EBF7F1] text-[#0F3B32] font-bold text-xs uppercase tracking-wider border-2 border-[#0F3B32] shadow-sm transition-all hover:scale-105"
               >
-                Essayer 14 jours
+                CHOISIR STARTER
               </Link>
             </div>
 
-            {/* Plan 3: Pro Atelier (5 900 FCFA) - FEATURED / BEST VALUE */}
-            <div className="rounded-3xl bg-gradient-to-b from-white via-[#F8FAF9] to-white border-2 border-[#D97706] p-6 sm:p-7 flex flex-col justify-between shadow-[0_12px_40px_rgba(217,119,6,0.18)] relative scale-105 z-10">
+            {/* Plan 3: PRO (15 000 FCFA / mois) - MISE EN AVANT POPULAIRE */}
+            <div className="rounded-3xl bg-gradient-to-b from-white via-[#FAF7F0] to-white border-2 border-[#D97706] p-6 sm:p-8 flex flex-col justify-between shadow-[0_16px_45px_rgba(217,119,6,0.16)] relative lg:-translate-y-2 z-10">
               {/* Featured Badge */}
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#D97706] to-[#b46305] text-white text-[10px] font-extrabold px-4 py-1 rounded-full uppercase tracking-wider shadow-md flex items-center gap-1">
-                <Star className="w-3 h-3 fill-white" />
-                Le Plus Choisi • Recommandé
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#D97706] to-amber-700 text-white text-[11px] font-black uppercase tracking-wider px-4 py-1 rounded-full shadow-md flex items-center gap-1.5">
+                <Star className="w-3.5 h-3.5 fill-white" />
+                <span>POPULAIRE</span>
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF3C7] text-[#D97706] border border-[#D97706]/30">
-                    Meilleur Rapport Qualité / Prix
+                <div className="flex items-center justify-between mb-3">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#FEF3C7] text-[#D97706] border border-[#D97706]/30">
+                    Performance &amp; Équipe
                   </span>
                 </div>
-                <h3 className="text-2xl font-extrabold text-[#0F3B32] font-serif-luxury">Pro Atelier</h3>
-                <p className="text-xs text-[#4B5563] mt-1 min-h-[32px]">
-                  Pour les ateliers actifs avec équipe & couturiers
+                <h3 className="text-2xl font-black text-stone-900 font-serif-luxury">Pro</h3>
+                <p className="text-xs text-[#4B5563] mt-1.5 min-h-[34px]">
+                  Pour les ateliers et maisons de couture en pleine expansion.
                 </p>
 
-                <div className="mt-5 mb-6 pb-5 border-b border-[#D97706]/20">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-extrabold text-[#0F3B32] font-serif-luxury">
-                      {billingCycle === 'annual' ? '4 900' : '5 900'}
-                    </span>
-                    <span className="text-xs font-semibold text-[#8A7A65]">FCFA / mois</span>
+                <div className="mt-6 mb-6 pb-6 border-b border-[#EBE7DF]">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-4xl font-black text-[#D97706] font-serif-luxury">15 000</span>
+                    <span className="text-base font-extrabold text-[#D97706]">FCFA</span>
+                    <span className="text-xs text-[#8A7A65] font-semibold">/ mois</span>
                   </div>
-                  <p className="text-[11px] text-[#D97706] font-semibold mt-1">
-                    {billingCycle === 'annual' ? 'Facturé 58 800 FCFA / an' : 'Sans engagement mensuel'}
-                  </p>
+                  <p className="text-[11px] text-[#8A7A65] mt-1.5">Paiement mensuel • Accès intégral</p>
                 </div>
 
-                <ul className="space-y-3 text-xs text-[#111827]">
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span><strong>Clients & Mesures ILLIMITÉS</strong></span>
+                <ul className="space-y-3.5 text-xs text-[#111827]">
+                  <li className="flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                    <span><strong>Tout ce qui est inclus dans Starter</strong></span>
                   </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span><strong>Toutes les notifications WhatsApp</strong> (Solde, livraison, commande prête)</span>
+                  <li className="flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                    <span><strong>Rapports financiers avancés</strong></span>
                   </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span><strong>Tableau Kanban de production</strong> complet</span>
+                  <li className="flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                    <span><strong>Export Excel comptable</strong></span>
                   </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>Jusqu&apos;à <strong>5 couturiers / employés</strong></span>
+                  <li className="flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                    <span><strong>Gestion d&apos;équipe &amp; tailleurs</strong></span>
                   </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>Galerie de modèles (Homme, Femme, Enfant)</span>
+                  <li className="flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                    <span>Catalogue de modèles</span>
                   </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>Rapports de caisse & bénéfices nets</span>
+                  <li className="flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                    <span>Statistiques avancées</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                    <span>Support prioritaire 7j/7</span>
                   </li>
                 </ul>
               </div>
 
               <Link
-                href="/auth/register"
-                className="mt-8 w-full text-center py-3.5 rounded-full bg-gradient-to-r from-[#0F3B32] to-[#185c4e] hover:from-[#185c4e] hover:to-[#0F3B32] text-white font-bold text-xs uppercase tracking-wider shadow-[0_6px_20px_rgba(15,59,50,0.35)] transition-all hover:scale-105 border border-[#D97706]/40"
+                href="/pricing"
+                className="mt-8 w-full text-center py-4 rounded-2xl bg-gradient-to-r from-[#D97706] to-amber-700 hover:from-amber-700 hover:to-[#D97706] text-white font-bold text-xs uppercase tracking-wider shadow-lg transition-all hover:scale-105"
               >
-                Démarrer avec Pro Atelier
-              </Link>
-            </div>
-
-            {/* Plan 4: Business Évolutif (18 900 FCFA) */}
-            <div className="rounded-3xl bg-white border border-[#EBE7DF] p-6 sm:p-7 flex flex-col justify-between shadow-[0_4px_20px_rgba(15,59,50,0.05)] hover:shadow-xl transition-all">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#9333EA]/10 text-[#9333EA] border border-[#9333EA]/20">
-                    Grand Atelier & Franchise
-                  </span>
-                </div>
-                <h3 className="text-xl font-bold text-[#0F3B32] font-serif-luxury">Business Évolutif</h3>
-                <p className="text-xs text-[#4B5563] mt-1 min-h-[32px]">
-                  Pour les maisons de couture & multi-succursales
-                </p>
-
-                <div className="mt-5 mb-6 pb-5 border-b border-[#EBE7DF]">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-extrabold text-[#111827] font-serif-luxury">
-                      {billingCycle === 'annual' ? '15 900' : '18 900'}
-                    </span>
-                    <span className="text-xs font-semibold text-[#8A7A65]">FCFA / mois</span>
-                  </div>
-                  <p className="text-[11px] text-[#8A7A65] mt-1">
-                    {billingCycle === 'annual' ? 'Facturé 190 800 FCFA / an' : 'Sans engagement mensuel'}
-                  </p>
-                </div>
-
-                <ul className="space-y-3 text-xs text-[#111827]">
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span><strong>Tout ce qui est dans Pro Atelier</strong></span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span><strong>Employés & Couturiers ILLIMITÉS</strong></span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span><strong>Multi-ateliers & succursales</strong></span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>Logo & personnalisation de marque sur reçus</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>Export comptable Excel / PDF</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-                    <span>Support VIP prioritaire 7j/7 sur WhatsApp</span>
-                  </li>
-                </ul>
-              </div>
-
-              <Link
-                href="/auth/register"
-                className="mt-8 w-full text-center py-3 rounded-full bg-[#0F3B32] hover:bg-[#185c4e] text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all hover:scale-105"
-              >
-                Passer au Business Évolutif
+                CHOISIR PRO
               </Link>
             </div>
 

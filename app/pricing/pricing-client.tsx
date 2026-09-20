@@ -5,228 +5,351 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  Scissors, Check, Zap, Star, ArrowRight, Phone, ChevronRight
+  Scissors,
+  Check,
+  Zap,
+  Star,
+  ArrowRight,
+  ShieldCheck,
+  ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 import type { Plan } from '@/lib/types';
+import { CANONICAL_PLANS, getCanonicalPlansList } from '@/lib/billing/plan-guard';
 
 interface Props {
   plans: Plan[];
 }
 
-const FALLBACK_PLANS: Plan[] = [
-  {
-    id: 'starter-fallback',
-    name: 'Starter',
-    slug: 'starter',
-    description: 'Idéal pour démarrer votre atelier numérique.',
-    price: 5000,
-    currency: 'XOF',
-    duration_days: 30,
-    billing_interval: 'month',
-    features: [
-      'Carnet de mesures illimité',
-      'Gestion des commandes',
-      'Suivi Kanban de production',
-      'Paiements Wave & Orange Money',
-      'Factures PDF & WhatsApp',
-      'Support email',
-    ],
-    is_active: true,
-    sort_order: 1,
-    created_at: '',
-    updated_at: '',
-  },
-  {
-    id: 'pro-fallback',
-    name: 'Pro',
-    slug: 'pro',
-    description: 'Pour les ateliers en pleine croissance.',
-    price: 15000,
-    currency: 'XOF',
-    duration_days: 365,
-    billing_interval: 'year',
-    features: [
-      'Tout le plan Starter',
-      'Rapports financiers avancés',
-      'Export Excel comptable',
-      'Gestion d\'équipe illimitée',
-      'Catalogue de modèles',
-      'Support prioritaire',
-    ],
-    is_active: true,
-    sort_order: 2,
-    created_at: '',
-    updated_at: '',
-  },
-];
-
-function formatPrice(price: number, currency: string) {
-  return new Intl.NumberFormat('fr-FR').format(price) + ' ' + (currency === 'XOF' ? 'FCFA' : currency);
-}
-
-function formatInterval(interval: string, days: number) {
-  if (interval === 'month') return '/ mois';
-  if (interval === 'year') return '/ an';
-  if (days === 365) return '/ an';
-  return `/ ${days} jours`;
-}
-
 export default function PricingClient({ plans }: Props) {
   const router = useRouter();
-  const displayPlans = plans.length > 0 ? plans : FALLBACK_PLANS;
+  const [activatingDiscovery, setActivatingDiscovery] = useState(false);
 
-  function handleChoose(plan: Plan) {
-    router.push(`/signup?plan=${plan.id}`);
+  // Utilise toujours les 3 plans canoniques avec les données de la base en priorité si présentes
+  const canonicalList = getCanonicalPlansList();
+  const displayPlans = canonicalList.map((cp) => {
+    const dbPlan = plans.find((p) => p.slug === cp.slug);
+    if (dbPlan) {
+      return {
+        ...cp,
+        id: dbPlan.id,
+        price: dbPlan.price,
+        features: dbPlan.features,
+      };
+    }
+    return cp;
+  });
+
+  async function handleSelectPlan(plan: Plan) {
+    if (plan.slug === 'discovery') {
+      setActivatingDiscovery(true);
+      try {
+        const res = await fetch('/api/subscription/activate-discovery', {
+          method: 'POST',
+        });
+        if (res.ok) {
+          router.push('/dashboard');
+          return;
+        }
+      } catch {}
+      // Si non connecté ou erreur, redirection vers le tunnel d'inscription Découverte
+      router.push(`/signup?plan=${plan.id || 'discovery'}`);
+      setActivatingDiscovery(false);
+      return;
+    }
+
+    // Plans payants : tunnel de commande et paiement Wave / Orange Money
+    router.push(`/signup?plan=${plan.id || plan.slug}`);
   }
 
   return (
-    <div className="min-h-screen bg-[#FBF9F5] font-sans antialiased">
-      {/* ─── Header ─── */}
-      <header className="border-b border-[#EBE7DF] bg-white/90 backdrop-blur-sm sticky top-0 z-40">
+    <div className="min-h-screen bg-[#FBF9F5] text-[#111827] font-sans antialiased selection:bg-[#0F3B32] selection:text-[#FBF9F5]">
+      {/* ─── Top Navbar ─── */}
+      <header className="border-b border-[#EBE7DF] bg-white/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#0F3B32] flex items-center justify-center">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-[#0F3B32] flex items-center justify-center shadow-sm">
               <Scissors className="w-4 h-4 text-[#D97706]" />
             </div>
             <span className="text-lg font-extrabold tracking-tight text-[#0F3B32] font-serif-luxury">
               Atelier<span className="text-[#D97706]">Pro</span>
             </span>
           </Link>
-          <Link
-            href="/auth/login"
-            className="text-xs font-semibold text-slate-600 hover:text-[#0F3B32] transition-colors"
-          >
-            Déjà client ? Se connecter →
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/auth/login"
+              className="text-xs font-semibold text-slate-600 hover:text-[#0F3B32] px-3 py-1.5 rounded-full hover:bg-slate-100 transition-colors"
+            >
+              Déjà inscrit ? Se connecter
+            </Link>
+            <Link
+              href="/dashboard"
+              className="hidden sm:inline-flex text-xs font-bold uppercase tracking-wider text-white bg-[#0F3B32] px-4 py-2 rounded-full shadow-sm hover:bg-[#185c4e] transition-all"
+            >
+              Mon Atelier
+            </Link>
+          </div>
         </div>
       </header>
 
-      {/* ─── Hero ─── */}
-      <section className="pt-16 pb-12 px-4 text-center">
+      {/* ─── Hero Section ─── */}
+      <section className="pt-14 pb-10 px-4 text-center max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#0F3B32]/8 border border-[#0F3B32]/15 text-[#0F3B32] text-xs font-bold mb-6">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#0F3B32]/10 border border-[#0F3B32]/15 text-[#0F3B32] text-xs font-bold mb-5">
             <Zap className="w-3.5 h-3.5 text-[#D97706]" />
-            Paiement Wave & Orange Money
+            Tarifs clairs en FCFA • Sans engagement • Paiement Wave &amp; Orange Money
           </div>
           <h1 className="text-3xl sm:text-5xl font-extrabold text-[#111827] font-serif-luxury mb-4 leading-tight">
-            Choisissez votre formule
+            Choisissez la formule adaptée à votre atelier
           </h1>
-          <p className="text-slate-500 text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
-            Activez votre atelier numérique en quelques minutes. Aucun engagement, paiement sécurisé.
+          <p className="text-slate-600 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
+            Commencez gratuitement avec la formule <strong>Découverte</strong> ou débloquez l&apos;illimité
+            avec <strong>Starter</strong> et <strong>Pro</strong>.
           </p>
         </motion.div>
       </section>
 
-      {/* ─── Plans ─── */}
-      <section className="pb-20 px-4">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-          {displayPlans.map((plan, i) => {
-            const isPopular = plan.slug === 'pro' || i === 1;
-            let features: string[] = [];
-            const rawFeatures: any = plan.features;
-            if (Array.isArray(rawFeatures)) {
-              features = rawFeatures;
-            } else if (typeof rawFeatures === 'string') {
-              try {
-                features = JSON.parse(rawFeatures);
-              } catch (e) {
-                features = (rawFeatures as string).split(',').map(s => s.trim()).filter(Boolean);
-              }
-            }
+      {/* ─── 3 Cartes de Tarifs Côte à Côte (Desktop) ─── */}
+      <section className="pb-24 px-4 sm:px-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+          
+          {/* 1. CARTE DÉCOUVERTE */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="rounded-3xl bg-white border border-[#EBE7DF] p-6 sm:p-8 flex flex-col justify-between shadow-[0_4px_20px_rgba(15,59,50,0.03)] hover:shadow-lg transition-all"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#FBF9F5] text-[#8A7A65] border border-[#EBE7DF]">
+                  Gratuit à vie
+                </span>
+              </div>
+              <h3 className="text-2xl font-black text-[#0F3B32] font-serif-luxury">
+                Découverte
+              </h3>
+              <p className="text-xs text-[#4B5563] mt-1.5 min-h-[34px]">
+                Pour débuter la gestion de son atelier sans engagement financier.
+              </p>
 
-            return (
-              <motion.div
-                key={plan.id}
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.12, duration: 0.5 }}
-                className={`relative rounded-3xl border flex flex-col overflow-hidden shadow-sm transition-all hover:shadow-lg ${
-                  isPopular
-                    ? 'border-[#0F3B32] bg-gradient-to-br from-[#0F3B32] via-[#165a4c] to-[#0A2A24] text-white'
-                    : 'border-[#EBE7DF] bg-white text-[#111827]'
-                }`}
+              <div className="mt-6 mb-6 pb-6 border-b border-[#EBE7DF]">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-4xl font-black text-[#111827] font-serif-luxury">0</span>
+                  <span className="text-base font-extrabold text-[#111827]">FCFA</span>
+                  <span className="text-xs text-[#8A7A65] font-semibold">/ gratuit</span>
+                </div>
+                <p className="text-[11px] text-[#8A7A65] mt-1.5">Sans carte bancaire • Sans expiration</p>
+              </div>
+
+              <ul className="space-y-3.5 text-xs text-[#111827]">
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span><strong>Jusqu&apos;à 5 clients</strong> enregistrés</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span>Carnet de mesures complet</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span>Gestion basique des commandes</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span>Suivi de production</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span>Tableau de bord essentiel</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="mt-8 pt-4">
+              <button
+                onClick={() => handleSelectPlan({ id: 'plan-discovery', slug: 'discovery' } as Plan)}
+                disabled={activatingDiscovery}
+                className="w-full py-3.5 px-4 rounded-2xl bg-[#FBF9F5] hover:bg-[#EBE7DF] text-[#0F3B32] font-bold text-xs uppercase tracking-wider border border-[#EBE7DF] shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                {isPopular && (
-                  <div className="absolute top-4 right-4">
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#D97706] text-white text-[11px] font-bold">
-                      <Star className="w-3 h-3" /> POPULAIRE
-                    </span>
-                  </div>
-                )}
+                <span>{activatingDiscovery ? 'Activation…' : 'COMMENCER GRATUITEMENT'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
 
-                <div className="p-7 sm:p-8 flex-1">
-                  <div className="mb-5">
-                    <h2 className={`text-xl font-extrabold font-serif-luxury mb-1 ${isPopular ? 'text-white' : 'text-[#0F3B32]'}`}>
-                      {plan.name}
-                    </h2>
-                    {plan.description && (
-                      <p className={`text-sm ${isPopular ? 'text-slate-200' : 'text-slate-500'}`}>
-                        {plan.description}
-                      </p>
-                    )}
-                  </div>
+          {/* 2. CARTE STARTER */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            className="rounded-3xl bg-white border border-[#0F3B32]/30 p-6 sm:p-8 flex flex-col justify-between shadow-[0_6px_25px_rgba(15,59,50,0.06)] hover:shadow-xl transition-all relative"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#EBF7F1] text-[#0F3B32] border border-[#0F3B32]/20">
+                  Essentiel
+                </span>
+              </div>
+              <h3 className="text-2xl font-black text-[#0F3B32] font-serif-luxury">
+                Starter
+              </h3>
+              <p className="text-xs text-[#4B5563] mt-1.5 min-h-[34px]">
+                Pour les tailleurs actifs qui ont besoin de capacités illimitées.
+              </p>
 
-                  <div className="mb-7">
-                    <div className={`text-4xl font-extrabold ${isPopular ? 'text-white' : 'text-[#0F3B32]'}`}>
-                      {formatPrice(plan.price, plan.currency)}
-                    </div>
-                    <div className={`text-sm mt-0.5 ${isPopular ? 'text-slate-300' : 'text-slate-400'}`}>
-                      {formatInterval(plan.billing_interval, plan.duration_days)}
-                    </div>
-                  </div>
-
-                  <ul className="space-y-3 mb-8">
-                    {features.map((feature: string, idx: number) => (
-                      <li key={idx} className="flex items-start gap-2.5">
-                        <div className={`mt-0.5 w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          isPopular ? 'bg-[#D97706]/30' : 'bg-[#0F3B32]/10'
-                        }`}>
-                          <Check className={`w-2.5 h-2.5 ${isPopular ? 'text-[#FCD34D]' : 'text-[#0F3B32]'}`} />
-                        </div>
-                        <span className={`text-sm leading-tight ${isPopular ? 'text-slate-200' : 'text-slate-700'}`}>
-                          {feature}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+              <div className="mt-6 mb-6 pb-6 border-b border-[#EBE7DF]">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-4xl font-black text-[#0F3B32] font-serif-luxury">5 000</span>
+                  <span className="text-base font-extrabold text-[#0F3B32]">FCFA</span>
+                  <span className="text-xs text-[#8A7A65] font-semibold">/ mois</span>
                 </div>
+                <p className="text-[11px] text-[#8A7A65] mt-1.5">Paiement mensuel • Sans engagement</p>
+              </div>
 
-                <div className="px-7 sm:px-8 pb-8">
-                  <button
-                    onClick={() => handleChoose(plan)}
-                    className={`w-full py-3.5 rounded-2xl font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2 ${
-                      isPopular
-                        ? 'bg-[#D97706] hover:bg-[#b45309] text-white shadow-lg shadow-amber-900/25'
-                        : 'bg-[#0F3B32] hover:bg-[#185c4e] text-white shadow-lg shadow-emerald-900/20'
-                    }`}
-                  >
-                    Choisir cette formule
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                  <p className={`text-center text-[11px] mt-2.5 ${isPopular ? 'text-slate-400' : 'text-slate-400'}`}>
-                    Paiement Wave ou Orange Money
-                  </p>
+              <ul className="space-y-3.5 text-xs text-[#111827]">
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span><strong>Clients illimités</strong> (sans restriction)</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span>Mesures illimitées</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span>Commandes illimitées</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span>Tableau Kanban de production</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span>Paiements Wave &amp; Orange Money</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span>Factures &amp; reçus PDF</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span>Reçus &amp; rappels WhatsApp</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="mt-8 pt-4">
+              <button
+                onClick={() => handleSelectPlan({ id: 'plan-starter', slug: 'starter' } as Plan)}
+                className="w-full py-3.5 px-4 rounded-2xl bg-white hover:bg-[#EBF7F1] text-[#0F3B32] font-bold text-xs uppercase tracking-wider border-2 border-[#0F3B32] shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02]"
+              >
+                <span>CHOISIR STARTER</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+
+          {/* 3. CARTE PRO (MISE EN AVANT - BADGE POPULAIRE) */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+            className="rounded-3xl bg-gradient-to-b from-white via-[#FAF7F0] to-white border-2 border-[#D97706] p-6 sm:p-8 flex flex-col justify-between shadow-[0_16px_45px_rgba(217,119,6,0.16)] relative lg:-translate-y-2 z-10"
+          >
+            {/* Badge Populaire */}
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#D97706] to-amber-700 text-white text-[11px] font-black uppercase tracking-wider px-4 py-1 rounded-full shadow-md flex items-center gap-1.5">
+              <Star className="w-3.5 h-3.5 fill-white" />
+              <span>POPULAIRE</span>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#FEF3C7] text-[#D97706] border border-[#D97706]/30">
+                  Performance &amp; Équipe
+                </span>
+              </div>
+              <h3 className="text-2xl font-black text-stone-900 font-serif-luxury">
+                Pro
+              </h3>
+              <p className="text-xs text-[#4B5563] mt-1.5 min-h-[34px]">
+                Pour les maisons de couture et ateliers en pleine croissance.
+              </p>
+
+              <div className="mt-6 mb-6 pb-6 border-b border-[#EBE7DF]">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-4xl font-black text-[#D97706] font-serif-luxury">15 000</span>
+                  <span className="text-base font-extrabold text-[#D97706]">FCFA</span>
+                  <span className="text-xs text-[#8A7A65] font-semibold">/ mois</span>
                 </div>
-              </motion.div>
-            );
-          })}
+                <p className="text-[11px] text-[#8A7A65] mt-1.5">Facturé mensuellement • Accès intégral</p>
+              </div>
+
+              <ul className="space-y-3.5 text-xs text-[#111827]">
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                  <span><strong>Tout ce qui est inclus dans Starter</strong></span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                  <span><strong>Rapports financiers avancés</strong></span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                  <span><strong>Export Excel comptable</strong></span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                  <span><strong>Gestion d&apos;équipe &amp; tailleurs</strong></span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                  <span>Catalogue de modèles</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                  <span>Statistiques avancées</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Check className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
+                  <span>Support prioritaire 7j/7</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="mt-8 pt-4">
+              <button
+                onClick={() => handleSelectPlan({ id: 'plan-pro', slug: 'pro' } as Plan)}
+                className="w-full py-4 px-4 rounded-2xl bg-gradient-to-r from-[#D97706] to-amber-700 hover:from-amber-700 hover:to-[#D97706] text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02]"
+              >
+                <span>CHOISIR PRO</span>
+                <ArrowRight className="w-4 h-4 text-amber-200" />
+              </button>
+            </div>
+          </motion.div>
+
         </div>
 
-        {/* Badges de confiance */}
-        <div className="max-w-3xl mx-auto mt-12 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400">
-          <span className="flex items-center gap-1.5">
-            <Check className="w-3.5 h-3.5 text-[#16A34A]" /> Paiement 100% sécurisé
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Check className="w-3.5 h-3.5 text-[#16A34A]" /> Données privées & isolées
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Phone className="w-3.5 h-3.5 text-[#0284C7]" /> Support WhatsApp inclus
-          </span>
+        {/* Reassurance Banner */}
+        <div className="mt-14 max-w-3xl mx-auto rounded-2xl bg-white border border-[#EBE7DF] p-6 text-center shadow-sm">
+          <div className="flex flex-wrap items-center justify-center gap-8 text-xs font-semibold text-slate-700">
+            <span className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              Paiement 100% sécurisé (Wave, Orange Money)
+            </span>
+            <span className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#D97706]" />
+              Activation instantanée du compte
+            </span>
+            <span className="flex items-center gap-2">
+              <Check className="w-4 h-4 text-[#0F3B32]" />
+              Conservation garantie de vos données
+            </span>
+          </div>
         </div>
       </section>
     </div>

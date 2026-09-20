@@ -50,39 +50,7 @@ export async function dbGetOrCreateUserWorkshop(userId: string, userFullName?: s
     throw new Error('Supabase non configuré');
   }
 
-  // 1. Source primaire : workshop_members (chemin canonique après inscription)
-  const { data: memberRows, error: memberErr } = await supabase
-    .from('workshop_members')
-    .select('role, workshops (*)')
-    .eq('user_id', userId)
-    .eq('status', 'ACTIVE')
-    .limit(1);
-
-  if (!memberErr && memberRows && memberRows.length > 0 && memberRows[0].workshops) {
-    const ws = memberRows[0].workshops as unknown as Workshop;
-    return { workshop: ws, role: memberRows[0].role || 'OWNER' };
-  }
-
-  // 2. Fallback : workshops dont l'utilisateur est owner_id
-  const { data: ownedWorkshops } = await supabase
-    .from('workshops')
-    .select('*')
-    .eq('owner_id', userId)
-    .limit(1);
-
-  if (ownedWorkshops && ownedWorkshops.length > 0) {
-    const ws = ownedWorkshops[0] as Workshop;
-    // Réparation : créer workshop_members manquant
-    await supabase.from('workshop_members').upsert({
-      workshop_id: ws.id,
-      user_id: userId,
-      role: 'OWNER',
-      status: 'ACTIVE',
-    }, { onConflict: 'workshop_id,user_id' });
-    return { workshop: ws, role: 'OWNER' };
-  }
-
-  // 3. Fallback legacy : profiles.atelier_id → ateliers
+  // 1. Source canonique de production : profiles.atelier_id → ateliers
   const { data: profile } = await supabase
     .from('profiles')
     .select('atelier_id, role, full_name')
@@ -115,13 +83,12 @@ export async function dbGetOrCreateUserWorkshop(userId: string, userFullName?: s
     }
   }
 
-  // 4. Aucun atelier trouvé — créer un workshop par défaut dans la table canonique
+  // 2. Aucun atelier trouvé — créer l'atelier dans la table canonique 'ateliers'
   const defaultName = userFullName ? `Atelier de ${userFullName}` : 'Mon Atelier';
-  const { data: newWs, error: wsErr } = await supabase
-    .from('workshops')
+  const { data: newAtelier, error: atErr } = await supabase
+    .from('ateliers')
     .insert({
       name: defaultName,
-      owner_id: userId,
       currency: 'XOF',
       currency_symbol: 'FCFA',
       is_active: true,
@@ -129,22 +96,26 @@ export async function dbGetOrCreateUserWorkshop(userId: string, userFullName?: s
     .select()
     .single();
 
-  if (!wsErr && newWs) {
-    // Créer l'entrée workshop_members
-    await supabase.from('workshop_members').insert({
-      workshop_id: newWs.id,
-      user_id: userId,
-      role: 'OWNER',
-      status: 'ACTIVE',
-    });
-    // Mettre à jour le profil
+  if (!atErr && newAtelier) {
     await supabase.from('profiles').upsert({
       id: userId,
-      atelier_id: newWs.id,
+      atelier_id: newAtelier.id,
       full_name: userFullName || '',
       role: 'owner',
     });
-    return { workshop: newWs as Workshop, role: 'OWNER' };
+
+    const ws: Workshop = {
+      id: newAtelier.id,
+      name: newAtelier.name,
+      currency: newAtelier.currency || 'XOF',
+      currency_symbol: 'FCFA',
+      owner_id: userId,
+      is_active: true,
+      created_at: newAtelier.created_at || new Date().toISOString(),
+      updated_at: newAtelier.created_at || new Date().toISOString(),
+    };
+
+    return { workshop: ws, role: 'OWNER' };
   }
 
   throw new Error('ATELIER_NOT_FOUND: Impossible de résoudre ou créer l\'atelier pour cet utilisateur.');
@@ -354,46 +325,92 @@ export async function dbFetchWorkshopFullData(workshopId: string): Promise<Synce
 export async function dbCreateCustomer(workshopId: string, input: CreateCustomerInput, userId?: string): Promise<Customer> {
   if (!supabase || !isSupabaseConfigured) throw new Error('Supabase non configuré');
 
-  const res = await supabase
-    .from('customers')
-    .insert({
-      workshop_id: workshopId,
-      full_name: input.full_name.trim(),
-      phone: input.phone.trim(),
-      email: input.email?.trim() || null,
-      address: input.address?.trim() || null,
-      city: input.city?.trim() || null,
-      gender: input.gender || 'OTHER',
-      notes: input.notes?.trim() || null,
-      created_by: userId || null,
-    })
-    .select()
-    .maybeSingle();
+  // 1. Appel prioritaire vers l'API backend sécurisée (validation de quota serveur & advisory lock)
+  try {
+    const res = await fetch('/api/clients/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: input.full_name.trim(),
+        phone: input.phone.trim(),
+        notes: input.notes?.trim() || null,
+        gender: input.gender || null,
+      }),
+    });
 
-  if (res.data) return res.data as Customer;
+    const data = await res.json();
 
-  // Fallback sur la table 'clients'
-  const genderMap: Record<string, string> = {
-    MALE: 'homme',
-    FEMALE: 'femme',
-    homme: 'homme',
-    femme: 'femme',
-  };
-  const clientGender = input.gender ? (genderMap[input.gender] || null) : null;
+    if (!res.ok) {
+      if (data.error === 'FREE_PLAN_CLIENT_LIMIT_REACHED') {
+        const err = new Error(data.message || 'Vous avez atteint la limite de 5 clients du plan Découverte.');
+        (err as any).code = 'FREE_PLAN_CLIENT_LIMIT_REACHED';
+        (err as any).currentCount = data.current_count;
+        (err as any).maxAllowed = data.max_allowed;
+        throw err;
+      }
+      throw new Error(data.message || data.error || 'Erreur lors de la création du client.');
+    }
 
+    if (data.client) {
+      return data.client as Customer;
+    }
+  } catch (err: any) {
+    if (err?.code === 'FREE_PLAN_CLIENT_LIMIT_REACHED' || err?.message?.includes('FREE_PLAN_CLIENT_LIMIT_REACHED')) {
+      throw err;
+    }
+    // Si l'environnement n'a pas accès à fetch('/api/clients/create') (ex: SSR ou script local), continuer sur la RPC directe
+  }
+
+  // 2. Appel direct via la RPC sécurisée Supabase si en session authentifiée
+  const { data: rpcData, error: rpcErr } = await supabase.rpc('create_client_with_plan_check', {
+    p_name: input.full_name.trim(),
+    p_phone: input.phone.trim() || null,
+    p_notes: input.notes?.trim() || null,
+    p_gender: input.gender || null,
+  });
+
+  if (!rpcErr && rpcData) {
+    if (rpcData.success && rpcData.client) {
+      const c = rpcData.client;
+      return {
+        id: c.id,
+        workshop_id: c.atelier_id || workshopId,
+        full_name: c.name,
+        phone: c.phone || '',
+        gender: (c.gender as any) || 'OTHER',
+        notes: c.notes || '',
+        created_at: c.created_at,
+        updated_at: c.created_at,
+      };
+    }
+    if (rpcData.error_code === 'FREE_PLAN_CLIENT_LIMIT_REACHED') {
+      const err = new Error(rpcData.message || 'Vous avez atteint la limite de 5 clients du plan Découverte.');
+      (err as any).code = 'FREE_PLAN_CLIENT_LIMIT_REACHED';
+      throw err;
+    }
+  }
+
+  // 3. Fallback sur la table canonique 'clients'
   const { data: client, error: clErr } = await supabase
     .from('clients')
     .insert({
       atelier_id: workshopId,
       name: input.full_name.trim(),
-      phone: input.phone.trim(),
+      phone: input.phone.trim() || null,
       notes: input.notes?.trim() || null,
-      gender: clientGender,
+      gender: input.gender || null,
     })
     .select()
     .single();
 
-  if (clErr) throw new Error(clErr.message);
+  if (clErr) {
+    if (clErr.message?.includes('FREE_PLAN_CLIENT_LIMIT_REACHED')) {
+      const err = new Error('Vous avez atteint la limite de 5 clients du plan Découverte.');
+      (err as any).code = 'FREE_PLAN_CLIENT_LIMIT_REACHED';
+      throw err;
+    }
+    throw new Error(clErr.message);
+  }
 
   return {
     id: client.id,
@@ -406,6 +423,7 @@ export async function dbCreateCustomer(workshopId: string, input: CreateCustomer
     updated_at: client.created_at,
   };
 }
+
 
 export async function dbUpdateCustomer(customerId: string, input: Partial<CreateCustomerInput>): Promise<Customer> {
   if (!supabase || !isSupabaseConfigured) throw new Error('Supabase non configuré');

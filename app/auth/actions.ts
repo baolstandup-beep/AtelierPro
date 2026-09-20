@@ -301,62 +301,57 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
 
     const userId = createData.user.id;
 
-    // Création de l'atelier et du profil
-    // 1. Vérifier si un workshop existe déjà pour cet utilisateur (évite les doublons)
-    const { data: existingMember } = await supabaseAdmin
-      .from('workshop_members')
-      .select('workshop_id')
-      .eq('user_id', userId)
-      .maybeSingle();
+    // Création de l'atelier canonique dans 'ateliers'
+    const { data: newAtelier, error: atErr } = await supabaseAdmin
+      .from('ateliers')
+      .insert({
+        name: workshopName.trim(),
+        phone: phone.trim() || null,
+        currency: 'XOF',
+        currency_symbol: 'FCFA',
+        is_active: true,
+      })
+      .select('id')
+      .single();
 
-    let workshopId: string | null = existingMember?.workshop_id || null;
-    let atelierId: string | null = null;
-
-    if (!workshopId) {
-      // 2. Créer le workshop dans la table canonique 'workshops'
-      const { data: newWorkshop, error: wsErr } = await supabaseAdmin
-        .from('workshops')
-        .insert({
-          name: workshopName.trim(),
-          phone: phone.trim() || null,
-          owner_id: userId,
-          currency: 'XOF',
-          currency_symbol: 'FCFA',
-          is_active: true,
-        })
-        .select('id')
-        .single();
-
-      if (wsErr || !newWorkshop) {
-        // Fallback sur 'ateliers' si workshops échoue (compatibilité prod existante)
-        const { data: newAtelier } = await supabaseAdmin
-          .from('ateliers')
-          .insert({ name: workshopName.trim(), phone: phone.trim() || null })
-          .select('id')
-          .single();
-        atelierId = newAtelier?.id || null;
-      } else {
-        workshopId = newWorkshop.id;
-
-        // 3. Créer l'entrée workshop_members pour l'OWNER
-        await supabaseAdmin.from('workshop_members').insert({
-          workshop_id: workshopId,
-          user_id: userId,
-          role: 'OWNER',
-          status: 'ACTIVE',
-        });
-      }
+    if (atErr || !newAtelier) {
+      console.error('[Register] Erreur création atelier:', atErr);
+      return { error: 'Erreur lors de la création de l\'atelier.' };
     }
 
-    // 4. Créer/mettre à jour le profil utilisateur
+    const atelierId = newAtelier.id;
+
+    // Créer/mettre à jour le profil utilisateur
     await supabaseAdmin.from('profiles').upsert({
       id: userId,
-      atelier_id: atelierId || workshopId,
+      atelier_id: atelierId,
       full_name: fullName.trim(),
       phone: phone.trim(),
       role: 'owner',
     });
-    atelierId = atelierId || workshopId;
+
+    // Activer l'abonnement Découverte sans frais
+    try {
+      const { data: planData } = await supabaseAdmin
+        .from('plans')
+        .select('id')
+        .eq('slug', 'discovery')
+        .maybeSingle();
+
+      if (planData) {
+        await supabaseAdmin.from('subscriptions').upsert(
+          {
+            atelier_id: atelierId,
+            plan_id: planData.id,
+            status: 'active',
+            started_at: new Date().toISOString(),
+            current_period_start: new Date().toISOString(),
+            current_period_end: null,
+          },
+          { onConflict: 'atelier_id' }
+        );
+      }
+    } catch {}
 
     // Établir la session
     const linkRes = await supabaseAdmin.auth.admin.generateLink({

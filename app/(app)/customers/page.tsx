@@ -9,6 +9,8 @@ import { SearchBar } from '@/components/ui/tabs';
 import { formatCurrency, formatDate, formatPhone } from '@/lib/utils';
 import { UserPlus, Users, Phone, ShoppingBag, Banknote, MessageCircle } from 'lucide-react';
 import { WhatsAppSenderModal } from '@/components/whatsapp/whatsapp-sender-modal';
+import { ClientLimitModal } from '@/components/billing/client-limit-modal';
+import { PlanQuotaWidget } from '@/components/billing/plan-quota-widget';
 import type { Customer, Order } from '@/lib/types';
 
 type EnrichedCustomer = Customer & {
@@ -23,6 +25,7 @@ export default function CustomersPage() {
   const { customers, orders, payments, currentWorkshop } = useAppStore();
   const [search, setSearch] = useState('');
   const [whatsappCustomer, setWhatsappCustomer] = useState<EnrichedCustomer | null>(null);
+  const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
 
   const ws = currentWorkshop;
 
@@ -54,15 +57,34 @@ export default function CustomersPage() {
     );
   }, [enriched, search]);
 
+  function handleNewCustomerClick() {
+    if (enriched.length >= 5) {
+      setIsLimitModalOpen(true);
+    } else {
+      router.push('/customers/new');
+    }
+  }
+
   return (
     <div className="space-y-5">
+      <ClientLimitModal
+        isOpen={isLimitModalOpen}
+        onClose={() => setIsLimitModalOpen(false)}
+        currentCount={enriched.length}
+      />
+
+      <PlanQuotaWidget
+        currentCount={enriched.length}
+        onUpgradeClick={() => setIsLimitModalOpen(true)}
+      />
+
       <PageHeader
         title="Clients"
         subtitle={`${enriched.length} client${enriched.length !== 1 ? 's' : ''}`}
         action={
           <Button
             leftIcon={<UserPlus className="h-4 w-4" />}
-            onClick={() => router.push('/customers/new')}
+            onClick={handleNewCustomerClick}
             size="sm"
           >
             <span className="hidden sm:inline">Nouveau client</span>

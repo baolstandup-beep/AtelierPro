@@ -22,6 +22,7 @@ import {
   UserPlus,
   Plus,
 } from 'lucide-react';
+import { PlanQuotaWidget } from '@/components/billing/plan-quota-widget';
 
 export default function AtelierProLovableDashboardPage() {
   const router = useRouter();
@@ -98,6 +99,9 @@ export default function AtelierProLovableDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ─── BANNIÈRE FORMULE FREEMIUM / QUOTA CLIENTS ─── */}
+      <PlanQuotaWidget currentCount={customers.length} />
 
       {/* ─── 2. ALERT: URGENT / LATE ORDERS NOTICE ─── */}
       {stats.ordersLate > 0 && (
