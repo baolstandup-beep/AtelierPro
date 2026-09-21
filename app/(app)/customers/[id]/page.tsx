@@ -42,11 +42,12 @@ export default function CustomerDetailPage() {
         try {
           const { supabase } = await import('@/lib/supabase');
           if (!supabase) return;
-          const { data, error } = await supabase
+          let query = supabase
             .from('clients')
             .select('*')
-            .eq('id', id)
-            .maybeSingle();
+            .eq('id', id);
+          if (currentWorkshop?.id) query = query.eq('atelier_id', currentWorkshop.id);
+          const { data, error } = await query.maybeSingle();
 
           if (isMounted && data && !error) {
             setFetchedCustomer({
@@ -71,7 +72,7 @@ export default function CustomerDetailPage() {
     return () => {
       isMounted = false;
     };
-  }, [storeCustomer, id]);
+  }, [storeCustomer, id, currentWorkshop?.id]);
 
   const customer = storeCustomer || fetchedCustomer;
   const ws = currentWorkshop;
@@ -163,12 +164,24 @@ export default function CustomerDetailPage() {
         <Button variant="ghost" size="sm" leftIcon={<ArrowLeft className="h-4 w-4" />} onClick={() => router.back()}>
           Retour
         </Button>
-        <EmptyState title="Client introuvable" description="Ce client n'existe pas ou a été archivé." />
+        <EmptyState
+          title="Client introuvable"
+          description="Ce client n'existe pas, a été archivé ou n'appartient pas à cet atelier."
+          action={<Button onClick={() => router.push('/customers')}>Retour aux clients</Button>}
+        />
       </div>
     );
   }
 
   const customerName = customer.full_name || (customer as any).name || 'Client';
+
+  function handleCreateOrder() {
+    router.push(`/orders/new?clientId=${encodeURIComponent(id)}`);
+  }
+
+  function handleTakeMeasurements() {
+    router.push(`/customers/${encodeURIComponent(id)}/measurements/new`);
+  }
 
   async function handleEdit(e: React.FormEvent) {
     e.preventDefault();
@@ -286,7 +299,7 @@ export default function CustomerDetailPage() {
         <Button
           variant="secondary"
           leftIcon={<ShoppingBag className="h-4 w-4" />}
-          onClick={() => router.push(`/orders/new?customer=${id}`)}
+          onClick={handleCreateOrder}
           fullWidth
         >
           Nouvelle commande
@@ -294,7 +307,7 @@ export default function CustomerDetailPage() {
         <Button
           variant="outline"
           leftIcon={<Ruler className="h-4 w-4" />}
-          onClick={() => router.push(`/measurements/new?customerId=${id}`)}
+          onClick={handleTakeMeasurements}
           fullWidth
         >
           Prendre mesures
@@ -314,7 +327,7 @@ export default function CustomerDetailPage() {
               description="Ce client n'a pas encore de commande."
               action={
                 <Button size="sm" leftIcon={<Plus className="h-4 w-4" />}
-                  onClick={() => router.push(`/orders/new?customer=${id}`)}>
+                  onClick={handleCreateOrder}>
                   Créer une commande
                 </Button>
               }

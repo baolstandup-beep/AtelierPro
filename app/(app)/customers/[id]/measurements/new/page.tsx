@@ -24,7 +24,7 @@ const MORPHOLOGY_TAGS = [
 export default function NewMeasurementPage() {
   const { id: customerId } = useParams<{ id: string }>();
   const router = useRouter();
-  const { getCustomer, measurementTypes, createMeasurementProfile, addMeasurementType } = useAppStore();
+  const { getCustomer, measurementTypes, createMeasurementProfile, addMeasurementType, isLoading } = useAppStore();
   const { success, error: showError } = useToast();
 
   const customer = getCustomer(customerId);
@@ -35,9 +35,17 @@ export default function NewMeasurementPage() {
   const [newTypeName, setNewTypeName] = useState('');
   const [showAddType, setShowAddType] = useState(false);
 
+  if (isLoading) {
+    return <div className="py-16 text-center text-sm text-gray-500">Chargement du client...</div>;
+  }
+
   if (!customer) {
     return (
-      <EmptyState title="Client introuvable" />
+      <EmptyState
+        title="Client introuvable"
+        description="Ce client n'existe pas ou n'appartient pas à cet atelier."
+        action={<Button onClick={() => router.push('/customers')}>Retour aux clients</Button>}
+      />
     );
   }
 
@@ -82,7 +90,18 @@ export default function NewMeasurementPage() {
       });
       success('Mesures enregistrées !');
       router.push(`/customers/${customerId}?tab=measurements`);
-    } catch {
+    } catch (error) {
+      console.error('CREATE MEASUREMENT FAILED', {
+        clientId: customerId,
+        atelierId: customer?.workshop_id,
+        payload: {
+          customer_id: customerId,
+          label: label.trim() || undefined,
+          notes: notes.trim() || undefined,
+          valuesCount: filled.length,
+        },
+        error,
+      });
       showError('Erreur', 'Impossible d\'enregistrer les mesures.');
     } finally {
       setLoading(false);
@@ -95,7 +114,7 @@ export default function NewMeasurementPage() {
     <div className="space-y-5 max-w-lg">
       <PageHeader
         title="Nouvelles mesures"
-        subtitle={customer.full_name}
+        subtitle={`${customer.full_name} · ${customer.phone || 'Téléphone non renseigné'}`}
         action={
           <Button variant="ghost" size="sm" leftIcon={<ArrowLeft className="h-4 w-4" />} onClick={() => router.back()}>
             Retour

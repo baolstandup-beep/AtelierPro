@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Input, Select, Textarea } from '@/components/ui/input';
-import { Card, PageHeader, Avatar } from '@/components/ui/card';
+import { Card, PageHeader, Avatar, EmptyState } from '@/components/ui/card';
 import { SearchBar } from '@/components/ui/tabs';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toaster';
@@ -66,10 +66,11 @@ const EMPTY_ITEM: ItemForm = {
 export default function NewOrderPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { customers, createOrder, currentWorkshop } = useAppStore();
+  const { customers, createOrder, currentWorkshop, isLoading } = useAppStore();
   const { success, error: showError } = useToast();
 
-  const preSelectedCustomerId = searchParams.get('customer') || '';
+  // `clientId` est le paramètre canonique. `customer` reste accepté pour les anciens liens.
+  const preSelectedCustomerId = searchParams.get('clientId') || searchParams.get('customer') || '';
   const ws = currentWorkshop;
 
   // Step: 1=customer, 2=items, 3=summary
@@ -93,6 +94,16 @@ export default function NewOrderPage() {
   });
 
   const totalAmount = items.reduce((s, i) => s + (Number(i.unit_price) * Number(i.quantity) || 0), 0);
+
+  if (preSelectedCustomerId && !isLoading && !selectedCustomer) {
+    return (
+      <EmptyState
+        title="Client introuvable"
+        description="Ce client n'existe pas ou n'appartient pas à cet atelier."
+        action={<Button onClick={() => router.push('/customers')}>Retour aux clients</Button>}
+      />
+    );
+  }
 
   function addItem() {
     setItems([...items, { ...EMPTY_ITEM }]);
@@ -148,7 +159,16 @@ export default function NewOrderPage() {
       success('Commande créée !', order.order_number);
       router.push(`/orders/${order.id}`);
     } catch (error: any) {
-      console.error("🔥 CREATE ORDER FATAL ERROR", {
+      console.error('CREATE ORDER FAILED', {
+        clientId: selectedCustomerId,
+        atelierId: currentWorkshop?.id,
+        payload: {
+          customer_id: selectedCustomerId,
+          due_date: dueDate || undefined,
+          priority,
+          itemsCount: items.filter((item) => item.name.trim()).length,
+          totalAmount,
+        },
         name: error?.name,
         code: error?.code,
         message: error?.message,
