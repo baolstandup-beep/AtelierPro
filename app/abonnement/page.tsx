@@ -1,503 +1,174 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import {
-  Scissors,
-  Check,
-  Zap,
-  Star,
-  ShieldCheck,
-  AlertTriangle,
-  ArrowLeft,
-  Loader2,
-  Calendar,
-  Sparkles,
-  CreditCard,
-  Phone,
-  Radio,
-} from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, ChevronDown, Loader2, Scissors, ShieldCheck, Sparkles, Star, Zap } from 'lucide-react';
 import type { Plan, SaaSProvider } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 
+type PlanSlug = 'discovery' | 'starter' | 'pro';
+const ORDER: PlanSlug[] = ['discovery', 'starter', 'pro'];
+const COPY: Record<PlanSlug, { description: string; features: string[] }> = {
+  discovery: { description: 'Pour découvrir AtelierPro et démarrer la gestion de votre atelier sans frais.', features: ['Jusqu’à 5 clients enregistrés', 'Carnet de mesures de base', 'Gestion basique des commandes', 'Suivi de production basique', 'Dashboard essentiel'] },
+  starter: { description: 'Idéal pour structurer et développer un atelier actif.', features: ['Clients illimités', 'Mesures illimitées', 'Commandes illimitées', 'Tableau Kanban de production', 'Paiements Wave & Orange Money', 'Factures et reçus PDF', 'Rappels et reçus WhatsApp', 'Dashboard complet'] },
+  pro: { description: 'Pour les ateliers et maisons de couture en pleine expansion.', features: ['Tout le plan Starter', 'Rapports financiers avancés', 'Export Excel comptable', 'Gestion d’équipe et tailleurs', 'Catalogue de modèles', 'Statistiques avancées', 'Support prioritaire'] },
+};
+const slugOf = (plan: Plan): PlanSlug => ORDER.includes(plan.slug as PlanSlug) ? plan.slug as PlanSlug : 'discovery';
+
 export default function AbonnementPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#0C120F] flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[#0F3B32] dark:text-[#2E9D74]" />
-        </div>
-      }
-    >
-      <AbonnementContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<Loader />}><AbonnementContent /></Suspense>;
+}
+
+function Loader() {
+  return <div className="flex min-h-screen items-center justify-center bg-[#08100D] text-[#35B88A]"><Loader2 className="h-7 w-7 animate-spin" aria-label="Chargement" /></div>;
 }
 
 function AbonnementContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const paymentStatus = searchParams.get('payment');
-
+  const paymentStatus = useSearchParams().get('payment');
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [currentPlanSlug, setCurrentPlanSlug] = useState<string>('discovery');
-  const [subscription, setSubscription] = useState<any>(null);
-  const [isExpired, setIsExpired] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [current, setCurrent] = useState('discovery');
+  const [expired, setExpired] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Plan | null>(null);
   const [provider, setProvider] = useState<SaaSProvider>('WAVE');
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(paymentStatus === 'error' ? 'Le paiement a été interrompu ou n’a pas pu être validé. Vous pouvez réessayer.' : null);
+  const [success, setSuccess] = useState<string | null>(paymentStatus === 'success' ? 'Votre paiement a été reçu et votre abonnement est actif.' : null);
 
   useEffect(() => {
-    async function loadData() {
+    async function load() {
       try {
-        setLoading(true);
-        // 1. Récupérer les plans depuis la base
-        const plansRes = await fetch('/api/subscription/plans');
+        const [plansRes, subRes] = await Promise.all([fetch('/api/subscription/plans'), fetch('/api/subscription/renew')]);
         if (plansRes.ok) {
-          const pData = await plansRes.json();
-          setPlans(pData.plans || []);
+          const data = await plansRes.json();
+          setPlans(((data.plans || []) as Plan[]).sort((a, b) => ORDER.indexOf(slugOf(a)) - ORDER.indexOf(slugOf(b))));
         }
-
-        // 2. Récupérer le statut actuel de l'abonnement
-        const subRes = await fetch('/api/subscription/renew');
         if (subRes.ok) {
-          const sData = await subRes.json();
-          if (sData.subscription) {
-            setSubscription(sData.subscription);
-            const slug = (sData.subscription.plan?.slug || 'discovery').toLowerCase();
-            setCurrentPlanSlug(slug);
-
-            const isExp =
-              sData.level === 'READ_ONLY' ||
-              sData.subscription.status === 'expired' ||
-              (sData.subscription.current_period_end &&
-                new Date(sData.subscription.current_period_end) < new Date());
-            setIsExpired(Boolean(isExp));
+          const data = await subRes.json();
+          if (data.subscription) {
+            setCurrent((data.subscription.plan?.slug || 'discovery').toLowerCase());
+            setExpired(Boolean(data.level === 'READ_ONLY' || data.subscription.status === 'expired' || (data.subscription.current_period_end && new Date(data.subscription.current_period_end) < new Date())));
           }
         }
-      } catch (err) {
-        console.error('[Abonnement load error]', err);
-      } finally {
-        setLoading(false);
-      }
+      } catch (cause) {
+        console.error('[Abonnement load error]', cause);
+        setError('Impossible de charger les formules. Veuillez réessayer.');
+      } finally { setLoading(false); }
     }
-    loadData();
-
-    if (paymentStatus === 'success') {
-      setSuccessMsg('Félicitations ! Votre paiement a été reçu et votre abonnement est réactivé.');
-    } else if (paymentStatus === 'error') {
-      setErrorMsg('Le paiement a été interrompu ou n\'a pas pu être validé. Vous pouvez réessayer.');
-    }
+    load();
   }, [paymentStatus]);
 
-  async function handlePlanAction(targetPlan: Plan) {
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    // Si même plan et actif
-    if (targetPlan.slug === currentPlanSlug && !isExpired) {
-      return;
-    }
-
-    // Si plan Découverte (0 FCFA)
-    if (targetPlan.slug === 'discovery' || Number(targetPlan.price) === 0) {
-      if (!confirm('Voulez-vous passer à la formule Découverte ? Vos données existantes seront conservées, mais vous serez limité à 5 clients.')) {
-        return;
-      }
+  async function choose(plan: Plan) {
+    setError(null); setSuccess(null);
+    const slug = slugOf(plan);
+    if (slug === 'discovery' && slug === current && !expired) return;
+    if (slug === 'discovery' || Number(plan.price) === 0) {
+      if (!confirm('Voulez-vous passer à la formule Découverte ? Vos données existantes seront conservées, mais vous serez limité à 5 clients.')) return;
       setSubmitting(true);
       try {
-        const res = await fetch('/api/subscription/renew', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            planId: targetPlan.id || 'discovery',
-            provider: 'WAVE',
-          }),
-        });
+        const res = await fetch('/api/subscription/renew', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ planId: plan.id || 'discovery', provider: 'WAVE' }) });
         const data = await res.json();
         if (res.ok && data.success) {
-          setCurrentPlanSlug('discovery');
-          setIsExpired(false);
-          setSuccessMsg('Votre atelier est maintenant sur la formule Découverte.');
+          setCurrent('discovery'); setExpired(false); setSuccess('Votre atelier est maintenant sur la formule Découverte.');
           setTimeout(() => router.push('/dashboard'), 1500);
-        } else {
-          setErrorMsg(data.error || 'Erreur lors du changement de formule.');
-        }
-      } catch {
-        setErrorMsg('Erreur réseau. Veuillez réessayer.');
-      } finally {
-        setSubmitting(false);
-      }
+        } else setError(data.error || 'Erreur lors du changement de formule.');
+      } catch { setError('Erreur réseau. Veuillez réessayer.'); }
+      finally { setSubmitting(false); }
       return;
     }
-
-    // Pour les plans payants : ouvrir la modale de sélection de paiement
-    setSelectedPlan(targetPlan);
+    setSelected(plan);
   }
 
-  async function handleConfirmPayment() {
-    if (!selectedPlan) return;
-    setSubmitting(true);
-    setErrorMsg(null);
-
+  async function confirmPayment() {
+    if (!selected) return;
+    setSubmitting(true); setError(null);
     try {
-      const res = await fetch('/api/subscription/renew', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planId: selectedPlan.id,
-          provider,
-        }),
-      });
-
+      const res = await fetch('/api/subscription/renew', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ planId: selected.id, provider }) });
       const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setErrorMsg(data.error || 'Impossible d\'initialiser le paiement.');
-        setSubmitting(false);
-        return;
-      }
-
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
-      } else {
-        setErrorMsg('Lien de paiement non reçu du fournisseur.');
-        setSubmitting(false);
-      }
-    } catch {
-      setErrorMsg('Erreur réseau lors de la communication avec le serveur de paiement.');
-      setSubmitting(false);
-    }
+      if (!res.ok || !data.success) { setError(data.error || 'Impossible d’initialiser le paiement.'); setSubmitting(false); return; }
+      if (data.checkout_url) window.location.href = data.checkout_url;
+      else { setError('Lien de paiement non reçu du fournisseur.'); setSubmitting(false); }
+    } catch { setError('Erreur réseau lors de la communication avec le serveur de paiement.'); setSubmitting(false); }
   }
 
-  return (
-    <div className="min-h-screen bg-[#FBF9F5] dark:bg-[#0C120F] text-[#111827] dark:text-[#EAE5D9] font-sans antialiased pb-20">
-      {/* Header */}
-      <header className="border-b border-[#EBE7DF] dark:border-white/10 bg-white/80 dark:bg-[#121A16]/80 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 hover:text-[#0F3B32] dark:hover:text-white transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-            <span>Tableau de bord</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-[#0F3B32] flex items-center justify-center">
-              <Scissors className="w-3.5 h-3.5 text-[#D97706]" />
-            </div>
-            <span className="text-base font-extrabold text-[#0F3B32] dark:text-white">
-              Atelier<span className="text-[#D97706]">Pro</span>
-            </span>
-          </div>
-          <div className="w-20" />
-        </div>
-      </header>
+  function label(plan: Plan) {
+    const slug = slugOf(plan);
+    const name = slug === 'discovery' ? 'Découverte' : slug === 'starter' ? 'Starter' : 'Pro';
+    if (slug === current && !expired) return slug === 'discovery' ? 'Formule actuelle' : `Renouveler ${name}`;
+    if (slug === current && expired) return `Renouveler ${name}`;
+    return `Passer à ${name}`;
+  }
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-10">
-        {/* Alerts & Messages */}
-        {successMsg && (
-          <div className="mb-6 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-sm flex items-center gap-3">
-            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-            <p className="font-medium">{successMsg}</p>
-          </div>
-        )}
-
-        {errorMsg && (
-          <div className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-red-900 dark:text-red-200 text-sm flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
-            <p className="font-medium">{errorMsg}</p>
-          </div>
-        )}
-
-        {/* Expiration Alert Banner */}
-        {isExpired && (
-          <div className="mb-8 p-5 rounded-3xl bg-amber-500/15 border-2 border-amber-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-black text-amber-900 dark:text-amber-300">
-                  ABONNEMENT EXPIRÉ
-                </h3>
-                <p className="text-xs text-amber-800 dark:text-amber-400 mt-0.5">
-                  Votre compte et l'ensemble de vos données (clients, mesures, commandes) sont conservés intacts.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                const p = plans.find((pl) => pl.slug === (currentPlanSlug === 'discovery' ? 'starter' : currentPlanSlug)) || plans[1];
-                if (p) setSelectedPlan(p);
-              }}
-              className="px-5 py-2.5 rounded-xl bg-[#0F3B32] hover:bg-[#185c4e] text-white text-xs font-bold uppercase tracking-wider shadow-md hover:shadow-lg transition-all shrink-0"
-            >
-              Réactiver mon abonnement
-            </button>
-          </div>
-        )}
-
-        {/* Title */}
-        <div className="text-center max-w-2xl mx-auto mb-10">
-          <h1 className="text-3xl sm:text-4xl font-black text-[#0F3B32] dark:text-white tracking-tight">
-            Gérer mon Abonnement
-          </h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
-            Changez de formule ou renouvelez votre abonnement en toute simplicité. Votre compte et votre atelier restent permanents.
-          </p>
-        </div>
-
-        {/* Plans Grid */}
-        {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-[#0F3B32] dark:text-[#2E9D74]" />
-            <p className="text-xs text-slate-500">Chargement des formules...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {plans.map((plan) => {
-              const isCurrent = plan.slug === currentPlanSlug && !isExpired;
-              const isRecommended = plan.slug === 'starter';
-              const isPro = plan.slug === 'pro';
-
-              return (
-                <div
-                  key={plan.id || plan.slug}
-                  className={`rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 relative ${
-                    isCurrent
-                      ? 'bg-white dark:bg-[#121A16] border-2 border-[#0F3B32] dark:border-[#2E9D74] shadow-xl'
-                      : isRecommended
-                      ? 'bg-white dark:bg-[#121A16] border-2 border-[#D97706]/60 shadow-lg hover:shadow-xl hover:-translate-y-1'
-                      : 'bg-white/70 dark:bg-[#121A16]/70 border border-[#EBE7DF] dark:border-white/10 hover:shadow-md'
-                  }`}
-                >
-                  {/* Badges */}
-                  {isCurrent && (
-                    <div className="absolute -top-3 left-6 px-3 py-1 rounded-full bg-[#0F3B32] dark:bg-[#2E9D74] text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md">
-                      <Check className="w-3 h-3" />
-                      <span>Formule actuelle</span>
-                    </div>
-                  )}
-
-                  {!isCurrent && isRecommended && (
-                    <div className="absolute -top-3 left-6 px-3 py-1 rounded-full bg-[#D97706] text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md">
-                      <Star className="w-3 h-3 fill-white" />
-                      <span>Recommandé</span>
-                    </div>
-                  )}
-
-                  <div>
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-xl font-black text-[#111827] dark:text-white">
-                          {plan.name}
-                        </h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          {plan.description}
-                        </p>
-                      </div>
-                      <div
-                        className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${
-                          isPro
-                            ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400'
-                            : isRecommended
-                            ? 'bg-emerald-100 dark:bg-emerald-950 text-[#0F3B32] dark:text-[#2E9D74]'
-                            : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        {isPro ? <Zap className="w-4 h-4" /> : isRecommended ? <Star className="w-4 h-4" /> : <Scissors className="w-4 h-4" />}
-                      </div>
-                    </div>
-
-                    {/* Price */}
-                    <div className="py-4 border-y border-slate-100 dark:border-white/5 my-4">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl sm:text-4xl font-black text-[#111827] dark:text-white font-mono">
-                          {formatCurrency(Number(plan.price))}
-                        </span>
-                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                          {plan.slug === 'discovery' ? 'Gratuit à vie' : '/ mois'}
-                        </span>
-                      </div>
-                      {plan.slug === 'discovery' && (
-                        <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 mt-1">
-                          Maximum 5 clients enregistrés
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Features List */}
-                    <ul className="space-y-2.5 my-6">
-                      {(Array.isArray(plan.features) ? plan.features : []).map((feat, idx) => (
-                        <li key={idx} className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300">
-                          <Check className="w-4 h-4 text-[#2E9D74] shrink-0 mt-0.5" />
-                          <span>{feat}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* CTA Button */}
-                  <div className="pt-4 border-t border-slate-100 dark:border-white/5">
-                    {isCurrent ? (
-                      <button
-                        disabled
-                        className="w-full py-3 rounded-2xl bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-wider cursor-not-allowed"
-                      >
-                        Formule actuelle
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handlePlanAction(plan)}
-                        disabled={submitting}
-                        className={`w-full py-3 rounded-2xl font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 ${
-                          isRecommended
-                            ? 'bg-gradient-to-r from-[#0F3B32] to-[#2E9D74] hover:from-[#185c4e] hover:to-[#258562] text-white'
-                            : isPro
-                            ? 'bg-gradient-to-r from-[#D97706] to-amber-700 hover:from-amber-700 hover:to-[#D97706] text-white'
-                            : 'bg-white dark:bg-white/10 border-2 border-slate-300 dark:border-white/20 text-slate-800 dark:text-white hover:bg-slate-50'
-                        }`}
-                      >
-                        {submitting ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : isExpired && plan.slug === currentPlanSlug ? (
-                          'Renouveler mon abonnement'
-                        ) : (
-                          'Choisir cette formule'
-                        )}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Guarantee Notice */}
-        <div className="mt-12 p-6 rounded-3xl bg-white dark:bg-[#121A16] border border-[#EBE7DF] dark:border-white/10 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
-          <div className="w-12 h-12 rounded-2xl bg-[#EBF7F1] dark:bg-[#0F3B32] text-[#2E9D74] flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-[#111827] dark:text-white">
-              Paiements Sécurisés & Conservation Garantie
-            </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Vos paiements Wave et Orange Money sont sécurisés et traités avec confirmation serveur instantanée. Aucune donnée de votre atelier n&apos;est supprimée lors d&apos;un changement de formule ou d&apos;une expiration.
-            </p>
-          </div>
-        </div>
+  return <div className="min-h-screen bg-[#08100D] pb-20 font-sans text-[#F5F7F6] antialiased selection:bg-[#35B88A] selection:text-[#08100D]">
+    <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#08100D]/90 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+        <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 rounded-xl px-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#98A69F] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#35B88A]"><ArrowLeft className="h-4 w-4" aria-hidden /> Tableau de bord</Link>
+        <Link href="/dashboard" className="flex items-center gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#35B88A]"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#103E30]"><Scissors className="h-4 w-4 text-[#E28732]" aria-hidden /></span><span className="text-base font-bold">Atelier<span className="text-[#E28732]">Pro</span></span></Link>
+        <div className="w-[116px]" aria-hidden />
       </div>
+    </header>
+    <main className="mx-auto max-w-7xl px-4 pt-12 sm:px-6 sm:pt-16">
+      <section className="mx-auto max-w-3xl text-center">
+        <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#35B88A]">Abonnement AtelierPro</p>
+        <h1 className="text-balance text-3xl font-bold tracking-[-0.035em] text-white sm:text-5xl">Choisissez la formule adaptée à votre atelier</h1>
+        <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-[#B3BEB8] sm:text-lg">Commencez gratuitement et évoluez lorsque votre activité grandit.</p>
+        <p className="mt-2 text-sm text-[#74827B]">Vous pouvez changer de formule ou renouveler votre abonnement à tout moment.</p>
+      </section>
+      <div className="mx-auto mt-9 max-w-5xl space-y-3" aria-live="polite">
+        {success && <Status tone="success">{success}</Status>}
+        {error && <Status tone="error">{error}</Status>}
+        {expired && <Status tone="warning">Votre abonnement a expiré. Votre compte et vos données restent conservés pendant le renouvellement.</Status>}
+      </div>
+      {loading ? <div className="flex min-h-80 items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-[#35B88A]" aria-label="Chargement des formules" /></div> :
+        <section className="mt-12 grid grid-cols-1 items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label="Formules d’abonnement">
+          {plans.map(plan => <PricingCard key={plan.id || slugOf(plan)} plan={plan} slug={slugOf(plan)} current={slugOf(plan) === current && !expired} submitting={submitting} label={label(plan)} onSelect={() => choose(plan)} />)}
+        </section>}
+      <section className="mt-10 grid gap-4 rounded-2xl border border-white/[0.08] bg-[#101915] p-5 sm:grid-cols-[auto_1fr] sm:p-6" aria-labelledby="trust-title">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#35B88A]/10 text-[#49C99A]"><ShieldCheck className="h-5 w-5" aria-hidden /></div>
+        <div><h2 id="trust-title" className="font-semibold text-white">Paiements sécurisés</h2><p className="mt-1 text-sm leading-6 text-[#A5B1AA]">Les paiements sont confirmés côté serveur via Wave ou Orange Money.</p><p className="mt-1 text-sm text-[#74827B]">Vos données restent conservées lors d’un renouvellement ou changement de formule.</p></div>
+      </section>
+      <FAQ />
+    </main>
+    {selected && <PaymentModal plan={selected} provider={provider} submitting={submitting} renewal={slugOf(selected) === current} onProvider={setProvider} onClose={() => !submitting && setSelected(null)} onConfirm={confirmPayment} />}
+  </div>;
+}
 
-      {/* Payment Selection Modal */}
-      {selectedPlan && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-[#121A16] border border-slate-200 dark:border-white/10 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-6"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-black text-[#111827] dark:text-white">
-                  Passer à la formule {selectedPlan.name}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Montant : <span className="font-bold text-[#0F3B32] dark:text-[#2E9D74] font-mono">{formatCurrency(Number(selectedPlan.price))}</span> / mois
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedPlan(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center text-sm font-bold"
-              >
-                ✕
-              </button>
-            </div>
+function Status({ tone, children }: { tone: 'success' | 'error' | 'warning'; children: React.ReactNode }) {
+  const style = tone === 'success' ? 'border-[#35B88A]/30 bg-[#35B88A]/10 text-[#BDEBD9]' : tone === 'error' ? 'border-red-400/30 bg-red-400/10 text-red-100' : 'border-[#E28732]/30 bg-[#E28732]/10 text-amber-100';
+  const Icon = tone === 'success' ? ShieldCheck : AlertTriangle;
+  return <div className={`flex items-start gap-3 rounded-2xl border p-4 text-sm ${style}`}><Icon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden /><p>{children}</p></div>;
+}
 
-            {/* Provider Selection */}
-            <div className="space-y-3">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                Mode de paiement
-              </label>
+function PricingCard({ plan, slug, current, submitting, label, onSelect }: { plan: Plan; slug: PlanSlug; current: boolean; submitting: boolean; label: string; onSelect: () => void }) {
+  const recommended = slug === 'starter';
+  const Icon = slug === 'pro' ? Zap : slug === 'starter' ? Sparkles : Scissors;
+  const disabled = current && slug === 'discovery';
+  return <motion.article initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className={`relative flex min-h-[560px] flex-col rounded-[22px] border p-7 shadow-[0_18px_60px_rgba(0,0,0,0.12)] transition duration-200 motion-safe:hover:-translate-y-0.5 sm:p-8 ${current ? 'border-[#35B88A]/65 bg-[#111C17]' : recommended ? 'border-[#E28732]/40 bg-[linear-gradient(180deg,rgba(226,135,50,0.06),transparent_28%),#101915]' : 'border-white/[0.09] bg-[#101915] hover:border-white/[0.16]'}`}>
+    <div className="mb-6 flex min-h-7 items-center justify-between gap-3">{current ? <Badge icon={Check}>Formule actuelle</Badge> : recommended ? <Badge icon={Star} orange>Recommandé</Badge> : <span />}<span className={`flex h-10 w-10 items-center justify-center rounded-xl ${slug === 'pro' ? 'bg-[#E28732]/10 text-[#EAA259]' : 'bg-[#35B88A]/10 text-[#49C99A]'}`}><Icon className="h-[18px] w-[18px]" aria-hidden /></span></div>
+    <h2 className="text-2xl font-semibold tracking-tight text-white">{plan.name}</h2><p className="mt-2 min-h-[48px] text-sm leading-6 text-[#98A69F]">{COPY[slug].description}</p>
+    <div className="mt-7"><div className="flex flex-wrap items-end gap-x-2 gap-y-1"><span className="whitespace-nowrap text-[36px] font-bold leading-none tracking-[-0.04em] text-white sm:text-[42px]">{formatCurrency(Number(plan.price))}</span><span className="pb-1 text-sm font-medium text-[#98A69F]">{slug === 'discovery' ? 'Gratuit à vie' : '/ mois'}</span></div>{slug === 'discovery' && <div className="mt-4 inline-flex rounded-lg border border-[#35B88A]/15 bg-[#35B88A]/[0.07] px-3 py-2 text-xs font-medium text-[#A9DCC9]">Jusqu’à 5 clients inclus</div>}</div>
+    <div className="my-7 h-px bg-white/[0.08]" />
+    <ul className="space-y-3.5">{COPY[slug].features.map(feature => <li key={feature} className="flex items-start gap-3 text-sm leading-5 text-[#C4CCC7]"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#35B88A]/10 text-[#49C99A]"><Check className="h-3 w-3" aria-hidden /></span>{feature}</li>)}</ul>
+    <div className="mt-auto pt-8"><button type="button" disabled={disabled || submitting} onClick={onSelect} className={`flex h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6ED9B1] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101915] disabled:cursor-not-allowed ${disabled ? 'border border-white/[0.08] bg-white/[0.06] text-[#89958E]' : slug === 'pro' ? 'bg-[#D97821] text-white hover:bg-[#E28732] disabled:opacity-60' : 'bg-[#259C74] text-white hover:bg-[#2EAE81] disabled:opacity-60'}`}>{submitting ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden />Traitement...</> : label}</button></div>
+  </motion.article>;
+}
 
-              <div
-                onClick={() => setProvider('WAVE')}
-                className={`p-4 rounded-2xl border-2 flex items-center justify-between cursor-pointer transition-all ${
-                  provider === 'WAVE'
-                    ? 'border-[#1DC3E2] bg-[#1DC3E2]/10'
-                    : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#1DC3E2] flex items-center justify-center text-white font-black text-sm">
-                    W
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-[#111827] dark:text-white">Wave Sénégal</p>
-                    <p className="text-xs text-slate-500">Paiement instantané 0% frais</p>
-                  </div>
-                </div>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${provider === 'WAVE' ? 'border-[#1DC3E2] bg-[#1DC3E2]' : 'border-slate-300'}`}>
-                  {provider === 'WAVE' && <div className="w-2 h-2 rounded-full bg-white" />}
-                </div>
-              </div>
+function Badge({ children, icon: Icon, orange = false }: { children: React.ReactNode; icon: typeof Check; orange?: boolean }) {
+  return <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${orange ? 'border-[#E28732]/30 bg-[#E28732]/10 text-[#F0AF72]' : 'border-[#35B88A]/25 bg-[#35B88A]/10 text-[#85DBBC]'}`}><Icon className="h-3 w-3" aria-hidden />{children}</span>;
+}
 
-              <div
-                onClick={() => setProvider('ORANGE_MONEY')}
-                className={`p-4 rounded-2xl border-2 flex items-center justify-between cursor-pointer transition-all ${
-                  provider === 'ORANGE_MONEY'
-                    ? 'border-[#FF7900] bg-[#FF7900]/10'
-                    : 'border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#FF7900] flex items-center justify-center text-white font-black text-sm">
-                    OM
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-[#111827] dark:text-white">Orange Money</p>
-                    <p className="text-xs text-slate-500">Paiement sécurisé avec validation OTP</p>
-                  </div>
-                </div>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${provider === 'ORANGE_MONEY' ? 'border-[#FF7900] bg-[#FF7900]' : 'border-slate-300'}`}>
-                  {provider === 'ORANGE_MONEY' && <div className="w-2 h-2 rounded-full bg-white" />}
-                </div>
-              </div>
-            </div>
+function FAQ() {
+  const items = [['Puis-je changer de formule plus tard ?', 'Oui. Vous pouvez sélectionner une autre formule depuis cette page. Le changement est appliqué à votre abonnement existant.'], ['Que se passe-t-il lorsque mon abonnement expire ?', 'L’accès peut devenir limité jusqu’au renouvellement. La page vous permet alors de renouveler votre formule actuelle.'], ['Mes données sont-elles conservées ?', 'Oui. Vos clients, mesures et commandes restent rattachés à votre atelier lors d’un renouvellement ou d’un changement de formule.']];
+  return <section className="mx-auto mt-14 max-w-3xl" aria-labelledby="faq-title"><div className="text-center"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#35B88A]">Questions fréquentes</p><h2 id="faq-title" className="mt-2 text-2xl font-semibold text-white">Avant de choisir votre formule</h2></div><div className="mt-7 divide-y divide-white/[0.08] border-y border-white/[0.08]">{items.map(([q, a]) => <details key={q} className="group py-1"><summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-medium text-[#E8ECEA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#35B88A]"><span>{q}</span><ChevronDown className="h-4 w-4 shrink-0 text-[#74827B] transition-transform duration-200 group-open:rotate-180" aria-hidden /></summary><p className="max-w-2xl pb-5 pr-10 text-sm leading-6 text-[#98A69F]">{a}</p></details>)}</div></section>;
+}
 
-            {/* Actions */}
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setSelectedPlan(null)}
-                className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-white/10 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={handleConfirmPayment}
-                className="flex-1 py-3 rounded-2xl bg-[#0F3B32] hover:bg-[#185c4e] text-white text-xs font-bold uppercase tracking-wider shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Redirection...</span>
-                  </>
-                ) : (
-                  <span>Payer {formatCurrency(Number(selectedPlan.price))}</span>
-                )}
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </div>
-  );
+function PaymentModal({ plan, provider, submitting, renewal, onProvider, onClose, onConfirm }: { plan: Plan; provider: SaaSProvider; submitting: boolean; renewal: boolean; onProvider: (provider: SaaSProvider) => void; onClose: () => void; onConfirm: () => void }) {
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="payment-title" onMouseDown={e => e.target === e.currentTarget && onClose()}><motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md rounded-[22px] border border-white/[0.1] bg-[#101915] p-6 shadow-2xl sm:p-8"><div className="flex items-start justify-between gap-5"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#35B88A]">{renewal ? 'Renouvellement' : 'Changement de formule'}</p><h2 id="payment-title" className="mt-2 text-xl font-semibold text-white">{renewal ? 'Renouveler' : 'Passer à'} {plan.name}</h2><p className="mt-1 text-sm text-[#98A69F]">{formatCurrency(Number(plan.price))} / mois</p></div><button type="button" onClick={onClose} aria-label="Fermer" className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.06] text-[#98A69F] hover:bg-white/[0.1] hover:text-white">×</button></div><fieldset className="mt-7 space-y-3"><legend className="mb-3 text-sm font-medium text-white">Mode de paiement</legend><Provider label="Wave Sénégal" hint="Paiement instantané" value="WAVE" selected={provider === 'WAVE'} onSelect={onProvider} /><Provider label="Orange Money" hint="Validation par téléphone" value="ORANGE_MONEY" selected={provider === 'ORANGE_MONEY'} onSelect={onProvider} /></fieldset><div className="mt-7 flex gap-3"><button type="button" onClick={onClose} disabled={submitting} className="h-12 flex-1 rounded-xl border border-white/[0.1] text-sm font-semibold text-[#C4CCC7] hover:bg-white/[0.05] disabled:opacity-50">Annuler</button><button type="button" onClick={onConfirm} disabled={submitting} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#259C74] text-sm font-semibold text-white hover:bg-[#2EAE81] disabled:opacity-60">{submitting ? <><Loader2 className="h-4 w-4 animate-spin" />Traitement...</> : `Payer ${formatCurrency(Number(plan.price))}`}</button></div></motion.div></div>;
+}
+
+function Provider({ label, hint, value, selected, onSelect }: { label: string; hint: string; value: SaaSProvider; selected: boolean; onSelect: (value: SaaSProvider) => void }) {
+  return <label className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition ${selected ? 'border-[#35B88A]/60 bg-[#35B88A]/10' : 'border-white/[0.08] hover:border-white/[0.16]'}`}><span><span className="block text-sm font-semibold text-white">{label}</span><span className="mt-0.5 block text-xs text-[#98A69F]">{hint}</span></span><input type="radio" name="provider" value={value} checked={selected} onChange={() => onSelect(value)} className="h-4 w-4 accent-[#35B88A]" /></label>;
 }
