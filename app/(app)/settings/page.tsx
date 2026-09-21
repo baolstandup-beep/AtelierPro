@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Input, Select, Textarea } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toaster';
 import { formatCurrency } from '@/lib/utils';
@@ -16,28 +15,13 @@ import {
   User,
   CreditCard,
   ShieldCheck,
-  Users,
-  Sparkles,
   Scissors,
-  MapPin,
-  Phone,
-  CheckCircle2,
-  Lock,
-  ArrowRight,
-  Globe,
-  Sliders,
-  Award,
   ArrowUpRight,
-  Activity,
-  Zap,
   Camera,
   Upload,
   Trash2,
   Plus,
-  Tag,
   Image as ImageIcon,
-  MessageCircle,
-  ExternalLink,
   ShoppingBag,
   Eye,
 } from 'lucide-react';
@@ -117,9 +101,6 @@ export default function SettingsPage() {
     currentWorkshop,
     currentUserName,
     currentUserRole,
-    members,
-    customers,
-    orders,
     completeOnboarding,
     signOut,
   } = useAppStore();
@@ -147,7 +128,7 @@ export default function SettingsPage() {
   });
 
   const [profileForm, setProfileForm] = useState({
-    full_name: currentUserName || 'Maître Tailleur',
+    full_name: currentUserName && !/^user\d+$/i.test(currentUserName) ? currentUserName : 'Utilisateur AtelierPro',
   });
 
   // Gallery state
@@ -170,10 +151,6 @@ export default function SettingsPage() {
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const modelCameraInputRef = useRef<HTMLInputElement>(null);
   const modelFileInputRef = useRef<HTMLInputElement>(null);
-
-  // Format WhatsApp Link
-  const cleanPhone = (workshopForm.phone || '').replace(/[^0-9]/g, '');
-  const whatsappUrl = cleanPhone ? `https://wa.me/${cleanPhone}` : null;
 
   function toggleSpecialty(spec: string) {
     if (selectedSpecialties.includes(spec)) {
@@ -336,7 +313,7 @@ export default function SettingsPage() {
   });
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-16">
+    <div className="mx-auto max-w-6xl space-y-6 pb-12">
       {/* ─── Hidden Inputs for Photo Uploads ─── */}
       <input
         type="file"
@@ -369,126 +346,33 @@ export default function SettingsPage() {
         className="hidden"
       />
 
-      {/* ─── 1. Editorial Hero Banner "Mon Atelier" ─── */}
-      <div className="relative overflow-hidden rounded-3xl bg-[#090F0E] text-white p-6 sm:p-8 shadow-2xl border border-white/15">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-start sm:items-center gap-5">
-            {/* Atelier Profile Photo / Logo with Quick Upload */}
-            <div className="relative group flex-shrink-0">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#0D1715] border-2 border-[#B4F73C] overflow-hidden flex items-center justify-center shadow-lg relative">
-                {workshopLogo ? (
-                  <img
-                    src={workshopLogo}
-                    alt="Logo Atelier"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-2xl sm:text-3xl font-black text-[#B4F73C] font-mono">
-                    {workshopForm.name ? workshopForm.name.substring(0, 2).toUpperCase() : 'AP'}
-                  </span>
-                )}
-              </div>
-
-              {/* Quick Camera Edit Overlay */}
-              <button
-                type="button"
-                onClick={() => logoFileInputRef.current?.click()}
-                className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-[#B4F73C] text-black hover:scale-110 transition-all shadow-md"
-                title="Changer la photo de profil / logo"
-              >
-                <Camera className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                <span className="text-xs font-mono text-slate-400">01 / ATELIER SYSTÈME —</span>
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#B4F73C]/20 text-[#B4F73C] border border-[#B4F73C]/30">
-                  ● EN LIGNE
-                </span>
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-white/10 text-white border border-white/15">
-                  Plan Pro Actif
-                </span>
-              </div>
-
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white font-serif">
-                {workshopForm.name || 'Mon Atelier'}
-              </h1>
-
-              <p className="text-xs text-slate-300 mt-1 max-w-lg">
-                {workshopForm.slogan}
-              </p>
-
-              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 mt-3 font-mono">
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-[#B4F73C]" />
-                  {workshopForm.city || 'Touba'}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-slate-300" />
-                  {workshopForm.phone}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Globe className="w-3.5 h-3.5 text-slate-300" />
-                  {workshopForm.currency} ({CURRENCY_SYMBOLS[workshopForm.currency] || 'FCFA'})
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Action & WhatsApp Button & Logout */}
-          <div className="flex flex-wrap md:flex-col items-center md:items-end gap-3 self-start md:self-center">
-            <div className="flex flex-wrap items-center gap-2">
-              {/* WhatsApp Quick Link Button */}
-              {whatsappUrl && (
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md hover:scale-105"
-                >
-                  <MessageCircle className="w-4 h-4 fill-white" />
-                  <span>WhatsApp Business</span>
-                  <ExternalLink className="w-3 h-3 text-emerald-200" />
-                </a>
-              )}
-
-              {/* Logout Button in Hero */}
-              <button
-                type="button"
-                onClick={() => setLogoutOpen(true)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-white border border-red-500/30 text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
-                title="Se déconnecter de l'atelier"
-              >
-                <LogOut className="w-3.5 h-3.5 text-red-400" />
-                <span>Déconnexion</span>
-              </button>
-            </div>
-
-            {/* Metrics HUD */}
-            <div className="flex gap-2">
-              <div className="bg-[#0D1715] rounded-2xl px-4 py-2 border border-white/10 text-center min-w-[95px]">
-                <div className="text-lg font-black text-white font-mono">{customers.length}</div>
-                <div className="text-[9px] text-slate-400 uppercase tracking-wider font-mono">Clients VIP</div>
-              </div>
-              <div className="bg-[#0D1715] rounded-2xl px-4 py-2 border border-white/10 text-center min-w-[95px]">
-                <div className="text-lg font-black text-[#B4F73C] font-mono">{orders.length}</div>
-                <div className="text-[9px] text-slate-400 uppercase tracking-wider font-mono">Commandes</div>
-              </div>
-            </div>
-          </div>
+      <header className="flex flex-col gap-4 border-b border-dashed border-[#C8D1CC] pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="mb-1 text-sm font-medium text-[var(--primary)]">Paramètres</p>
+          <h1 className="text-[28px] font-semibold tracking-[-0.03em] text-[var(--foreground)] sm:text-[32px]">Mon atelier</h1>
+          <p className="mt-1 text-sm text-[var(--muted-foreground)]">Gérez les informations et paramètres de votre atelier.</p>
         </div>
-      </div>
+        <Button type="button" loading={workshopSaving} onClick={() => document.querySelector<HTMLFormElement>('#workshop-settings-form')?.requestSubmit()}>
+          Enregistrer
+        </Button>
+      </header>
+
+      <nav className="flex gap-1 overflow-x-auto rounded-xl border border-[var(--border)] bg-white p-1" aria-label="Sections des paramètres">
+        <a href="#general" className="flex h-9 items-center whitespace-nowrap rounded-lg bg-[var(--primary-subtle)] px-3.5 text-sm font-medium text-[var(--primary)]">Général</a>
+        <a href="#profil" className="flex h-9 items-center whitespace-nowrap rounded-lg px-3.5 text-sm font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)]">Profil</a>
+        <a href="#abonnement" className="flex h-9 items-center whitespace-nowrap rounded-lg px-3.5 text-sm font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)]">Abonnement</a>
+        <a href="#securite" className="flex h-9 items-center whitespace-nowrap rounded-lg px-3.5 text-sm font-medium text-[var(--muted-foreground)] hover:bg-[var(--muted)]">Sécurité</a>
+      </nav>
 
       {/* ─── 2. Main Grid Layout (Fiche Atelier + Forfait) ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left 2 Cols: Workshop Identity & Specialties */}
         <div className="lg:col-span-2 space-y-6">
           {/* Card: Workshop Profile & Contact */}
-          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#EBE7DF] shadow-sm space-y-6 text-gray-900">
+          <div id="general" className="scroll-mt-6 rounded-[14px] border border-[var(--border)] bg-white p-5 sm:p-6 space-y-6 text-[var(--foreground)]">
             <div className="flex items-center justify-between border-b border-[#EBE7DF] pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#090F0E] text-[#B4F73C] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-2xl bg-[#090F0E] text-[var(--primary)] flex items-center justify-center">
                   <Store className="w-5 h-5" />
                 </div>
                 <div>
@@ -547,10 +431,10 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <form onSubmit={saveWorkshop} className="space-y-4">
+            <form id="workshop-settings-form" onSubmit={saveWorkshop} className="space-y-4" noValidate>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
-                  label="Nom commercial de l'atelier *"
+                  label="Nom commercial de l'atelier"
                   value={workshopForm.name}
                   onChange={(e) => setWorkshopForm({ ...workshopForm, name: e.target.value })}
                   required
@@ -614,7 +498,7 @@ export default function SettingsPage() {
                             : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                         }`}
                       >
-                        <Scissors className={`w-3 h-3 ${active ? 'text-[#B4F73C]' : 'text-gray-400'}`} />
+                        <Scissors className={`w-3 h-3 ${active ? 'text-[var(--primary)]' : 'text-gray-400'}`} />
                         <span>{spec}</span>
                       </button>
                     );
@@ -626,7 +510,7 @@ export default function SettingsPage() {
                 <Button
                   type="submit"
                   loading={workshopSaving}
-                  className="bg-[#090F0E] text-[#B4F73C] hover:bg-black font-bold uppercase tracking-wider text-xs px-8 py-3 rounded-full"
+                  className="bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]"
                 >
                   Enregistrer les modifications
                 </Button>
@@ -638,43 +522,42 @@ export default function SettingsPage() {
         {/* Right Col: Plan & Profile */}
         <div className="space-y-6">
           {/* Plan Pro Card */}
-          <div className="rounded-3xl bg-[#090F0E] text-white p-6 border border-white/10 shadow-lg space-y-4">
+          <div id="abonnement" className="scroll-mt-6 rounded-[14px] border border-[var(--border)] bg-white p-5 text-[var(--foreground)] space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-[#B4F73C] text-black">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-[var(--primary-subtle)] text-[var(--primary)]">
                 FORFAIT ACTIF
               </span>
-              <CreditCard className="w-5 h-5 text-[#B4F73C]" />
+              <CreditCard className="w-5 h-5 text-[var(--primary)]" />
             </div>
 
             <div>
-              <h3 className="text-xl font-bold font-serif text-white">Atelier Pro</h3>
-              <p className="text-xs text-slate-300 mt-1">
+              <h3 className="text-xl font-bold font-serif text-[var(--foreground)]">Abonnement</h3>
+              <p className="text-xs text-[var(--muted-foreground)] mt-1">
                 Clients illimités, carnet de mesures, gestion de production et facturation.
               </p>
             </div>
 
-            <div className="pt-2 border-t border-white/10">
-              <span className="text-2xl font-black text-[#B4F73C] font-mono">9 900 FCFA</span>
-              <span className="text-xs text-slate-400 ml-1.5">/ mois</span>
+            <div className="pt-3 border-t border-[var(--border)]">
+              <p className="text-sm font-medium">Consultez votre formule actuelle et son prochain renouvellement.</p>
             </div>
 
             <Link
-              href="/#tarifs"
+              href="/settings/billing"
               className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#B4F73C] hover:bg-[#a1e626] text-black font-black text-xs uppercase tracking-wider transition-all"
             >
-              Gérer le forfait Stripe <ArrowUpRight className="w-4 h-4" />
+              Gérer l’abonnement <ArrowUpRight className="w-4 h-4" />
             </Link>
           </div>
 
           {/* User Profile Card */}
-          <div className="bg-white rounded-3xl p-6 border border-[#EBE7DF] shadow-sm space-y-4 text-gray-900">
+          <div id="profil" className="scroll-mt-6 rounded-[14px] border border-[var(--border)] bg-white p-5 space-y-4 text-[var(--foreground)]">
             <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
               <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-700">
                 <User className="w-4 h-4" />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-gray-900">Profil Utilisateur</h3>
-                <p className="text-[11px] text-gray-500 font-mono">Rôle : {currentUserRole || 'OWNER'}</p>
+                <p className="text-[11px] text-gray-500 font-mono">{currentUserRole === 'OWNER' ? 'Propriétaire' : currentUserRole === 'MANAGER' ? 'Administrateur' : 'Membre'}</p>
               </div>
             </div>
 
@@ -709,20 +592,20 @@ export default function SettingsPage() {
           </div>
 
           {/* Security & Multi-tenant Notice */}
-          <div className="bg-[#0D1715] rounded-3xl p-5 border border-white/10 text-white space-y-2">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#B4F73C]">
+          <div id="securite" className="scroll-mt-6 rounded-[14px] border border-[var(--border)] bg-[var(--primary-subtle)] p-5 text-[var(--foreground)] space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-[var(--primary)]">
               <ShieldCheck className="w-4 h-4" />
-              <span>ISOLATION MULTI-TENANT</span>
+              <span>Données protégées</span>
             </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed">
-              Vos données d&apos;atelier sont strictement isolées par des clés étrangères composites et des règles RLS.
+            <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
+              Les informations de votre atelier sont isolées et accessibles uniquement aux membres autorisés.
             </p>
           </div>
         </div>
       </div>
 
       {/* ─── 3. SECTION GALERIE DE MODÈLES (Femme, Homme, Enfant) ─── */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#EBE7DF] shadow-sm space-y-6 text-gray-900">
+      <div className="rounded-[14px] border border-[var(--border)] bg-white p-5 sm:p-6 space-y-6 text-[var(--foreground)]">
         {/* Header with Title & Add Model Button */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#EBE7DF] pb-5">
           <div className="flex items-center gap-3">

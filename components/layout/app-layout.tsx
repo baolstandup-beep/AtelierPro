@@ -6,61 +6,49 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard,
-  Users,
-  Ruler,
-  ShoppingBag,
-  Kanban,
-  CreditCard,
-  Settings,
-  Scissors,
-  Menu,
-  X,
-  Plus,
-  UserPlus,
-  LogOut,
-  Calendar,
-  DollarSign,
-  UserCheck,
-  BarChart3,
-  Layers,
-  Sparkles,
+  LayoutDashboard, Users, Ruler, ShoppingBag, Kanban, CreditCard, Settings,
+  Scissors, Menu, X, LogOut, Calendar, DollarSign, UserCheck,
+  BarChart3, Layers, Sparkles, MoreHorizontal,
 } from 'lucide-react';
 
-const NAV_ITEMS = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Tableau de bord' },
-  { href: '/customers', icon: Users, label: 'Clients' },
-  { href: '/measurements', icon: Ruler, label: 'Carnet de mesures' },
-  { href: '/orders', icon: ShoppingBag, label: 'Commandes' },
-  { href: '/catalogue', icon: Sparkles, label: 'Modèles & Coupes' },
-  { href: '/tissus', icon: Layers, label: 'Tissus & Stocks' },
-  { href: '/production', icon: Kanban, label: 'Production' },
-  { href: '/calendar', icon: Calendar, label: 'Calendrier & Essayages' },
-  { href: '/payments', icon: CreditCard, label: 'Paiements & Acomptes' },
-  { href: '/expenses', icon: DollarSign, label: 'Dépenses' },
-  { href: '/team', icon: UserCheck, label: 'Équipe' },
-  { href: '/reports', icon: BarChart3, label: 'Rapports' },
-  { href: '/settings', icon: Settings, label: 'Mon Atelier & Réglages' },
+const NAV_GROUPS = [
+  { label: 'Principal', items: [
+    { href: '/dashboard', icon: LayoutDashboard, label: 'Tableau de bord' },
+    { href: '/customers', icon: Users, label: 'Clients' },
+    { href: '/measurements', icon: Ruler, label: 'Carnet de mesures' },
+    { href: '/orders', icon: ShoppingBag, label: 'Commandes' },
+  ]},
+  { label: 'Atelier', items: [
+    { href: '/catalogue', icon: Sparkles, label: 'Modèles & Coupes' },
+    { href: '/tissus', icon: Layers, label: 'Tissus & Stocks' },
+    { href: '/production', icon: Kanban, label: 'Production' },
+    { href: '/calendar', icon: Calendar, label: 'Calendrier & Essayages' },
+  ]},
+  { label: 'Finances', items: [
+    { href: '/payments', icon: CreditCard, label: 'Paiements & Acomptes' },
+    { href: '/expenses', icon: DollarSign, label: 'Dépenses' },
+  ]},
+  { label: 'Gestion', items: [
+    { href: '/team', icon: UserCheck, label: 'Équipe' },
+    { href: '/reports', icon: BarChart3, label: 'Rapports' },
+  ]},
+  { label: 'Paramètres', items: [
+    { href: '/settings', icon: Settings, label: 'Mon atelier & réglages' },
+  ]},
 ];
 
-const MOBILE_NAV = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Accueil' },
-  { href: '/measurements', icon: Ruler, label: 'Mesures' },
-  { href: '/orders', icon: ShoppingBag, label: 'Commandes' },
-  { href: '/tissus', icon: Layers, label: 'Tissus' },
-  { href: '/customers', icon: Users, label: 'Clients' },
-];
-
-interface AppLayoutProps {
-  children: React.ReactNode;
+function displayName(name: string) {
+  if (!name || /^user\d+$/i.test(name.trim())) return 'Utilisateur AtelierPro';
+  return name.trim();
 }
 
-export function AppLayout({ children }: AppLayoutProps) {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentWorkshop, currentUserName, signOut } = useAppStore();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [fabOpen, setFabOpen] = useState(false);
+  const { currentWorkshop, currentUserName, currentUserRole, signOut } = useAppStore();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const name = displayName(currentUserName);
+  const role = currentUserRole === 'OWNER' ? 'Propriétaire' : currentUserRole === 'MANAGER' ? 'Administrateur' : 'Membre';
 
   async function handleSignOut() {
     await signOut();
@@ -68,241 +56,75 @@ export function AppLayout({ children }: AppLayoutProps) {
     router.refresh();
   }
 
-  const fabActions = [
-    { label: 'Nouvelle commande', href: '/orders/new', icon: ShoppingBag, color: 'bg-[#0F3B32]' },
-    { label: 'Nouveau coupon / tissu', href: '/tissus', icon: Layers, color: 'bg-emerald-600' },
-    { label: 'Nouvelle mesure', href: '/measurements/new', icon: Ruler, color: 'bg-amber-600' },
-    { label: 'Nouveau client', href: '/customers/new', icon: UserPlus, color: 'bg-blue-600' },
-    { label: 'Nouveau paiement', href: '/payments/new', icon: CreditCard, color: 'bg-purple-600' },
-    { label: 'Nouvelle dépense', href: '/expenses', icon: DollarSign, color: 'bg-red-600' },
-  ];
-
-  return (
-    <div className="flex h-screen bg-[#FBF9F5] text-slate-900 overflow-hidden font-sans">
-      {/* ── Desktop Sidebar ── */}
-      <aside className="hidden md:flex flex-col w-60 lg:w-64 bg-white border-r border-[#EBE7DF] flex-shrink-0 shadow-sm">
-        {/* Logo & Workshop Brand */}
-        <div className="h-20 flex items-center gap-3 px-5 border-b border-[#EBE7DF]">
-          <div className="w-10 h-10 rounded-2xl bg-[#0F3B32] flex items-center justify-center flex-shrink-0 shadow-md">
-            <Scissors className="text-white w-5 h-5 -rotate-45" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-base font-bold text-slate-900 truncate font-serif">AtelierPro</p>
-            <p className="text-xs text-[#0F3B32] font-semibold truncate">{currentWorkshop?.name || 'Mon Atelier'}</p>
-          </div>
-        </div>
-
-        {/* Navigation links */}
-        <nav className="flex-1 overflow-y-auto py-5 px-3 space-y-1">
-          {NAV_ITEMS.map((item) => {
-            const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all',
-                  active
-                    ? 'bg-[#0F3B32] text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-[#F4EFE6] hover:text-slate-900'
-                )}
-              >
-                <item.icon className={cn('h-4 w-4 flex-shrink-0', active ? 'text-emerald-300' : 'text-slate-400')} />
-                <span className="truncate">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Workshop Profile & User Footer */}
-        <div className="p-3 border-t border-[#EBE7DF] bg-[#FBF9F5]/60">
-          <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white border border-transparent hover:border-[#EBE7DF] transition-all group">
-            <div className="w-8 h-8 rounded-full bg-[#0F3B32] text-white flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm">
-              {currentUserName?.[0]?.toUpperCase() || 'M'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-slate-900 truncate">{currentUserName || 'Maître Tailleur'}</p>
-              <p className="text-[10px] text-slate-500 truncate">{currentWorkshop?.city || 'Dakar'}</p>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="text-slate-400 hover:text-red-600 transition-colors p-1"
-              title="Déconnexion"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* ── Mobile Sidebar Overlay ── */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
-          <div className="absolute left-0 top-0 bottom-0 w-72 bg-[#FBF9F5] shadow-2xl flex flex-col border-r border-[#EBE7DF]">
-            <div className="h-18 flex items-center justify-between px-5 border-b border-[#EBE7DF] bg-white">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#0F3B32] flex items-center justify-center">
-                  <Scissors className="text-white w-4 h-4" />
-                </div>
-                <p className="text-base font-bold text-slate-900 font-serif">AtelierPro</p>
-              </div>
-              <button onClick={() => setSidebarOpen(false)} className="text-slate-400 hover:text-slate-700 p-1">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {currentWorkshop && (
-              <div className="px-5 py-3.5 bg-[#E5EFEA] border-b border-[#0F3B32]/10">
-                <p className="text-[10px] uppercase tracking-wider text-[#0F3B32] font-bold">Atelier actif</p>
-                <p className="text-sm font-black text-[#0B2B26] font-serif">{currentWorkshop.name}</p>
-              </div>
-            )}
-
-            <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-              {NAV_ITEMS.map((item) => {
-                const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setSidebarOpen(false)}
-                    className={cn(
-                      'flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold transition-all',
-                      active ? 'bg-[#0F3B32] text-white shadow-sm' : 'text-slate-700 hover:bg-[#F3EFE8]'
-                    )}
-                  >
-                    <item.icon className={cn('h-5 w-5', active ? 'text-emerald-300' : 'text-slate-400')} />
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            <div className="p-4 border-t border-[#EBE7DF] bg-white">
-              <button
-                onClick={() => { void handleSignOut(); setSidebarOpen(false); }}
-                className="flex items-center gap-2 text-sm font-semibold text-red-600 hover:text-red-700 w-full px-3 py-2 rounded-xl hover:bg-red-50"
-              >
-                <LogOut className="h-4 w-4" />
-                Déconnexion
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Main Workspace Content ── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#FBF9F5]">
-        {/* Mobile header */}
-        <header className="md:hidden h-16 bg-white border-b border-[#EBE7DF] flex items-center justify-between px-4 flex-shrink-0 z-10 shadow-sm">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-slate-700 hover:text-slate-900 p-2 rounded-lg"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#0F3B32] flex items-center justify-center">
-              <Scissors className="text-white w-3.5 h-3.5" />
-            </div>
-            <p className="text-sm font-bold text-slate-900 font-serif truncate max-w-[180px]">
-              {currentWorkshop?.name || 'AtelierPro'}
-            </p>
-          </div>
-          <div className="w-8" />
-        </header>
-
-        {/* Scrollable page area */}
-        <main className="flex-1 overflow-y-auto pb-24 md:pb-8">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-            {children}
-          </div>
-        </main>
+  return <>
+    <div className="flex h-[72px] items-center gap-3 border-b border-[var(--border)] px-5">
+      <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[var(--primary)] text-white">
+        <Scissors className="h-[18px] w-[18px] -rotate-45" />
       </div>
-
-      {/* ── Mobile Bottom Navigation Bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 md:hidden z-30">
-        {/* FAB Quick Actions Popup */}
-        {fabOpen && (
-          <div className="absolute bottom-20 right-4 flex flex-col items-end gap-2.5 z-40">
-            {fabActions.map((action) => (
-              <Link
-                key={action.href}
-                href={action.href}
-                onClick={() => setFabOpen(false)}
-                className="flex items-center gap-2.5 bg-white border border-[#EBE7DF] rounded-2xl px-4 py-2.5 shadow-2xl animate-in slide-in-from-bottom-2"
-              >
-                <span className="text-xs font-bold text-slate-800">{action.label}</span>
-                <div className={cn('w-7 h-7 rounded-xl flex items-center justify-center text-white flex-shrink-0', action.color)}>
-                  <action.icon className="w-3.5 h-3.5" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-
-        {/* Backdrop */}
-        {fabOpen && (
-          <div className="fixed inset-0 z-30 bg-black/40 backdrop-blur-xs" onClick={() => setFabOpen(false)} />
-        )}
-
-        {/* Bottom bar */}
-        <nav className="relative bg-white border-t border-[#EBE7DF] flex items-center h-16 px-2 z-40 shadow-lg">
-          {MOBILE_NAV.slice(0, 2).map((item) => {
-            const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex-1 flex flex-col items-center gap-1 py-1.5"
-              >
-                <item.icon className={cn('h-5 w-5', active ? 'text-[#0F3B32]' : 'text-slate-400')} />
-                <span className={cn('text-[10px] font-bold', active ? 'text-[#0F3B32]' : 'text-slate-400')}>
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
-
-          {/* Center FAB Button */}
-          <div className="flex-shrink-0 -mt-5 mx-3">
-            <button
-              onClick={() => setFabOpen(!fabOpen)}
-              className={cn(
-                'w-12 h-12 rounded-full shadow-2xl flex items-center justify-center transition-all duration-200',
-                fabOpen ? 'bg-slate-800 rotate-45' : 'bg-[#0F3B32] hover:scale-105 text-white'
-              )}
-            >
-              <Plus className="text-white w-6 h-6" />
-            </button>
-          </div>
-
-          {MOBILE_NAV.slice(2).map((item) => {
-            const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex-1 flex flex-col items-center gap-1 py-1.5"
-              >
-                <item.icon className={cn('h-5 w-5', active ? 'text-[#0F3B32]' : 'text-slate-400')} />
-                <span className={cn('text-[10px] font-bold', active ? 'text-[#0F3B32]' : 'text-slate-400')}>
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
-
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="flex-1 flex flex-col items-center gap-1 py-1.5"
-          >
-            <Menu className="h-5 w-5 text-slate-400" />
-            <span className="text-[10px] font-bold text-slate-400">Menu</span>
-          </button>
-        </nav>
+      <div className="min-w-0">
+        <p className="text-[15px] font-semibold tracking-tight text-[var(--foreground)]">AtelierPro</p>
+        <p className="truncate text-xs text-[var(--muted-foreground)]">{currentWorkshop?.name || 'Mon atelier'}</p>
       </div>
     </div>
-  );
+
+    <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Navigation principale">
+      {NAV_GROUPS.map((group) => <div key={group.label} className="mb-5 last:mb-0">
+        <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-[#8A9690]">{group.label}</p>
+        <div className="space-y-0.5">
+          {group.items.map((item) => {
+            const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+            return <Link key={item.href} href={item.href} onClick={onNavigate} className={cn(
+              'flex h-10 items-center gap-3 rounded-[9px] px-3 text-[13px] font-medium transition-colors duration-150',
+              active ? 'bg-[var(--primary-subtle)] text-[var(--primary)]' : 'text-[#53615B] hover:bg-[var(--muted)] hover:text-[var(--foreground)]'
+            )}>
+              <item.icon className={cn('h-[17px] w-[17px] shrink-0', active ? 'text-[var(--primary)]' : 'text-[#7C8983]')} />
+              <span className="truncate">{item.label}</span>
+            </Link>;
+          })}
+        </div>
+      </div>)}
+    </nav>
+
+    <div className="relative border-t border-[var(--border)] p-3">
+      {userMenuOpen && <div className="absolute bottom-[76px] left-3 right-3 rounded-xl border border-[var(--border)] bg-white p-1.5 shadow-[0_12px_32px_rgba(16,32,27,.12)]">
+        <Link href="/settings" onClick={onNavigate} className="flex h-9 items-center rounded-lg px-3 text-sm text-[#53615B] hover:bg-[var(--muted)]">Mon profil</Link>
+        <Link href="/settings" onClick={onNavigate} className="flex h-9 items-center rounded-lg px-3 text-sm text-[#53615B] hover:bg-[var(--muted)]">Paramètres</Link>
+        <button onClick={() => void handleSignOut()} className="flex h-9 w-full items-center gap-2 rounded-lg px-3 text-sm text-red-600 hover:bg-red-50"><LogOut className="h-4 w-4" /> Se déconnecter</button>
+      </div>}
+      <button onClick={() => setUserMenuOpen(!userMenuOpen)} aria-expanded={userMenuOpen} className="flex w-full items-center gap-3 rounded-[10px] p-2 text-left hover:bg-[var(--muted)]">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary-subtle)] text-xs font-semibold text-[var(--primary)]">{name.charAt(0).toUpperCase()}</div>
+        <div className="min-w-0 flex-1"><p className="truncate text-[13px] font-semibold text-[var(--foreground)]">{name}</p><p className="text-[11px] text-[var(--muted-foreground)]">{role}</p></div>
+        <MoreHorizontal className="h-4 w-4 text-[#8A9690]" />
+      </button>
+    </div>
+  </>;
+}
+
+export function AppLayout({ children }: { children: React.ReactNode }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { currentWorkshop, currentUserName } = useAppStore();
+  const name = displayName(currentUserName);
+
+  return <div className="flex h-dvh overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-[var(--border)] bg-white lg:flex"><SidebarContent /></aside>
+
+    {sidebarOpen && <div className="fixed inset-0 z-50 lg:hidden">
+      <button aria-label="Fermer le menu" className="absolute inset-0 bg-[#10201B]/35" onClick={() => setSidebarOpen(false)} />
+      <aside className="absolute inset-y-0 left-0 flex w-[min(320px,88vw)] flex-col bg-white shadow-2xl">
+        <button aria-label="Fermer le menu" onClick={() => setSidebarOpen(false)} className="absolute right-3 top-3 z-10 rounded-lg p-2 text-[#66736D] hover:bg-[var(--muted)]"><X className="h-5 w-5" /></button>
+        <SidebarContent onNavigate={() => setSidebarOpen(false)} />
+      </aside>
+    </div>}
+
+    <div className="flex min-w-0 flex-1 flex-col">
+      <header className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--border)] bg-white px-4 lg:hidden">
+        <button aria-label="Ouvrir le menu" onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 text-[#53615B] hover:bg-[var(--muted)]"><Menu className="h-5 w-5" /></button>
+        <div className="min-w-0 text-center"><p className="text-sm font-semibold">AtelierPro</p><p className="max-w-[180px] truncate text-[11px] text-[var(--muted-foreground)]">{currentWorkshop?.name || 'Mon atelier'}</p></div>
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--primary-subtle)] text-xs font-semibold text-[var(--primary)]">{name.charAt(0).toUpperCase()}</div>
+      </header>
+      <main className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">{children}</div>
+      </main>
+    </div>
+  </div>;
 }

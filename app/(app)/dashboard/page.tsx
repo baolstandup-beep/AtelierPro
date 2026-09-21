@@ -1,471 +1,65 @@
 'use client';
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import {
-  ShoppingBag,
-  Users,
-  CreditCard,
-  AlertTriangle,
-  Banknote,
-  ArrowRight,
-  Package,
-  Ruler,
-  Scissors,
-  Sparkles,
-  ChevronRight,
-  Calendar,
-  Layers,
-  UserPlus,
-  Plus,
-} from 'lucide-react';
-import { PlanQuotaWidget } from '@/components/billing/plan-quota-widget';
+import { ShoppingBag, Users, CreditCard, Banknote, AlertTriangle, ArrowRight, Plus, CalendarDays, Package, ChevronRight } from 'lucide-react';
+import type { OrderStatus } from '@/lib/types';
 
-export default function AtelierProLovableDashboardPage() {
-  const router = useRouter();
-  const { getDashboardStats, orders, customers, measurementProfiles, currentWorkshop } = useAppStore();
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  NEW: 'Nouvelle', MEASURED: 'Mesures', CUTTING: 'Coupe', SEWING: 'Couture', FINISHING: 'Finition', READY: 'Prêt', DELIVERED: 'Livré', ON_HOLD: 'En attente', CANCELLED: 'Annulée',
+};
+const STATUS_STYLES: Record<OrderStatus, string> = {
+  NEW: 'bg-blue-50 text-blue-700', MEASURED: 'bg-violet-50 text-violet-700', CUTTING: 'bg-amber-50 text-amber-700', SEWING: 'bg-orange-50 text-orange-700', FINISHING: 'bg-cyan-50 text-cyan-700', READY: 'bg-emerald-50 text-emerald-700', DELIVERED: 'bg-slate-100 text-slate-600', ON_HOLD: 'bg-yellow-50 text-yellow-700', CANCELLED: 'bg-red-50 text-red-700',
+};
+
+function cleanName(name: string) {
+  return !name || /^user\d+$/i.test(name.trim()) ? 'Utilisateur AtelierPro' : name.trim();
+}
+
+export default function DashboardPage() {
+  const { getDashboardStats, orders, customers, currentWorkshop, currentUserName } = useAppStore();
   const stats = getDashboardStats();
-  const ws = currentWorkshop;
-
-  // Active orders count
-  const activeOrdersCount = orders.filter(
-    (o) => !o.deleted_at && o.status !== 'DELIVERED' && o.status !== 'CANCELLED'
-  ).length;
-
-  // Active upcoming orders (sorted by delivery date)
-  const upcomingDeliveries = orders
-    .filter((o) => !o.deleted_at && o.status !== 'DELIVERED' && o.status !== 'CANCELLED')
-    .sort((a, b) => {
-      const dateA = a.due_date ? new Date(a.due_date).getTime() : Infinity;
-      const dateB = b.due_date ? new Date(b.due_date).getTime() : Infinity;
-      return dateA - dateB;
-    })
-    .slice(0, 6);
-
-  // Recouvrement calculation (% collected)
+  const activeOrders = orders.filter((order) => !order.deleted_at && !['DELIVERED', 'CANCELLED'].includes(order.status));
+  const upcoming = [...activeOrders].sort((a, b) => (a.due_date ? new Date(a.due_date).getTime() : Infinity) - (b.due_date ? new Date(b.due_date).getTime() : Infinity)).slice(0, 5);
+  const recent = [...orders].filter((order) => !order.deleted_at).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 6);
   const totalRevenue = stats.paymentsThisMonth + stats.balanceToRecover;
   const recoveryRate = totalRevenue > 0 ? Math.round((stats.paymentsThisMonth / totalRevenue) * 100) : 0;
+  const symbol = currentWorkshop?.currency_symbol;
+  const firstName = cleanName(currentUserName).split(' ')[0];
 
-  // Recent measurements taken
-  const recentMeasurements = measurementProfiles.slice(0, 4);
+  const kpis = [
+    { label: 'Commandes en cours', value: String(activeOrders.length), href: '/orders', icon: ShoppingBag, tone: 'text-[var(--primary)] bg-[var(--primary-subtle)]' },
+    { label: 'Clients actifs', value: String(customers.length || stats.totalCustomers), href: '/customers', icon: Users, tone: 'text-blue-700 bg-blue-50' },
+    { label: 'Encaissé ce mois', value: formatCurrency(stats.paymentsThisMonth, symbol), href: '/payments', icon: CreditCard, tone: 'text-emerald-700 bg-emerald-50' },
+    { label: 'Reste à percevoir', value: formatCurrency(stats.balanceToRecover, symbol), href: '/payments', icon: Banknote, tone: 'text-amber-700 bg-amber-50' },
+  ];
 
-  return (
-    <div className="space-y-8 pb-12">
-      
-      {/* ─── 1. LOVABLE-INSPIRED HERO HEADER (VOTRE ATELIER MESURÉ AU MILLIMÈTRE) ─── */}
-      <div className="relative rounded-[28px] overflow-hidden bg-gradient-to-br from-[#0B2B26] via-[#0F3B32] to-[#071F1B] text-white p-6 sm:p-10 shadow-2xl border border-white/10">
-        <div className="absolute -right-12 -bottom-12 w-72 h-72 bg-[#2E9D74]/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -left-12 -top-12 w-72 h-72 bg-[#D97706]/10 rounded-full blur-3xl pointer-events-none" />
+  return <div className="space-y-6">
+    <header className="flex flex-col gap-4 border-b border-dashed border-[#C8D1CC] pb-6 sm:flex-row sm:items-end sm:justify-between">
+      <div><p className="mb-1 text-sm font-medium text-[var(--primary)]">Bonjour {firstName}</p><h1 className="text-[28px] font-semibold tracking-[-0.03em] text-[var(--foreground)] sm:text-[32px]">Vue d’ensemble de votre atelier</h1><p className="mt-1 text-sm text-[var(--muted-foreground)]">Suivez vos commandes, clients, paiements et échéances.</p></div>
+      <div className="flex gap-2"><Link href="/customers/new" className="inline-flex h-10 items-center gap-2 rounded-[9px] border border-[#DCE3DF] bg-white px-4 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--muted)]"><Users className="h-4 w-4" /> Nouveau client</Link><Link href="/orders/new" className="inline-flex h-10 items-center gap-2 rounded-[9px] bg-[var(--primary)] px-4 text-sm font-medium text-white hover:bg-[var(--primary-hover)]"><Plus className="h-4 w-4" /> Nouvelle commande</Link></div>
+    </header>
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-2xl text-left">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/10 border border-white/15 text-[#A3E635] text-xs font-mono font-bold tracking-wide">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Bonjour, bon travail à l&apos;atelier</span>
-            </div>
-            
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif-luxury tracking-tight text-white leading-tight">
-              Votre atelier, <br className="hidden sm:block" />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500 font-medium italic">
-                mesuré au millimètre.
-              </span>
-            </h1>
-            
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-light max-w-md">
-              Mesures, délais et acomptes réunis au même endroit — l'excellence artisanale sans compromis.
-            </p>
-          </div>
+    <section className="flex flex-col gap-4 rounded-[14px] border border-[var(--border)] bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="text-sm font-semibold text-[var(--foreground)]">Plan Découverte</p><span className="rounded-full bg-[var(--primary-subtle)] px-2 py-0.5 text-[11px] font-medium text-[var(--primary)]">Actif</span></div><div className="mt-2 flex max-w-md items-center gap-3"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#E8ECE9]"><div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${Math.min(100, (customers.length / 5) * 100)}%` }} /></div><span className="whitespace-nowrap text-xs text-[var(--muted-foreground)]">{customers.length} client{customers.length > 1 ? 's' : ''} sur 5</span></div></div>
+      <Link href="/pricing" className="inline-flex h-9 items-center gap-1.5 text-sm font-medium text-[var(--primary)] hover:underline">Voir les formules <ArrowRight className="h-4 w-4" /></Link>
+    </section>
 
-          {/* Quick Action Navigation Buttons */}
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <Link
-              href="/orders"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-[#0F3B32] hover:bg-slate-100 font-bold text-xs uppercase tracking-wider shadow-lg transition-all hover:scale-105"
-            >
-              <ShoppingBag className="w-4 h-4 text-[#2E9D74]" />
-              <span>Voir les commandes</span>
-            </Link>
+    {stats.ordersLate > 0 && <Link href="/orders?filter=late" className="flex items-center justify-between rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900"><span className="flex items-center gap-2 text-sm font-medium"><AlertTriangle className="h-4 w-4" /> {stats.ordersLate} commande{stats.ordersLate > 1 ? 's' : ''} en retard</span><ChevronRight className="h-4 w-4" /></Link>}
 
-            <Link
-              href="/measurements"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#2E9D74] hover:bg-[#258562] text-white font-bold text-xs uppercase tracking-wider shadow-lg hover:shadow-[#2E9D74]/30 transition-all hover:scale-105"
-            >
-              <Ruler className="w-4 h-4" />
-              <span>Carnet de mesures</span>
-            </Link>
-          </div>
-        </div>
+    <section className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4">
+      {kpis.map((kpi) => <Link key={kpi.label} href={kpi.href} className="rounded-[14px] border border-[var(--border)] bg-white p-5 transition-colors hover:border-[#C8D5CF] hover:bg-[#FDFEFD]"><div className="flex items-start justify-between gap-3"><p className="text-[13px] font-medium text-[var(--muted-foreground)]">{kpi.label}</p><span className={`flex h-8 w-8 items-center justify-center rounded-lg ${kpi.tone}`}><kpi.icon className="h-4 w-4" /></span></div><p className="mt-5 break-words text-[clamp(1.45rem,2vw,2rem)] font-semibold tracking-[-0.035em] text-[var(--foreground)]">{kpi.value}</p></Link>)}
+    </section>
+
+    <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+      <div className="overflow-hidden rounded-[14px] border border-[var(--border)] bg-white"><div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4"><div><h2 className="text-base font-semibold">Commandes récentes</h2><p className="text-xs text-[var(--muted-foreground)]">Dernières commandes enregistrées</p></div><Link href="/orders" className="text-sm font-medium text-[var(--primary)] hover:underline">Voir tout</Link></div>
+        {recent.length === 0 ? <div className="flex flex-col items-center px-5 py-12 text-center"><Package className="mb-3 h-8 w-8 text-[#AAB4AF]" /><p className="text-sm font-medium">Aucune commande en cours.</p><Link href="/orders/new" className="mt-3 text-sm font-medium text-[var(--primary)] hover:underline">Créer une commande</Link></div> : <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-[#FAFBFA] text-xs text-[var(--muted-foreground)]"><tr><th className="px-5 py-3 font-medium">Client</th><th className="px-4 py-3 font-medium">Commande</th><th className="px-4 py-3 font-medium">Statut</th><th className="px-4 py-3 font-medium">Livraison</th><th className="px-4 py-3 text-right font-medium">Montant</th><th className="px-5 py-3 text-right font-medium">Solde</th></tr></thead><tbody className="divide-y divide-[var(--border)]">{recent.map((order) => { const customer = customers.find((item) => item.id === order.customer_id); return <tr key={order.id} className="hover:bg-[#FAFBFA]"><td className="px-5 py-3.5 font-medium">{customer?.full_name || 'Client Atelier'}</td><td className="px-4 py-3.5"><Link href={`/orders/${order.id}`} className="text-[var(--primary)] hover:underline">{order.order_number || order.id.slice(0, 8)}</Link></td><td className="px-4 py-3.5"><span className={`rounded-full px-2 py-1 text-[11px] font-medium ${STATUS_STYLES[order.status]}`}>{STATUS_LABELS[order.status]}</span></td><td className="px-4 py-3.5 text-[#53615B]">{order.due_date ? formatDate(order.due_date) : 'Non planifiée'}</td><td className="px-4 py-3.5 text-right">{formatCurrency(order.total_amount || 0, symbol)}</td><td className="px-5 py-3.5 text-right font-medium">{formatCurrency(order.balance || 0, symbol)}</td></tr>; })}</tbody></table></div>}
       </div>
 
-      {/* ─── BANNIÈRE FORMULE FREEMIUM / QUOTA CLIENTS ─── */}
-      <PlanQuotaWidget currentCount={customers.length} />
+      <div className="rounded-[14px] border border-[var(--border)] bg-white p-5"><div className="flex items-start justify-between"><div><h2 className="text-base font-semibold">Recouvrement</h2><p className="text-xs text-[var(--muted-foreground)]">Part du chiffre d’affaires encaissée</p></div><CreditCard className="h-5 w-5 text-[var(--primary)]" /></div><p className="mt-7 text-[32px] font-semibold tracking-[-0.04em]">{recoveryRate}%</p><div className="mt-3 h-2 overflow-hidden rounded-full bg-[#E8ECE9]"><div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${recoveryRate}%` }} /></div><dl className="mt-6 space-y-3 border-t border-[var(--border)] pt-4 text-sm"><div className="flex justify-between gap-4"><dt className="text-[var(--muted-foreground)]">CA total</dt><dd className="font-medium">{formatCurrency(totalRevenue, symbol)}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--muted-foreground)]">Encaissé</dt><dd className="font-medium text-emerald-700">{formatCurrency(stats.paymentsThisMonth, symbol)}</dd></div><div className="flex justify-between gap-4"><dt className="text-[var(--muted-foreground)]">Reste à percevoir</dt><dd className="font-medium text-amber-700">{formatCurrency(stats.balanceToRecover, symbol)}</dd></div></dl></div>
+    </section>
 
-      {/* ─── 2. ALERT: URGENT / LATE ORDERS NOTICE ─── */}
-      {stats.ordersLate > 0 && (
-        <button
-          onClick={() => router.push('/orders?filter=late')}
-          className="w-full bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between gap-3 text-left hover:bg-amber-500/15 transition-all shadow-sm cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-amber-900 dark:text-amber-300">
-                {stats.ordersLate} commande{stats.ordersLate > 1 ? 's' : ''} nécessitant une attention urgente
-              </p>
-              <p className="text-xs text-amber-800 dark:text-amber-400">Cliquez pour voir les commandes proches ou ayant dépassé la date d&apos;essayage.</p>
-            </div>
-          </div>
-          <ArrowRight className="h-4 w-4 text-amber-800 dark:text-amber-300 flex-shrink-0" />
-        </button>
-      )}
-
-      {/* ─── 3. THE 4 PRIMARY METRIC CARDS (EXACT LOVABLE CARDS) ─── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        {/* KPI 1 : Commandes en cours */}
-        <Link
-          href="/orders"
-          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-[#EBE7DF] dark:border-white/10 shadow-[0_4px_20px_rgba(15,59,50,0.04)] hover:shadow-[0_12px_28px_rgba(15,59,50,0.12)] hover:-translate-y-1 hover:border-[#2E9D74]/30 transition-all duration-300 group flex flex-col justify-between"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Commandes en cours</span>
-            <div className="w-8 h-8 rounded-xl bg-[#EBF7F1] dark:bg-[#0F3B32] text-[#2E9D74] flex items-center justify-center">
-              <ShoppingBag className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-3xl sm:text-4xl font-black text-[#111827] dark:text-white font-mono">
-              {activeOrdersCount}
-            </p>
-            <span className="text-[11px] font-bold text-[#2E9D74] mt-1 inline-flex items-center gap-1 group-hover:underline">
-              <span>Voir la production</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </span>
-          </div>
-        </Link>
-
-        {/* KPI 2 : Clients suivis */}
-        <Link
-          href="/customers"
-          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-[#EBE7DF] dark:border-white/10 shadow-[0_4px_20px_rgba(15,59,50,0.04)] hover:shadow-[0_12px_28px_rgba(15,59,50,0.12)] hover:-translate-y-1 hover:border-[#2E9D74]/30 transition-all duration-300 group flex flex-col justify-between"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Clients suivis</span>
-            <div className="w-8 h-8 rounded-xl bg-[#EBF7F1] dark:bg-[#0F3B32] text-[#2E9D74] flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-3xl sm:text-4xl font-black text-[#111827] dark:text-white font-mono">
-              {customers.length || stats.totalCustomers}
-            </p>
-            <span className="text-[11px] font-bold text-[#2E9D74] mt-1 inline-flex items-center gap-1 group-hover:underline">
-              <span>Carnet de clients</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </span>
-          </div>
-        </Link>
-
-        {/* KPI 3 : Encaissé */}
-        <Link
-          href="/payments"
-          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-[#EBE7DF] dark:border-white/10 shadow-[0_4px_20px_rgba(15,59,50,0.04)] hover:shadow-[0_12px_28px_rgba(15,59,50,0.12)] hover:-translate-y-1 hover:border-[#2E9D74]/30 transition-all duration-300 group flex flex-col justify-between"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Encaissé (Ce mois)</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-[#16A34A] flex items-center justify-center">
-              <CreditCard className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-2xl sm:text-3xl font-black text-[#0F3B32] dark:text-[#A3E635] font-mono">
-              {formatCurrency(stats.paymentsThisMonth, ws?.currency_symbol)}
-            </p>
-            <span className="text-[11px] font-bold text-[#16A34A] mt-1 inline-flex items-center gap-1">
-              ✓ Wave, OM & Espèces
-            </span>
-          </div>
-        </Link>
-
-        {/* KPI 4 : Reste à percevoir */}
-        <Link
-          href="/payments"
-          className="bg-white dark:bg-[#121A16] rounded-3xl p-5 sm:p-6 border border-[#EBE7DF] dark:border-white/10 shadow-[0_4px_20px_rgba(15,59,50,0.04)] hover:shadow-[0_12px_28px_rgba(15,59,50,0.12)] hover:-translate-y-1 hover:border-[#D97706]/30 transition-all duration-300 group flex flex-col justify-between"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Reste à percevoir</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-[#D97706] flex items-center justify-center">
-              <Banknote className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-2xl sm:text-3xl font-black text-[#D97706] font-mono">
-              {formatCurrency(stats.balanceToRecover, ws?.currency_symbol)}
-            </p>
-            <span className="text-[11px] font-bold text-[#D97706] mt-1 inline-flex items-center gap-1 group-hover:underline">
-              <span>Soldes à la livraison</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </span>
-          </div>
-        </Link>
-      </div>
-
-      {/* ─── 4. SPLIT SECTIONS: PROCHAINES LIVRAISONS & RECOUVREMENT (LOVABLE WIDGETS) ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* Left Column (8 cols): Prochaines Livraisons */}
-        <div className="lg:col-span-8 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold font-serif-luxury text-[#111827] dark:text-white">
-                Prochaines livraisons & Essayages
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Commandes planifiées pour cette semaine
-              </p>
-            </div>
-            <Link
-              href="/orders"
-              className="text-xs font-bold text-[#2E9D74] hover:underline inline-flex items-center gap-1"
-            >
-              <span>Voir tout</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          <div className="space-y-3">
-            {upcomingDeliveries.length === 0 ? (
-              <div className="p-8 rounded-3xl bg-white dark:bg-[#121A16] border border-slate-200 dark:border-white/10 text-center space-y-3">
-                <Package className="w-10 h-10 text-slate-300 mx-auto" />
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Aucune commande en attente</p>
-                <Link
-                  href="/orders/new"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2E9D74] text-white font-bold text-xs"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Enregistrer une commande</span>
-                </Link>
-              </div>
-            ) : (
-              upcomingDeliveries.map((order) => {
-                const customer = customers.find((c) => c.id === order.customer_id);
-                const itemName = order.items?.[0]?.name || 'Tenue sur-mesure';
-
-                return (
-                  <div
-                    key={order.id}
-                    onClick={() => router.push(`/orders/${order.id}`)}
-                    className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121A16] border border-[#EBE7DF] dark:border-white/10 shadow-sm hover:shadow-[0_8px_24px_rgba(15,59,50,0.08)] hover:-translate-y-0.5 hover:border-[#2E9D74]/40 transition-all duration-300 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-11 h-11 rounded-2xl bg-[#EBF7F1] dark:bg-[#0F3B32] text-[#0F3B32] dark:text-[#A3E635] flex items-center justify-center font-bold text-sm shrink-0">
-                        <Scissors className="w-5 h-5 -rotate-45" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-[#111827] dark:text-white">
-                            {customer?.full_name || 'Client Atelier'}
-                          </h4>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              order.status === 'READY'
-                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300'
-                                : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                            }`}
-                          >
-                            {order.status === 'READY' ? 'Prêt' : 'En Atelier'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          {itemName} • Réf: {order.order_number || order.id.slice(0, 8)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between sm:justify-end gap-6 text-right">
-                      <div>
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200">
-                          <Calendar className="w-3.5 h-3.5 text-[#2E9D74]" />
-                          <span>{order.due_date ? formatDate(order.due_date) : 'Non planifié'}</span>
-                        </div>
-                        <p className="text-[11px] font-mono font-bold text-[#D97706] mt-0.5">
-                          Solde: {formatCurrency(order.balance || 0, ws?.currency_symbol)}
-                        </p>
-                      </div>
-
-                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#2E9D74] group-hover:translate-x-1 transition-all" />
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Right Column (4 cols): Recouvrement (Lovable Rate Widget) */}
-        <div className="lg:col-span-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold font-serif-luxury text-[#111827] dark:text-white">
-              Recouvrement
-            </h2>
-            <span className="text-xs font-mono font-bold text-[#16A34A]">{recoveryRate}% encaissé</span>
-          </div>
-
-          <div className="p-6 rounded-3xl bg-[#F7F4ED] dark:bg-[#121A16] border border-[#EBE7DF] dark:border-white/10 shadow-sm space-y-6 text-left relative overflow-hidden">
-            {/* Subtle background decoration */}
-            <div className="absolute -right-8 -top-8 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
-            
-            <div className="relative z-10">
-              <p className="text-xs text-[#8A7A65] dark:text-slate-400 uppercase tracking-wider font-semibold">Taux de recouvrement</p>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-4xl font-serif-luxury text-[#0F3B32] dark:text-[#A3E635]">{recoveryRate}%</span>
-                <span className="text-xs font-medium text-[#8A7A65]">encaissé sur le CA</span>
-              </div>
-            </div>
-
-            {/* Visual Progress Bar */}
-            <div className="space-y-2 relative z-10">
-              <div className="w-full h-2.5 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden shadow-inner">
-                <div
-                  className="h-full bg-gradient-to-r from-[#2E9D74] via-[#34d399] to-[#A3E635] rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(46,157,116,0.5)]"
-                  style={{ width: `${Math.min(100, Math.max(0, recoveryRate))}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                <span>0%</span>
-                <span>50%</span>
-                <span>100%</span>
-              </div>
-            </div>
-
-            {/* Financial Breakdown */}
-            <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-white/10">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#2E9D74]" />
-                  Total Encaissé
-                </span>
-                <span className="font-bold text-[#0F3B32] dark:text-white font-mono">
-                  {formatCurrency(stats.paymentsThisMonth, ws?.currency_symbol)}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#D97706]" />
-                  Reste à Percevoir
-                </span>
-                <span className="font-bold text-[#D97706] font-mono">
-                  {formatCurrency(stats.balanceToRecover, ws?.currency_symbol)}
-                </span>
-              </div>
-            </div>
-
-            <Link
-              href="/payments"
-              className="w-full py-3 rounded-2xl bg-[#EBF7F1] dark:bg-[#0F3B32] hover:bg-[#2E9D74] hover:text-white text-[#0F3B32] dark:text-[#A3E635] font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2"
-            >
-              <span>Gérer les Paiements & Acomptes</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
-
-      </div>
-
-      {/* ─── 5. FAST SHORTCUTS & MEASUREMENT PROFILES ─── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Recent Measurements Taken */}
-        <div className="p-6 rounded-3xl bg-white dark:bg-[#121A16] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 text-left">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-[#111827] dark:text-white flex items-center gap-2">
-              <Ruler className="w-4 h-4 text-[#2E9D74]" />
-              <span>Dernières Mesures Enregistrées</span>
-            </h3>
-            <Link href="/measurements/new" className="text-xs font-bold text-[#2E9D74] hover:underline">
-              + Ajouter
-            </Link>
-          </div>
-
-          <div className="space-y-2.5">
-            {recentMeasurements.length === 0 ? (
-              <p className="text-xs text-slate-400 py-3">Aucune mesure encore enregistrée.</p>
-            ) : (
-              recentMeasurements.map((m) => {
-                const customer = customers.find((c) => c.id === m.customer_id);
-                return (
-                  <div
-                    key={m.id}
-                    onClick={() => router.push(`/customers/${m.customer_id}`)}
-                    className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-white/10 transition-all cursor-pointer"
-                  >
-                    <div>
-                      <p className="text-xs font-bold text-[#111827] dark:text-white">
-                        {customer?.full_name || m.label || 'Profil Mesure'}
-                      </p>
-                      <p className="text-[10px] text-slate-400">
-                        {m.fabric_type || 'Sur-mesure'} • {formatDate(m.taken_at || m.created_at)}
-                      </p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Quick Workshop Actions */}
-        <div className="p-6 rounded-3xl bg-white dark:bg-[#121A16] border border-slate-200 dark:border-white/10 shadow-sm space-y-4 text-left">
-          <h3 className="text-sm font-bold text-[#111827] dark:text-white flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#D97706]" />
-            <span>Actions Rapides Atelier</span>
-          </h3>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Link
-              href="/orders/new"
-              className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 hover:border-[#2E9D74] hover:bg-[#EBF7F1]/30 transition-all text-left group"
-            >
-              <ShoppingBag className="w-5 h-5 text-[#2E9D74] mb-1 group-hover:scale-110 transition-transform" />
-              <p className="text-xs font-bold text-[#111827] dark:text-white">Nouvelle Commande</p>
-              <p className="text-[10px] text-slate-400">Modèle, tissu & acompte</p>
-            </Link>
-
-            <Link
-              href="/measurements/new"
-              className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 hover:border-[#2E9D74] hover:bg-[#EBF7F1]/30 transition-all text-left group"
-            >
-              <Ruler className="w-5 h-5 text-[#2E9D74] mb-1 group-hover:scale-110 transition-transform" />
-              <p className="text-xs font-bold text-[#111827] dark:text-white">Prendre Mesures</p>
-              <p className="text-[10px] text-slate-400">Gabarits Boubou, Kaftan</p>
-            </Link>
-
-            <Link
-              href="/customers/new"
-              className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 hover:border-[#2E9D74] hover:bg-[#EBF7F1]/30 transition-all text-left group"
-            >
-              <UserPlus className="w-5 h-5 text-[#2E9D74] mb-1 group-hover:scale-110 transition-transform" />
-              <p className="text-xs font-bold text-[#111827] dark:text-white">Nouveau Client</p>
-              <p className="text-[10px] text-slate-400">Fiche & contact WhatsApp</p>
-            </Link>
-
-            <Link
-              href="/production"
-              className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 hover:border-[#2E9D74] hover:bg-[#EBF7F1]/30 transition-all text-left group"
-            >
-              <Layers className="w-5 h-5 text-[#D97706] mb-1 group-hover:scale-110 transition-transform" />
-              <p className="text-xs font-bold text-[#111827] dark:text-white">Kanban Atelier</p>
-              <p className="text-[10px] text-slate-400">Suivi coupe & finitions</p>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  );
+    <section className="rounded-[14px] border border-[var(--border)] bg-white"><div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4"><div><h2 className="text-base font-semibold">Prochaines livraisons</h2><p className="text-xs text-[var(--muted-foreground)]">Les échéances à traiter en priorité</p></div><CalendarDays className="h-5 w-5 text-[var(--primary)]" /></div>{upcoming.length === 0 ? <p className="px-5 py-8 text-sm text-[var(--muted-foreground)]">Aucune livraison planifiée.</p> : <div className="divide-y divide-[var(--border)]">{upcoming.map((order) => { const customer = customers.find((item) => item.id === order.customer_id); return <Link key={order.id} href={`/orders/${order.id}`} className="flex flex-col gap-2 px-5 py-4 hover:bg-[#FAFBFA] sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-medium">{customer?.full_name || 'Client Atelier'}</p><p className="mt-0.5 text-xs text-[var(--muted-foreground)]">{order.items?.[0]?.name || 'Tenue sur mesure'} · {order.order_number}</p></div><div className="flex items-center gap-5 text-xs"><span className="text-[#53615B]">{order.due_date ? formatDate(order.due_date) : 'Non planifiée'}</span><span className="font-medium text-amber-700">Solde {formatCurrency(order.balance || 0, symbol)}</span><ChevronRight className="h-4 w-4 text-[#8A9690]" /></div></Link>; })}</div>}</section>
+  </div>;
 }
