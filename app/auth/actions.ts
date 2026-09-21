@@ -56,7 +56,6 @@ export async function loginWithPin(phone: string, pin: string) {
 
     const supabase = getServerSupabase();
     const supabaseAdmin = getServerSupabaseAdmin();
-    const internalEmail = `user${cleanPhone}@gmail.com`;
 
     // B. Recherche du profil par numéro de téléphone
     const { data: profile } = await supabaseAdmin
@@ -81,6 +80,12 @@ export async function loginWithPin(phone: string, pin: string) {
     }
 
     const appMeta = user.app_metadata || {};
+    const internalEmail = user.email;
+
+    if (!internalEmail) {
+      console.error('[Login Error] Auth user has no email:', user.id);
+      return { error: 'Ce compte ne possède pas d’identifiant de connexion valide.' };
+    }
 
     // D. Vérification du verrouillage temporaire du compte
     if (appMeta.locked_until) {
@@ -166,7 +171,7 @@ export async function loginWithPin(phone: string, pin: string) {
     }
 
     // G. Succès : Réinitialisation des tentatives et mise à jour de version si nécessaire
-    const metaUpdates: Record<string, any> = {
+    const metaUpdates: Record<string, unknown> = {
       ...appMeta,
       failed_attempts: 0,
       locked_until: null,
@@ -228,7 +233,7 @@ export async function loginWithPin(phone: string, pin: string) {
         },
       },
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Login Error]', err);
     return { error: 'Erreur inattendue du serveur lors de la connexion.' };
   }
@@ -397,7 +402,7 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
         },
       },
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Register Error]', err);
     return { error: 'Erreur inattendue du serveur lors de l\'inscription.' };
   }
@@ -430,8 +435,7 @@ export async function requestPinResetOtp(phone: string) {
       };
     }
 
-    // Vérification de la disponibilité du provider SMS dans Supabase
-    const { data: settings } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+    // Vérification de la disponibilité du provider SMS.
     const smsEnabled = Boolean(process.env.TWILIO_ACCOUNT_SID || process.env.SMS_PROVIDER_CONFIGURED);
 
     if (!smsEnabled) {
@@ -443,7 +447,7 @@ export async function requestPinResetOtp(phone: string) {
     return {
       data: { message: 'Code de vérification SMS envoyé avec succès.' },
     };
-  } catch (err: any) {
+  } catch {
     return { error: 'Erreur lors de la demande de réinitialisation.' };
   }
 }
@@ -490,7 +494,7 @@ export async function resetPinWithOtp(phone: string, otp: string, newPin: string
     });
 
     return { data: { success: true, message: 'Votre code PIN a été mis à jour avec succès.' } };
-  } catch (err: any) {
+  } catch {
     return { error: 'Erreur lors de la mise à jour du code PIN.' };
   }
 }
@@ -519,7 +523,7 @@ export async function getPlatformAdminStats(actorUserId: string) {
         ordersCount: ordersCount || 0,
       },
     };
-  } catch (err: any) {
+  } catch {
     return { error: 'Erreur lors de la récupération des données admin.' };
   }
 }

@@ -17,8 +17,6 @@ import {
   EyeOff,
   Lock,
   ArrowRight,
-  Building2,
-  Sparkles,
   Phone
 } from 'lucide-react';
 import { loginWithPin } from '@/app/auth/actions';
@@ -73,7 +71,7 @@ export default function LoginPage() {
         }
 
         if (data?.user?.id) {
-          const userMeta = (data.user as any).user_metadata;
+          const userMeta = data.user.user_metadata;
           const fullName = (userMeta?.full_name as string) || 'Utilisateur';
           await syncWithSupabase(data.user.id, fullName);
         }
@@ -84,8 +82,10 @@ export default function LoginPage() {
 
       success('Bienvenue !', 'Connexion réussie');
       router.push('/dashboard');
-    } catch (err: any) {
-      showError('Erreur serveur', 'Impossible de se connecter. Réessayez.');
+    } catch (err: unknown) {
+      console.error('[Login] Unexpected client error:', err);
+      const message = err instanceof Error ? err.message : 'Impossible de se connecter. Réessayez.';
+      showError('Erreur serveur', message);
     } finally {
       setLoading(false);
     }
@@ -100,7 +100,7 @@ export default function LoginPage() {
         await new Promise((r) => setTimeout(r, 400));
         throw new Error('Supabase non configuré');
       }
-    } catch (err: any) {
+    } catch {
       showError(
         'Google OAuth non configuré',
         'L\'authentification Google n\'est pas encore activée. Connectez-vous avec le bouton "Tester la démo" ou via Téléphone/PIN.'
