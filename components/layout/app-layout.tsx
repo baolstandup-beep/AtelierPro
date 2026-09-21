@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
@@ -23,7 +23,6 @@ import {
   DollarSign,
   UserCheck,
   BarChart3,
-  ExternalLink,
   Layers,
   Sparkles,
 } from 'lucide-react';
@@ -63,12 +62,10 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
 
-  // Close sidebar on route change
-  useEffect(() => { setSidebarOpen(false); setFabOpen(false); }, [pathname]);
-
-  function handleSignOut() {
-    signOut();
-    router.push('/auth/login');
+  async function handleSignOut() {
+    await signOut();
+    router.replace('/auth/login');
+    router.refresh();
   }
 
   const fabActions = [
@@ -184,7 +181,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
             <div className="p-4 border-t border-[#EBE7DF] bg-white">
               <button
-                onClick={() => { handleSignOut(); setSidebarOpen(false); }}
+                onClick={() => { void handleSignOut(); setSidebarOpen(false); }}
                 className="flex items-center gap-2 text-sm font-semibold text-red-600 hover:text-red-700 w-full px-3 py-2 rounded-xl hover:bg-red-50"
               >
                 <LogOut className="h-4 w-4" />

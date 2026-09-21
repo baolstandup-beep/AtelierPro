@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 
 // Protected application routes
@@ -224,13 +225,12 @@ export async function proxy(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (supabaseUrl && supabaseAnonKey) {
-      const { createServerClient } = require('@supabase/ssr');
       const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
         cookies: {
           getAll() {
             return request.cookies.getAll();
           },
-          setAll(cookiesToSet: any[]) {
+          setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
             cookiesToSet.forEach(({ name, value, options }) => {
               request.cookies.set(name, value);
               response.cookies.set(name, value, options);

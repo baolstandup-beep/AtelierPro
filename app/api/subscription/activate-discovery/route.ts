@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Tenter l'appel de la RPC activate_discovery_subscription
-    const { data: rpcData, error: rpcErr } = await supabase.rpc('activate_discovery_subscription', {
+    const { data: rpcData, error: rpcErr } = await admin.rpc('activate_discovery_subscription', {
       p_atelier_id: atelierId,
     });
 
@@ -155,10 +155,11 @@ export async function POST(req: NextRequest) {
       atelier_id: atelierId,
       implicit: true,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Activate Discovery Error]', err);
+    const message = err instanceof Error ? err.message : 'Erreur interne.';
     return NextResponse.json(
-      { error: 'INTERNAL_ERROR', message: err?.message || 'Erreur interne.' },
+      { error: 'INTERNAL_ERROR', message },
       { status: 500 }
     );
   }

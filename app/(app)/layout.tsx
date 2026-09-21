@@ -7,17 +7,19 @@ import { AppLayout } from '@/components/layout/app-layout';
 
 export default function AppGroupLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated, isOnboardingDone } = useAppStore();
+  const { isAuthenticated, isAuthInitialized, isOnboardingDone } = useAppStore();
 
   useEffect(() => {
+    if (!isAuthInitialized) return;
+
     if (!isAuthenticated) {
       router.replace('/auth/login');
     } else if (!isOnboardingDone) {
       router.replace('/onboarding');
     }
-  }, [isAuthenticated, isOnboardingDone, router]);
+  }, [isAuthenticated, isAuthInitialized, isOnboardingDone, router]);
 
-  if (!isAuthenticated || !isOnboardingDone) {
+  if (!isAuthInitialized || !isAuthenticated || !isOnboardingDone) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex gap-1">

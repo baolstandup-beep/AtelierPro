@@ -324,9 +324,10 @@ export default function SettingsPage() {
     success('Paramètres et fiche de l\'atelier enregistrés avec succès !');
   }
 
-  function handleLogout() {
-    signOut();
-    router.push('/auth/login');
+  async function handleLogout() {
+    await signOut();
+    router.replace('/auth/login');
+    router.refresh();
   }
 
   const filteredModels = models.filter((m) => {
@@ -759,7 +760,7 @@ export default function SettingsPage() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setGalleryCategory(tab.id as any)}
+                onClick={() => setGalleryCategory(tab.id as 'ALL' | 'FEMME' | 'HOMME' | 'ENFANT')}
                 className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
                   active
                     ? 'bg-[#0F3B32] text-white shadow-sm'
@@ -890,7 +891,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   key={cat.id}
-                  onClick={() => setNewModel({ ...newModel, category: cat.id as any })}
+                  onClick={() => setNewModel({ ...newModel, category: cat.id as 'FEMME' | 'HOMME' | 'ENFANT' })}
                   className={`py-2.5 text-xs font-bold rounded-xl border transition-all ${
                     newModel.category === cat.id
                       ? 'bg-[#0F3B32] text-white border-[#0F3B32] shadow-sm'

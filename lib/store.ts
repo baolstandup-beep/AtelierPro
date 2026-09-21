@@ -52,6 +52,7 @@ import {
 export interface AppStore {
   // Auth state
   isAuthenticated: boolean;
+  isAuthInitialized: boolean;
   currentUserId: string | null;
   currentUserName: string;
   currentUserRole: UserRole;
@@ -79,7 +80,9 @@ export interface AppStore {
   // Auth actions
   signIn: (email: string, name: string) => void;
 
-  signOut: () => void;
+  signOut: () => Promise<void>;
+  clearSession: () => void;
+  setAuthInitialized: (initialized: boolean) => void;
   completeOnboarding: (workshopData: Partial<Workshop>) => Promise<void>;
 
   // Customer actions
@@ -168,6 +171,7 @@ export const useAppStore = create<AppStore>()(
   (set, get) => ({
       // Initial state
       isAuthenticated: false,
+      isAuthInitialized: false,
       currentUserId: null,
       currentUserName: '',
       currentUserRole: 'OWNER',
@@ -212,6 +216,7 @@ export const useAppStore = create<AppStore>()(
 
           set({
             isAuthenticated: true,
+            isAuthInitialized: true,
             currentUserId: userId,
             currentUserName: fullName || data.workshop.name,
             currentUserRole: (role as UserRole) || 'OWNER',
@@ -227,13 +232,15 @@ export const useAppStore = create<AppStore>()(
             isOnboardingDone: true,
             isLoading: false,
           });
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error('[Store] Sync Supabase Error:', err);
-          const errorMessage = err?.message?.includes('ATELIER_NOT_FOUND') || err?.message?.includes('TIMEOUT')
-            ? `Impossible de charger votre atelier. ${err?.message || ''}. Veuillez rafraîchir la page.`
-            : `Erreur lors de la synchronisation : ${err?.message || 'Erreur inconnue'}`;
+          const message = err instanceof Error ? err.message : 'Erreur inconnue';
+          const errorMessage = message.includes('ATELIER_NOT_FOUND') || message.includes('TIMEOUT')
+            ? `Impossible de charger votre atelier. ${message}. Veuillez rafraîchir la page.`
+            : `Erreur lors de la synchronisation : ${message}`;
           set({
             isLoading: false,
+            isAuthInitialized: true,
             error: errorMessage,
           });
         }
@@ -253,8 +260,16 @@ export const useAppStore = create<AppStore>()(
         });
       },
 
-      signOut: () => {
-        signOutUser().catch(() => {});
+      signOut: async () => {
+        try {
+          await signOutUser();
+        } catch (error) {
+          console.error('[Store] Supabase sign-out failed:', error);
+        }
+        get().clearSession();
+      },
+
+      clearSession: () => {
         // S'assurer que le stockage local est entièrement vidé
         if (typeof window !== 'undefined') {
           window.localStorage.clear();
@@ -264,6 +279,7 @@ export const useAppStore = create<AppStore>()(
 
         set({
           isAuthenticated: false,
+          isAuthInitialized: true,
           currentUserId: null,
           currentUserName: '',
           currentUserRole: 'OWNER',
@@ -281,12 +297,9 @@ export const useAppStore = create<AppStore>()(
           isLoading: false,
           error: null,
         });
-
-        // Forcer la redirection propre et le déchargement mémoire
-        if (typeof window !== 'undefined') {
-          window.location.href = '/auth/login';
-        }
       },
+
+      setAuthInitialized: (initialized: boolean) => set({ isAuthInitialized: initialized }),
 
       completeOnboarding: async (workshopData: Partial<Workshop>) => {
         const { currentUserId, currentWorkshop } = get();
@@ -380,10 +393,11 @@ export const useAppStore = create<AppStore>()(
           return sum + Math.max(0, Number(o.total_amount || 0) - paid);
         }, 0);
 
+        const legacyCustomer = customer as Customer & { name?: string; atelier_id?: string };
         return {
           ...customer,
-          full_name: customer.full_name || (customer as any).name || 'Client',
-          workshop_id: customer.workshop_id || (customer as any).atelier_id || '',
+          full_name: customer.full_name || legacyCustomer.name || 'Client',
+          workshop_id: customer.workshop_id || legacyCustomer.atelier_id || '',
           total_orders: customerOrders.length,
           total_spent: totalSpent,
           total_paid: totalPaid,

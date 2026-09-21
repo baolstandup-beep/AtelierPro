@@ -5,10 +5,13 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 
 export function SupabaseAuthSync() {
-  const { syncWithSupabase, signOut, currentUserId } = useAppStore();
+  const { syncWithSupabase, clearSession, setAuthInitialized, currentUserId } = useAppStore();
 
   useEffect(() => {
-    if (!supabase || !isSupabaseConfigured) return;
+    if (!supabase || !isSupabaseConfigured) {
+      setAuthInitialized(true);
+      return;
+    }
 
     // 1. Initial Session Restoration
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -20,9 +23,14 @@ export function SupabaseAuthSync() {
         
         // Prevent re-syncing if it's the same user
         if (currentUserId !== session.user.id) {
-            syncWithSupabase(session.user.id, fullName);
+          syncWithSupabase(session.user.id, fullName);
         }
+      } else {
+        setAuthInitialized(true);
       }
+    }).catch((error) => {
+      console.error('[Auth] Session restoration failed:', error);
+      setAuthInitialized(true);
     });
 
     // 2. Auth State Change Listener
@@ -37,24 +45,20 @@ export function SupabaseAuthSync() {
             session.user.email?.split('@')[0];
             
           // If the user changed, we might have leftover state
-          if (currentUserId !== session.user.id && currentUserId !== null) {
-              signOut(); // Wipe everything synchronously
-              setTimeout(() => {
-                  syncWithSupabase(session.user.id, fullName);
-              }, 100);
-          } else if (currentUserId !== session.user.id) {
-              syncWithSupabase(session.user.id, fullName);
+          if (currentUserId !== session.user.id) {
+            if (currentUserId !== null) clearSession();
+            void syncWithSupabase(session.user.id, fullName);
           }
         }
       } else if (event === 'SIGNED_OUT') {
-        signOut();
+        clearSession();
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [syncWithSupabase, signOut, currentUserId]);
+  }, [syncWithSupabase, clearSession, setAuthInitialized, currentUserId]);
 
   return null;
 }

@@ -132,12 +132,14 @@ export default function ReportsPage() {
     document.body.removeChild(link);
   }
 
-  // Export Excel
-  async function handleExportExcel() {
-    const XLSX = await import('xlsx');
-    const wb = XLSX.utils.book_new();
+  function csvRow(values: Array<string | number | null | undefined>) {
+    return values
+      .map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`)
+      .join(';');
+  }
 
-    // 1. Synthèse
+  // Export comptable sans dépendance Excel vulnérable.
+  function handleExportAccounting() {
     const summaryData = [
       ['Rapport d\'activité AtelierPro', currentWorkshop?.name || 'Atelier'],
       ['Date génération', format(new Date(), 'yyyy-MM-dd HH:mm')],
@@ -153,35 +155,40 @@ export default function ReportsPage() {
       ['Total des dépenses', totalExpenses, sym],
       ['Résultat net estimé', netEstimatedResult, sym],
     ];
-    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'Synthèse');
+    const rows = [
+      ...summaryData.map(csvRow),
+      '',
+      csvRow(['PAIEMENTS']),
+      csvRow(['Date', 'Client', 'Montant', 'Devise', 'Méthode', 'Statut', 'Référence']),
+      ...payments.map((payment) => csvRow([
+        payment.payment_date ? format(parseISO(payment.payment_date), 'yyyy-MM-dd HH:mm') : '',
+        payment.customer?.full_name || 'Inconnu',
+        payment.amount,
+        sym,
+        payment.method,
+        payment.status,
+        payment.reference,
+      ])),
+      '',
+      csvRow(['DÉPENSES']),
+      csvRow(['Date', 'Catégorie', 'Description', 'Montant', 'Devise', 'Méthode']),
+      ...expenses.map((expense) => csvRow([
+        expense.expense_date ? format(parseISO(expense.expense_date), 'yyyy-MM-dd') : '',
+        expense.category,
+        expense.description,
+        expense.amount,
+        sym,
+        expense.payment_method,
+      ])),
+    ];
 
-    // 2. Écritures Comptables (Paiements)
-    const paymentsData = payments.map(p => ({
-      Date: p.payment_date ? format(parseISO(p.payment_date), 'yyyy-MM-dd HH:mm') : '',
-      Client: p.customer?.full_name || 'Inconnu',
-      Montant: p.amount,
-      Devise: sym,
-      Méthode: p.method,
-      Statut: p.status,
-      Référence: p.reference
-    }));
-    const wsPayments = XLSX.utils.json_to_sheet(paymentsData);
-    XLSX.utils.book_append_sheet(wb, wsPayments, 'Paiements');
-
-    // 3. Dépenses
-    const expensesData = expenses.map(e => ({
-      Date: e.expense_date ? format(parseISO(e.expense_date), 'yyyy-MM-dd') : '',
-      Catégorie: e.category,
-      Description: e.description,
-      Montant: e.amount,
-      Devise: sym,
-      Méthode: e.payment_method
-    }));
-    const wsExpenses = XLSX.utils.json_to_sheet(expensesData);
-    XLSX.utils.book_append_sheet(wb, wsExpenses, 'Dépenses');
-
-    XLSX.writeFile(wb, `comptabilite_atelierpro_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    const blob = new Blob([`\uFEFF${rows.join('\n')}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `comptabilite_atelierpro_${format(new Date(), 'yyyyMMdd')}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -210,10 +217,10 @@ export default function ReportsPage() {
           <Button
             variant="primary"
             leftIcon={<Download className="w-4 h-4" />}
-            onClick={handleExportExcel}
+            onClick={handleExportAccounting}
             className="w-full sm:w-auto bg-green-700 hover:bg-green-800 text-white"
           >
-            Export Comptable Excel
+            Export comptable CSV
           </Button>
         </div>
       </div>
