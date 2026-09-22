@@ -615,18 +615,6 @@ export default function OrderDetailPage() {
         order={order}
         workshop={ws}
         customer={order.customer}
-        onPaymentConfirmed={(amount, method) => {
-          createPayment({
-            order_id: order.id,
-            customer_id: order.customer_id,
-            amount: amount,
-            method: method,
-            payment_date: new Date().toISOString().split('T')[0],
-            notes: `Paiement instantané ${method} QR Code`,
-          });
-          success(`Paiement de ${formatCurrency(amount, ws?.currency_symbol)} validé par ${method} !`);
-          setQrModalOpen(false);
-        }}
       />
     </div>
   );
