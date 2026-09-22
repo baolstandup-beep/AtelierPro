@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 import { PWAInstallPrompt } from "@/components/pwa/pwa-install-prompt";
 
-const dsSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+const dsSans = localFont({
+  src: "./fonts/ds-sans.woff2",
+  weight: "400 700",
+  style: "normal",
   display: "swap",
   variable: "--font-ds-sans",
 });
