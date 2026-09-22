@@ -26,7 +26,7 @@ const GENDER_OPTIONS = [
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { getCustomer, updateCustomer, archiveCustomer, orders, payments, getMeasurementProfiles, deleteMeasurementProfile, currentWorkshop } = useAppStore();
+  const { getCustomer, updateCustomer, archiveCustomer, orders, payments, measurementTypes, getMeasurementProfiles, deleteMeasurementProfile, currentWorkshop } = useAppStore();
   const { success, error: showError } = useToast();
 
   const storeCustomer = getCustomer(id);
@@ -404,7 +404,11 @@ export default function CustomerDetailPage() {
                 <div className="grid grid-cols-2 gap-2">
                   {profile.values?.slice(0, 8).map((v) => (
                     <div key={v.id} className="flex justify-between text-xs">
-                      <span className="text-gray-500">{v.measurement_type?.name}:</span>
+                      <span className="text-gray-500">
+                        {v.measurement_type?.name
+                          || measurementTypes.find((type) => type.id === v.measurement_type_id)?.name
+                          || 'Mesure personnalisée'}:
+                      </span>
                       <span className="font-medium text-gray-900">{v.value} {v.unit}</span>
                     </div>
                   ))}

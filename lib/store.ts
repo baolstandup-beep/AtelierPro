@@ -412,13 +412,24 @@ export const useAppStore = create<AppStore>()(
 
       // ─── Measurements ────────────────────────────────────────
       createMeasurementProfile: async (input: CreateMeasurementInput) => {
-        const { currentWorkshop, currentUserId, measurementProfiles } = get();
+        const { currentWorkshop, currentUserId, measurementProfiles, measurementTypes } = get();
         if (!currentWorkshop) throw new Error('Aucun atelier sélectionné');
+
+        const enrichValues = (profileId: string) => input.values.map((value) => ({
+          id: uid(),
+          profile_id: profileId,
+          workshop_id: currentWorkshop.id,
+          measurement_type_id: value.measurement_type_id,
+          value: value.value,
+          unit: value.unit,
+          measurement_type: measurementTypes.find((type) => type.id === value.measurement_type_id),
+        }));
 
         if (isSupabaseConfigured && currentUserId && currentUserId !== null) {
           const dbProf = await dbCreateMeasurementProfile(currentWorkshop.id, input);
-          set({ measurementProfiles: [dbProf, ...measurementProfiles] });
-          return dbProf;
+          const enrichedProfile = { ...dbProf, values: enrichValues(dbProf.id) };
+          set({ measurementProfiles: [enrichedProfile, ...measurementProfiles] });
+          return enrichedProfile;
         }
 
         const localProf: MeasurementProfile = {
@@ -433,14 +444,7 @@ export const useAppStore = create<AppStore>()(
           taken_at: new Date().toISOString(),
           taken_by: currentUserId || undefined,
           created_at: new Date().toISOString(),
-          values: input.values.map((v) => ({
-            id: uid(),
-            profile_id: '',
-            workshop_id: currentWorkshop.id,
-            measurement_type_id: v.measurement_type_id,
-            value: v.value,
-            unit: v.unit,
-          })),
+          values: enrichValues(''),
         };
 
         set({ measurementProfiles: [localProf, ...measurementProfiles] });

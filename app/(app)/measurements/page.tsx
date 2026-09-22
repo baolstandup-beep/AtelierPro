@@ -85,6 +85,17 @@ export default function MeasurementsPage() {
     ? customers.find((c) => c.id === selectedProfile.customer_id)
     : null;
 
+  const measurementTypeNames = useMemo(
+    () => new Map(measurementTypes.map((type) => [type.id, type.name])),
+    [measurementTypes]
+  );
+
+  function getMeasurementName(value: NonNullable<MeasurementProfile['values']>[number]) {
+    return value.measurement_type?.name
+      || measurementTypeNames.get(value.measurement_type_id)
+      || 'Mesure personnalisée';
+  }
+
   return (
     <div className="space-y-6">
       {/* ─── Header ─── */}
@@ -241,7 +252,7 @@ export default function MeasurementsPage() {
                         className="bg-gray-50 rounded-lg p-2 border border-gray-100"
                       >
                         <span className="text-[10px] text-gray-500 block truncate">
-                          {v.measurement_type?.name || 'Mesure'}
+                          {getMeasurementName(v)}
                         </span>
                         <strong className="text-xs font-mono font-bold text-gray-900">
                           {v.value} {v.unit}
@@ -355,7 +366,7 @@ export default function MeasurementsPage() {
                     className="p-3 bg-white rounded-xl border border-gray-200 shadow-sm flex items-center justify-between"
                   >
                     <span className="text-xs text-gray-600 font-medium">
-                      {v.measurement_type?.name || 'Point de mesure'}
+                      {getMeasurementName(v)}
                     </span>
                     <strong className="text-sm font-mono font-bold text-[#0F3B32]">
                       {v.value} <span className="text-[10px] text-gray-500 font-normal">{v.unit}</span>

@@ -293,11 +293,20 @@ export async function dbFetchWorkshopFullData(workshopId: string): Promise<Synce
     items: itemsByOrder.get(ord.id) || [],
   }));
 
-  // Joindre les valeurs aux fiches de mesures
+  // Joindre chaque valeur à son type pour conserver son libellé
+  // (Épaule, Tour de cou, Poitrine...) dans toutes les vues.
+  const measurementTypeMap = new Map<string, MeasurementType>();
+  for (const type of rawTypes) {
+    measurementTypeMap.set(type.id, type);
+  }
+
   const valuesByProfile = new Map<string, MeasurementValue[]>();
   for (const val of rawValues) {
     const list = valuesByProfile.get(val.profile_id) || [];
-    list.push(val);
+    list.push({
+      ...val,
+      measurement_type: measurementTypeMap.get(val.measurement_type_id),
+    });
     valuesByProfile.set(val.profile_id, list);
   }
 
