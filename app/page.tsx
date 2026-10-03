@@ -487,6 +487,47 @@ export default function AtelierProOfficialLandingPage() {
         </div>
       </section>
 
+      {/* Partenaires : les noms et logos seront ajoutés après validation. */}
+      <section id="partenaires" aria-labelledby="partenaires-title" className="border-y border-[#E7E2D8] bg-white/55 px-4 py-14 sm:px-6 sm:py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:items-end">
+            <div>
+              <span className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#A45D08]">Notre écosystème</span>
+              <h2 id="partenaires-title" className="mt-3 font-serif-luxury text-3xl font-extrabold text-[#0F3B32] sm:text-4xl">
+                Grandissons avec nos partenaires
+              </h2>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[#4B5563] sm:text-base">
+                AtelierPro souhaite collaborer avec les acteurs qui accompagnent les ateliers de couture :
+                fournisseurs, organismes de formation et services utiles aux professionnels.
+              </p>
+            </div>
+            <div className="lg:text-right">
+              <a
+                href="mailto:support@atelierpro.app?subject=Partenariat%20AtelierPro"
+                className="inline-flex items-center gap-2 rounded-full bg-[#0F3B32] px-6 py-3 text-sm font-bold text-white shadow-[0_8px_24px_rgba(15,59,50,0.16)] transition-colors hover:bg-[#185c4e]"
+              >
+                Devenir partenaire <ArrowUpRight className="h-4 w-4 text-[#F3B658]" aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            {[
+              { icon: Layers, title: 'Fournisseurs', description: 'Tissus, mercerie et équipements pour les ateliers.' },
+              { icon: Award, title: 'Formation', description: 'Écoles et organismes qui transmettent les métiers de la couture.' },
+              { icon: Building2, title: 'Réseaux professionnels', description: 'Structures qui soutiennent les entrepreneurs de la mode.' },
+            ].map(({ icon: Icon, title, description }) => (
+              <div key={title} className="rounded-3xl border border-[#E7E2D8] bg-[#FBF9F5] p-6 shadow-[0_8px_28px_rgba(15,59,50,0.04)]">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EBF7F1] text-[#0F3B32]">
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <h3 className="mt-5 font-serif-luxury text-lg font-bold text-[#0F3B32]">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#4B5563]">{description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
 
 
       {/* ─── 4. INTERACTIVE LIVE FEATURE SHOWCASE (Tabs + Animated Mockup) ─── */}
@@ -1626,6 +1667,11 @@ export default function AtelierProOfficialLandingPage() {
               <li>
                 <a href="#temoignages" className="hover:text-[#0F3B32]">
                   Avis des Ateliers
+                </a>
+              </li>
+              <li>
+                <a href="#partenaires" className="hover:text-[#0F3B32]">
+                  Partenaires
                 </a>
               </li>
               <li>

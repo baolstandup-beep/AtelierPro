@@ -73,21 +73,6 @@
     font-family: var(--font-ds-sans);
   }
 
-  /* Animated Gradient Text */
-  .animated-gradient-text {
-    background: linear-gradient(90deg, #2E9D74 0%, #4ADE80 25%, #D97706 50%, #2E9D74 75%, #4ADE80 100%);
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: gradientFlow 4s linear infinite;
-  }
-
-  .gold-gradient-text {
-    background: linear-gradient(135deg, #F3E5AB 0%, #D4AF37 50%, #AA7C11 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
   .gold-gradient-bg {
     background: linear-gradient(135deg, #F3E5AB 0%, #D4AF37 50%, #B8860B 100%);
   }
