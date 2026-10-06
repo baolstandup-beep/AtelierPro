@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
 import { computePinHash, verifyPin, generateUserSalt, CURRENT_CREDENTIAL_VERSION } from '@/lib/crypto-pin';
-import { checkRateLimit, getClientIp, resetRateLimit } from '@/lib/rate-limiter';
+import { checkRateLimitShared, getClientIp, resetRateLimitShared } from '@/lib/rate-limiter';
 import { recordAuditLog } from '@/lib/audit';
 import { isPlatformAdmin } from '@/lib/admin';
 
@@ -46,7 +46,7 @@ export async function loginWithPin(phone: string, pin: string) {
     // A. Limitation du taux de requêtes par IP (Anti Brute Force)
     const headerList = await headers();
     const ip = getClientIp(headerList);
-    const ipRateLimit = checkRateLimit(ip, 'login_ip', 25, 15 * 60 * 1000);
+    const ipRateLimit = await checkRateLimitShared(ip, 'login_ip', 25, 15 * 60 * 1000);
 
     if (!ipRateLimit.isAllowed) {
       return {
@@ -207,7 +207,7 @@ export async function loginWithPin(phone: string, pin: string) {
       return { error: 'Session non autorisée.' };
     }
 
-    resetRateLimit(ip, 'login_ip');
+    await resetRateLimitShared(ip, 'login_ip');
 
     await recordAuditLog({
       actorUserId: user.id,
@@ -253,7 +253,7 @@ export async function registerWithPin(phone: string, pin: string, fullName: stri
     // Rate limiting des créations de compte
     const headerList = await headers();
     const ip = getClientIp(headerList);
-    const regRateLimit = checkRateLimit(ip, 'register_ip', 15, 60 * 60 * 1000);
+    const regRateLimit = await checkRateLimitShared(ip, 'register_ip', 15, 60 * 60 * 1000);
 
     if (!regRateLimit.isAllowed) {
       return { error: 'Trop d\'inscriptions initiées depuis votre connexion. Veuillez patienter 1 heure.' };

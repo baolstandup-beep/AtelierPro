@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
+import { checkRateLimitShared, getClientIp } from '@/lib/rate-limiter';
 
 // Protected application routes
 const PROTECTED_PREFIXES = [
@@ -61,14 +61,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(pricingUrl, { status: 301 });
   }
 
-  // ─── 1. Anti-Brute-Force Rate Limiting (Max 5 attempts per IP on POST requests) ───
+  // ─── 1. Anti-Brute-Force Rate Limiting (POST sur les routes sensibles, par IP) ───
   const isSensitiveAuthRoute =
     request.method === 'POST' &&
     SENSITIVE_AUTH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
   if (isSensitiveAuthRoute) {
-    // Check rate limit: 20 attempts per IP with a 15-minute window for test comfort
-    const rateLimit = checkRateLimit(ip, 'auth', 20, 15 * 60 * 1000);
+    // 20 tentatives par IP sur une fenêtre de 15 minutes, partagées entre instances
+    const rateLimit = await checkRateLimitShared(ip, 'auth', 20, 15 * 60 * 1000);
 
     if (!rateLimit.isAllowed) {
       const isApi = pathname.startsWith('/api/');
@@ -167,9 +167,9 @@ export async function proxy(request: NextRequest) {
           </head>
           <body>
             <div class="card">
-              <div class="badge">Sécurité Active • 5 Tentatives Max</div>
+              <div class="badge">Sécurité Active • ${rateLimit.limit} Tentatives Max</div>
               <h1>Trop de tentatives (Force Brute Détectée)</h1>
-              <p>Votre adresse IP a atteint la limite de <strong>5 tentatives</strong> autorisées. Pour des raisons de sécurité, les accès ont été temporairement suspendus pour <strong>15 minutes</strong>.</p>
+              <p>Votre adresse IP a atteint la limite de <strong>${rateLimit.limit} tentatives</strong> autorisées. Pour des raisons de sécurité, les accès ont été temporairement suspendus pour <strong>${Math.ceil(rateLimit.retryAfterSeconds / 60)} minutes</strong>.</p>
               <a href="/" class="btn">Retour à l'accueil</a>
             </div>
           </body>
@@ -193,28 +193,10 @@ export async function proxy(request: NextRequest) {
   // Initialize response
   const response = NextResponse.next();
 
-  // ─── 2. Security Headers (Defense in Depth) ───
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-
-  // Strict Content-Security-Policy
-  const cspDirectives = [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com data:",
-    "img-src 'self' data: blob: https:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://vercel.live",
-    "frame-src 'none'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "upgrade-insecure-requests",
-  ];
-  response.headers.set('Content-Security-Policy', cspDirectives.join('; '));
+  // ─── 2. Security Headers ───
+  // Les en-têtes de sécurité (dont la CSP) sont définis à un seul endroit :
+  // headers() dans next.config.ts. Ne pas les redéfinir ici, sinon le
+  // navigateur applique deux CSP contradictoires.
 
   // ─── 3. Route Protection Check ───
   const isProtectedRoute = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));

@@ -259,7 +259,7 @@ export default function AtelierProOfficialLandingPage() {
           {/* Left Column: 58% (7 cols in 12-col grid) */}
           <div className="lg:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-left z-10 pt-4 sm:pt-8 pb-4 lg:pb-16">
 
-            {/* Badge N°1 — Premium Pill */}
+            {/* Badge — Premium Pill */}
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -273,7 +273,7 @@ export default function AtelierProOfficialLandingPage() {
                 <span className="text-[#D97706] text-sm">★</span>
                 <span className="text-[#D97706] text-sm">★</span>
               </span>
-              <span className="text-[#0F3B32]/80 font-semibold">La plateforme <strong className="text-[#0F3B32]">N°1</strong> de gestion d&apos;ateliers de couture en Afrique</span>
+              <span className="text-[#0F3B32]/80 font-semibold">La plateforme de gestion d&apos;ateliers de couture <strong className="text-[#0F3B32]">pensée pour l&apos;Afrique</strong></span>
             </motion.div>
 
             {/* 2. Titre */}

@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 import { PWAInstallPrompt } from "@/components/pwa/pwa-install-prompt";
+import { SITE_URL } from "@/lib/site";
 
 const dsSans = localFont({
   src: "./fonts/ds-sans.woff2",
@@ -21,14 +22,14 @@ export const metadata: Metadata = {
   description: "Gérez vos clients, commandes, mesures, paiements et production depuis une seule plateforme. Conçu pour les tailleurs et ateliers de couture en Afrique.",
   keywords: ["atelier couture", "gestion tailleur", "CRM couture", "Sénégal", "FCFA", "haute confection", "PWA", "Wave", "Orange Money"],
   manifest: "/manifest.json",
-  metadataBase: new URL("https://atelier-pro-rose.vercel.app"),
+  metadataBase: new URL(SITE_URL),
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
     locale: "fr_SN",
-    url: "https://atelier-pro-rose.vercel.app",
+    url: SITE_URL,
     siteName: "AtelierPro",
     title: "AtelierPro — Gérez votre atelier de couture avec précision",
     description: "La plateforme tout-en-un pour tailleurs et ateliers de couture : clients, mesures, commandes, stocks et paiements Wave/OM.",
@@ -93,7 +94,7 @@ export default function RootLayout({
               "applicationCategory": "BusinessApplication",
               "operatingSystem": "Web, iOS, Android",
               "description": "Plateforme SaaS de gestion d'ateliers de couture : clients, mesures, commandes et paiements.",
-              "url": "https://atelier-pro-rose.vercel.app",
+              "url": SITE_URL,
               "offers": {
                 "@type": "Offer",
                 "price": "0",

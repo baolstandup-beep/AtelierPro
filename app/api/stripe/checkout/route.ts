@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripeServer, SUBSCRIPTION_PLANS } from '@/lib/stripe';
 import { z } from 'zod';
+import { getAdminSupabase, getAuthenticatedUser, getUserAtelierId } from '@/lib/server-auth';
 
 // ─── Strict Server-Side Validation Schemas ───
 const SubscriptionCheckoutSchema = z.object({
@@ -48,6 +49,16 @@ const CheckoutPayloadSchema = z.discriminatedUnion('type', [
 
 export async function POST(req: NextRequest) {
   try {
+    // ─── Authentification : l'atelier est résolu depuis la session, jamais depuis le payload ───
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Session invalide ou expirée.' }, { status: 401 });
+    }
+    const atelierId = await getUserAtelierId(user.id);
+    if (!atelierId) {
+      return NextResponse.json({ error: 'Aucun atelier associé à cet utilisateur.' }, { status: 404 });
+    }
+
     let rawBody;
     try {
       rawBody = await req.json();
@@ -67,16 +78,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const payload = validationResult.data;
+    const payload = { ...validationResult.data, workshopId: atelierId };
+
+    if (payload.type === 'order_payment') {
+      const admin = getAdminSupabase();
+      const { data: order } = admin
+        ? await admin
+            .from('orders')
+            .select('id, total_amount, paid_amount')
+            .eq('id', payload.orderId)
+            .eq('atelier_id', atelierId)
+            .maybeSingle()
+        : { data: null };
+      if (!order) {
+        return NextResponse.json({ error: 'Commande introuvable.' }, { status: 404 });
+      }
+      const balance = Math.max(0, Number(order.total_amount || 0) - Number(order.paid_amount || 0));
+      if (payload.amount > balance) {
+        return NextResponse.json({ error: 'Le montant dépasse le solde de la commande.' }, { status: 400 });
+      }
+    }
 
     let stripe;
     try {
       stripe = getStripeServer();
-    } catch (err: any) {
+    } catch (err) {
       return NextResponse.json(
         {
           error:
-            err?.message ||
+            (err instanceof Error && err.message) ||
             'Stripe n\'est pas configuré. Veuillez définir STRIPE_SECRET_KEY dans vos variables d\'environnement (.env.local).',
           code: 'STRIPE_NOT_CONFIGURED',
         },
