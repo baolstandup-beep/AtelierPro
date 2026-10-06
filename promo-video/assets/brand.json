@@ -1,0 +1,128 @@
+{
+ "url": "http://localhost:3123",
+ "title": "AtelierPro — Gestion d'Atelier de Couture & Haute Confection",
+ "description": "Gérez vos clients, commandes, mesures, paiements et production depuis une seule plateforme. Conçu pour les tailleurs et ateliers de couture en Afrique.",
+ "themeColor": [
+  "#0F3B32"
+ ],
+ "text_colors": [
+  [
+   "#0f3b32",
+   54
+  ],
+  [
+   "#111827",
+   54
+  ],
+  [
+   "#4b5563",
+   53
+  ],
+  [
+   "#8a7a65",
+   31
+  ],
+  [
+   "#ffffff",
+   29
+  ],
+  [
+   "#d97706",
+   18
+  ],
+  [
+   "#cad5e2",
+   8
+  ],
+  [
+   "#90a1b9",
+   6
+  ],
+  [
+   "#16a34a",
+   5
+  ],
+  [
+   "#e7000b",
+   4
+  ]
+ ],
+ "background_colors": [
+  [
+   "#ffffff",
+   266
+  ],
+  [
+   "#fbf9f5",
+   54
+  ],
+  [
+   "#0f3b32",
+   29
+  ],
+  [
+   "#ebf7f1",
+   6
+  ],
+  [
+   "#0d1117",
+   4
+  ],
+  [
+   "#fef3c7",
+   2
+  ],
+  [
+   "#0a0a0a",
+   2
+  ],
+  [
+   "#25d366",
+   2
+  ],
+  [
+   "#d97706",
+   2
+  ],
+  [
+   "#ebe7df",
+   1
+  ]
+ ],
+ "font_families": [
+  [
+   "dsSans",
+   284
+  ]
+ ],
+ "font_weights": [
+  [
+   "dsSans 700",
+   115
+  ],
+  [
+   "dsSans 400",
+   75
+  ],
+  [
+   "dsSans 600",
+   70
+  ],
+  [
+   "dsSans 500",
+   23
+  ],
+  [
+   "dsSans 900",
+   1
+  ]
+ ],
+ "css_vars": {},
+ "wordmark": {
+  "text": "AtelierPro\nHAUTE CONFECTION",
+  "font": "dsSans, \"dsSans Fallback\"",
+  "weight": "400",
+  "tracking": "normal",
+  "html": "<div class=\"w-9 h-9 rounded-full bg-white/60 backdrop-blur-md flex items-center justify-center border border-white/60 shadow-sm\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-scissors w-4 h-4 text-[#D97706]\" aria-hidden=\"true\"><circle cx=\"6\" cy"
+ }
+}
