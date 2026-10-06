@@ -1,4 +1,4 @@
-import { dbCreateOrder } from './lib/supabase-api';
+import { dbCreateOrder } from '../../lib/supabase-api';
 
 async function test() {
   try {

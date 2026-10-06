@@ -1,5 +1,10 @@
 // AtelierPro Rate Limiter — Anti-Brute Force Protection
 // Limits sensitive endpoints to a maximum of 5 attempts per IP address.
+//
+// Sur Vercel chaque instance serverless a sa propre mémoire : utilisez
+// checkRateLimitShared / resetRateLimitShared, qui s'appuient sur la RPC
+// Supabase `check_rate_limit` (migration 20261006_shared_rate_limits.sql)
+// et retombent sur le compteur en mémoire si elle est indisponible.
 
 interface RateLimitRecord {
   count: number;
@@ -130,6 +135,87 @@ export function checkRateLimit(
     retryAfterSeconds: 0,
     totalAttempts: record.count,
   };
+}
+
+export type RateLimitResult = ReturnType<typeof checkRateLimit>;
+
+function getSharedStoreConfig() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return url && key ? { url, key } : null;
+}
+
+/**
+ * Rate limit partagé entre toutes les instances (Supabase), avec repli
+ * sur le compteur en mémoire si la RPC n'est pas disponible.
+ */
+export async function checkRateLimitShared(
+  ip: string,
+  prefix = 'auth',
+  maxAttempts = RATE_LIMIT_CONFIG.MAX_ATTEMPTS,
+  windowMs = RATE_LIMIT_CONFIG.WINDOW_MS
+): Promise<RateLimitResult> {
+  const config = getSharedStoreConfig();
+  if (!config || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+    return checkRateLimit(ip, prefix, maxAttempts, windowMs);
+  }
+
+  try {
+    const res = await fetch(`${config.url}/rest/v1/rpc/check_rate_limit`, {
+      method: 'POST',
+      headers: {
+        apikey: config.key,
+        Authorization: `Bearer ${config.key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        p_key: `${prefix}:${ip}`,
+        p_max: maxAttempts,
+        p_window_seconds: Math.ceil(windowMs / 1000),
+        p_block_seconds: Math.ceil(RATE_LIMIT_CONFIG.BLOCK_DURATION_MS / 1000),
+      }),
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`RPC check_rate_limit: HTTP ${res.status}`);
+
+    const rows = await res.json();
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    if (!row) throw new Error('RPC check_rate_limit: réponse vide');
+
+    return {
+      isAllowed: Boolean(row.allowed),
+      limit: maxAttempts,
+      remaining: row.allowed ? Math.max(0, maxAttempts - row.attempts) : 0,
+      resetTime: new Date(row.reset_at).getTime(),
+      retryAfterSeconds: row.retry_after_seconds,
+      totalAttempts: row.attempts,
+    };
+  } catch (err) {
+    console.warn('[RateLimit] Store partagé indisponible, repli en mémoire :', err);
+    return checkRateLimit(ip, prefix, maxAttempts, windowMs);
+  }
+}
+
+/**
+ * Réinitialise le compteur partagé (et le compteur en mémoire).
+ */
+export async function resetRateLimitShared(ip: string, prefix = 'auth'): Promise<void> {
+  resetRateLimit(ip, prefix);
+  const config = getSharedStoreConfig();
+  if (!config) return;
+
+  try {
+    await fetch(
+      `${config.url}/rest/v1/rate_limits?key=eq.${encodeURIComponent(`${prefix}:${ip}`)}`,
+      {
+        method: 'DELETE',
+        headers: { apikey: config.key, Authorization: `Bearer ${config.key}` },
+        cache: 'no-store',
+      }
+    );
+  } catch (err) {
+    console.warn('[RateLimit] Réinitialisation partagée impossible :', err);
+  }
 }
 
 /**
