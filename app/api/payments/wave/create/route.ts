@@ -26,13 +26,14 @@ export async function POST(request: Request) {
         },
       },
     });
-    const { data: { session } } = await supabase.auth.getSession();
+    // getUser() valide le JWT auprès de Supabase (getSession() lit le cookie sans le vérifier)
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userId = user.id;
     const body = await request.json();
     const { workshopId, planId } = body;
 
