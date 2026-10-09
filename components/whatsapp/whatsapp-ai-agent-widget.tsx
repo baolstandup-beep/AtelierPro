@@ -157,12 +157,12 @@ export function WhatsAppAiAgentWidget() {
   return (
     <>
       {/* ─── 1. FLOATING AGENT IA WHATSAPP TRIGGER BUTTON ─── */}
-      <div className="fixed bottom-6 right-6 z-40">
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40">
         <motion.button
           whileHover={{ scale: 1.06, y: -2 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setIsOpen(!isOpen)}
-          className="group relative flex items-center gap-3 px-4 py-3 rounded-full bg-[#0F3B32] hover:bg-[#14532D] text-white shadow-[0_12px_35px_rgba(15,59,50,0.35),0_0_20px_rgba(37,211,102,0.25)] border-2 border-[#25D366]/60 transition-all cursor-pointer"
+          className="group relative flex items-center gap-3 p-2 sm:px-4 sm:py-3 rounded-full bg-[#0F3B32] hover:bg-[#14532D] text-white shadow-[0_12px_35px_rgba(15,59,50,0.35),0_0_20px_rgba(37,211,102,0.25)] border-2 border-[#25D366]/60 transition-all cursor-pointer"
           aria-label="Ouvrir l'Agent IA AtelierPro WhatsApp"
         >
           {/* Animated WhatsApp / AI Glow */}
@@ -174,7 +174,7 @@ export function WhatsAppAiAgentWidget() {
             <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-400 border-2 border-[#0F3B32] rounded-full animate-pulse" />
           </div>
 
-          <div className="flex flex-col text-left pr-1">
+          <div className="hidden sm:flex flex-col text-left pr-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-black tracking-tight text-white font-serif-luxury">
                 Agent IA Atelier<span className="text-[#D97706]">Pro</span>

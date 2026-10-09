@@ -111,7 +111,7 @@ export function AppDownloadButtons({
   // If already running in standalone mode or just installed
   if (isStandalone || isInstalled) {
     return (
-      <div className={`flex flex-wrap items-center justify-center gap-3.5 ${className}`}>
+      <div className={`flex flex-wrap items-center justify-center gap-3.5 ${className}`.trim()}>
         <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs font-semibold backdrop-blur-sm">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>AtelierPro est installé en mode application</span>
@@ -128,8 +128,8 @@ export function AppDownloadButtons({
   }
 
   return (
-    <>
-      <div className={`flex flex-wrap items-center justify-center gap-3.5 ${className}`}>
+    <div className="flex w-full flex-col items-center">
+      <div className={`flex flex-wrap items-center justify-center gap-3.5 ${className}`.trim()}>
         {/* 1. Installer sur iPhone (iOS PWA) */}
         <motion.div
           initial={{ opacity: 0, y: 15 }}
@@ -216,7 +216,7 @@ export function AppDownloadButtons({
       </div>
 
       {/* Explication sous les boutons */}
-      <p className="text-[11px] text-[#6B7280] text-center mt-2 max-w-md mx-auto">
+      <p className="text-[11px] text-white/70 text-center mt-3 max-w-md mx-auto">
         AtelierPro s&apos;installe directement depuis votre navigateur et s&apos;ouvre ensuite comme une application.
       </p>
 
@@ -341,6 +341,6 @@ export function AppDownloadButtons({
           </div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }
