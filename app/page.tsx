@@ -101,12 +101,12 @@ export default function AtelierProOfficialLandingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#FBF9F5] via-[#F4F1EA] to-[#EAE5D9] text-[#111827] font-sans antialiased selection:bg-[#0F3B32] selection:text-[#FBF9F5] overflow-x-hidden">
       {/* ─── 1. TOP FLOATING PILL NAVBAR (Haute Confection Luxury Style) ─── */}
-      <div className="sticky top-4 z-50 px-4 sm:px-6 max-w-5xl mx-auto">
+      <div className="sticky top-4 z-50 px-4 sm:px-6 max-w-6xl mx-auto">
         <motion.header
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5, ease: 'easeOut' }}
-          className="rounded-full border border-white/60 bg-white/40 backdrop-blur-xl px-5 sm:px-7 py-2.5 sm:py-3 shadow-[0_8px_30px_rgba(15,59,50,0.06)] flex items-center justify-between transition-all"
+          className="rounded-full border border-white/60 bg-white/40 backdrop-blur-xl pl-3 pr-3 sm:px-7 py-2 sm:py-3 gap-3 lg:gap-6 shadow-[0_8px_30px_rgba(15,59,50,0.06)] flex items-center justify-between transition-all"
         >
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group shrink-0">
@@ -127,7 +127,7 @@ export default function AtelierProOfficialLandingPage() {
           </Link>
 
           {/* Desktop Navigation Links (Clean, Marketing-Focused & Well-Spaced) */}
-          <nav className="hidden md:flex items-center gap-6 lg:gap-8 text-xs sm:text-sm font-semibold text-[#4B5563]">
+          <nav className="hidden md:flex items-center gap-5 lg:gap-8 text-xs sm:text-sm font-semibold text-[#4B5563] whitespace-nowrap">
             <a
               href="#fonctionnalites"
               className="hover:text-[#0F3B32] transition-colors py-1 relative group"
@@ -160,7 +160,7 @@ export default function AtelierProOfficialLandingPage() {
           </nav>
 
           {/* Header Actions */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {isAuthenticated ? (
               <Link
                 href={dashboardHref}
@@ -171,7 +171,7 @@ export default function AtelierProOfficialLandingPage() {
               </Link>
             ) : (
               <div className="flex items-center gap-2">
-                <Link href="/ateliers" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold text-[#0F3B32] bg-white/60 hover:bg-white/80 border border-white/60 backdrop-blur-md transition-colors mr-1">
+                <Link href="/ateliers" className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap text-[#0F3B32] bg-white/60 hover:bg-white/80 border border-white/60 backdrop-blur-md transition-colors mr-1">
                   <Scissors className="w-3.5 h-3.5 text-[#D97706]" />
                   <span>Trouver un Atelier</span>
                 </Link>
@@ -184,10 +184,10 @@ export default function AtelierProOfficialLandingPage() {
                 <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
                   <Link
                     href="/auth/register"
-                    className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full bg-gradient-to-r from-[#0F3B32] to-[#185c4e] hover:from-[#185c4e] hover:to-[#0F3B32] text-white font-bold text-xs uppercase tracking-wider shadow-[0_4px_16px_rgba(15,59,50,0.22)] border border-[#0F3B32]/20"
+                    className="inline-flex items-center gap-1.5 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full whitespace-nowrap bg-gradient-to-r from-[#0F3B32] to-[#185c4e] hover:from-[#185c4e] hover:to-[#0F3B32] text-white font-bold text-[11px] sm:text-xs uppercase tracking-wider shadow-[0_4px_16px_rgba(15,59,50,0.22)] border border-[#0F3B32]/20"
                   >
                     <span>Essai Gratuit</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#D97706]" />
+                    <ArrowRight className="hidden sm:block w-3.5 h-3.5 text-[#D97706]" />
                   </Link>
                 </motion.div>
               </div>
@@ -196,7 +196,7 @@ export default function AtelierProOfficialLandingPage() {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-full text-[#0F3B32] hover:bg-[#EBF7F1] transition-colors"
+              className="md:hidden p-1.5 rounded-full text-[#0F3B32] hover:bg-[#EBF7F1] transition-colors"
               aria-label="Menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -236,7 +236,18 @@ export default function AtelierProOfficialLandingPage() {
                   News
                 </span>
               </a>
+              <Link href="/ateliers" onClick={() => setMobileMenuOpen(false)} className="py-1.5 hover:text-[#0F3B32] flex items-center gap-2">
+                <Scissors className="w-3.5 h-3.5 text-[#D97706]" />
+                Trouver un Atelier
+              </Link>
               <hr className="border-[#E7E2D8] my-1" />
+              <Link
+                href="/auth/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full text-center py-3 rounded-full border border-[#0F3B32]/20 text-[#0F3B32] font-bold text-xs uppercase tracking-wider transition-all"
+              >
+                Connexion
+              </Link>
               <Link
                 href="/auth/register"
                 onClick={() => setMobileMenuOpen(false)}
@@ -346,7 +357,7 @@ export default function AtelierProOfficialLandingPage() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.55 }}
-              className="flex flex-row items-center justify-center lg:justify-start gap-3 w-full"
+              className="flex flex-wrap items-center justify-center lg:justify-start gap-3 w-full"
             >
               {/* iOS Badge */}
               <motion.a
@@ -362,7 +373,7 @@ export default function AtelierProOfficialLandingPage() {
                 </svg>
                 <div className="text-left leading-none">
                   <p className="text-[10px] text-white/50 font-medium mb-0.5">Application Web</p>
-                  <p className="text-[15px] font-bold tracking-tight">Installer sur iPhone</p>
+                  <p className="text-[15px] font-bold tracking-tight whitespace-nowrap">Installer sur iPhone</p>
                 </div>
               </motion.a>
 
@@ -401,7 +412,7 @@ export default function AtelierProOfficialLandingPage() {
                 </svg>
                 <div className="text-left leading-none">
                   <p className="text-[10px] text-white/50 font-medium mb-0.5">Application Web</p>
-                  <p className="text-[15px] font-bold tracking-tight">Installer sur Android</p>
+                  <p className="text-[15px] font-bold tracking-tight whitespace-nowrap">Installer sur Android</p>
                 </div>
               </motion.a>
             </motion.div>
@@ -440,7 +451,7 @@ export default function AtelierProOfficialLandingPage() {
               initial={{ opacity: 1, y: 0, scale: 1 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.7, delay: 0.5, ease: 'easeOut' }}
-              className="absolute top-16 -left-4 xl:-left-8 z-20 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-[#EBE7DF] shadow-[0_12px_28px_rgba(15,59,50,0.12)] flex items-center gap-2.5 animate-float-1"
+              className="absolute top-16 -left-4 xl:-left-8 z-20 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-[#EBE7DF] shadow-[0_12px_28px_rgba(15,59,50,0.12)] flex items-center gap-2.5 animate-badge-bob"
             >
               <div className="w-7 h-7 rounded-xl bg-[#0F3B32] text-white flex items-center justify-center shrink-0">
                 <Ruler className="w-3.5 h-3.5 text-[#D97706]" />
@@ -456,7 +467,7 @@ export default function AtelierProOfficialLandingPage() {
               initial={{ opacity: 1, y: 0, scale: 1 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.7, delay: 0.65, ease: 'easeOut' }}
-              className="absolute bottom-24 -right-2 xl:-right-6 z-20 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-[#EBE7DF] shadow-[0_12px_28px_rgba(15,59,50,0.12)] flex items-center gap-2.5 animate-float-2"
+              className="absolute bottom-24 -right-2 xl:-right-6 z-20 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-[#EBE7DF] shadow-[0_12px_28px_rgba(15,59,50,0.12)] flex items-center gap-2.5 animate-badge-bob-delayed"
             >
               <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#1BA8E9] to-[#0F3B32] text-white flex items-center justify-center shrink-0">
                 <CreditCard className="w-3.5 h-3.5 text-white" />
@@ -544,7 +555,7 @@ export default function AtelierProOfficialLandingPage() {
           </p>
 
           {/* Interactive Feature Switcher Tabs */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2 p-1.5 rounded-full bg-white border border-[#EBE7DF] shadow-sm max-w-2xl mx-auto">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2 p-1.5 rounded-3xl sm:rounded-full bg-white border border-[#EBE7DF] shadow-sm max-w-2xl mx-auto">
             {[
               { id: 'mesures', label: 'Carnet & Gabarits', icon: Ruler },
               { id: 'kanban', label: 'Suivi Couturiers', icon: Kanban },
@@ -670,7 +681,7 @@ export default function AtelierProOfficialLandingPage() {
               <div className="mt-2">
                 <Link
                   href="/auth/login"
-                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-[#0F3B32] hover:bg-[#185c4e] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-center rounded-xl bg-[#0F3B32] hover:bg-[#185c4e] text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all"
                 >
                   Essayer cette interface gratuitement <ArrowRight className="w-4 h-4 text-[#D97706]" />
                 </Link>

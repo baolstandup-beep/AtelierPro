@@ -179,6 +179,31 @@
     }
   }
 
+  /* Badges (cartes lisibles) : léger flottement vertical, sans flou ni opacité */
+  @keyframes badgeBob {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+
+  .animate-badge-bob {
+    animation: badgeBob 6s ease-in-out infinite;
+  }
+
+  .animate-badge-bob-delayed {
+    animation: badgeBob 7s ease-in-out 1.5s infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-badge-bob,
+    .animate-badge-bob-delayed {
+      animation: none;
+    }
+  }
+
   .animate-float-1 {
     animation: floatSlow1 14s ease-in-out infinite, pulseGlow 8s ease-in-out infinite;
   }

@@ -8,15 +8,16 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
-// Vérification signature Orange Money (HMAC-SHA256 si secret configuré)
+// Vérification signature Orange Money (HMAC-SHA256, secret obligatoire)
 function verifyOrangeMoneySignature(
   rawBody: string,
   signatureHeader: string | null,
   secret: string | undefined
 ): boolean {
   if (!secret) {
-    console.warn('[OM_WEBHOOK] ORANGE_WEBHOOK_SECRET non configuré — signature non vérifiée');
-    return true;
+    // Fail-closed : sans secret, impossible d'authentifier l'appelant.
+    console.error('[OM_WEBHOOK] ORANGE_WEBHOOK_SECRET non configuré — webhook rejeté');
+    return false;
   }
   if (!signatureHeader) return false;
 

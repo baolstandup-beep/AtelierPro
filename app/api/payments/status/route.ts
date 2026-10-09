@@ -32,9 +32,10 @@ export async function GET(request: Request) {
         },
       },
     });
-    const { data: { session } } = await supabase.auth.getSession();
+    // getUser() valide le JWT auprès de Supabase (getSession() lit le cookie sans le vérifier)
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
