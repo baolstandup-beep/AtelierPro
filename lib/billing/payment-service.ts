@@ -6,6 +6,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Plan, SaaSProvider } from '@/lib/types';
 import { createBictorysCharge } from '@/lib/billing/bictorys';
+import { createChariowCheckout } from '@/lib/billing/chariow';
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -165,6 +166,114 @@ export async function initRenewalPayment(
     console.error('[BICTORYS_RENEWAL_ERROR]', error);
     return { success: false, error: error instanceof Error ? error.message : 'Impossible de contacter Bictorys.' };
   }
+}
+
+// ─── Chariow ────────────────────────────────────────────────────────────────
+export interface ChariowBuyer {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  ip?: string;
+}
+
+async function startChariowPayment(
+  paymentId: string,
+  plan: Plan,
+  reference: string,
+  buyer: ChariowBuyer,
+  redirectUrl: string
+): Promise<PaymentInitResult> {
+  const sb = getAdminClient();
+  if (!plan.chariow_product_id) {
+    await sb.from('subscription_payments').update({ status: 'failed' }).eq('id', paymentId);
+    return { success: false, error: 'Ce plan n’est pas encore relié à un produit Chariow.' };
+  }
+  try {
+    const checkout = await createChariowCheckout({
+      productId: plan.chariow_product_id,
+      email: buyer.email,
+      firstName: buyer.firstName,
+      lastName: buyer.lastName,
+      phone: buyer.phone,
+      reference,
+      redirectUrl,
+      customerIp: buyer.ip,
+    });
+    await sb.from('subscription_payments').update({
+      provider_transaction_id: checkout.saleId,
+      status: 'processing',
+    }).eq('id', paymentId);
+    return {
+      success: true,
+      checkout_url: checkout.checkoutUrl,
+      payment_reference: reference,
+      provider_session_id: checkout.saleId ?? undefined,
+    };
+  } catch (error) {
+    await sb.from('subscription_payments').update({ status: 'failed' }).eq('id', paymentId);
+    console.error('[CHARIOW_INIT_ERROR]', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Impossible de contacter Chariow.' };
+  }
+}
+
+export async function initChariowSignupPayment(
+  pendingSignupId: string,
+  planId: string,
+  buyer: ChariowBuyer
+): Promise<PaymentInitResult> {
+  const plan = await getPlanFromDB(planId);
+  if (!plan) return { success: false, error: 'Plan invalide ou inactif.' };
+  const reference = `CHW-SIGNUP-${pendingSignupId}-${Date.now()}`;
+  const sb = getAdminClient();
+  const { data: row, error } = await sb.from('subscription_payments').insert({
+    pending_signup_id: pendingSignupId,
+    plan_id: planId,
+    provider: 'CHARIOW',
+    provider_reference: reference,
+    amount: plan.price,
+    currency: 'XOF',
+    status: 'pending',
+  }).select('id').single();
+  if (error || !row) {
+    console.error('[PAYMENT_INSERT_ERROR]', error);
+    return { success: false, error: 'Erreur lors de l’enregistrement du paiement.' };
+  }
+  await sb.from('pending_signups').update({
+    payment_reference: reference,
+    status: 'payment_processing',
+  }).eq('id', pendingSignupId);
+  return startChariowPayment(
+    row.id, plan, reference, buyer,
+    `${APP_URL}/signup/complete?ref=${encodeURIComponent(reference)}&status=success`
+  );
+}
+
+export async function initChariowRenewalPayment(
+  atelierId: string,
+  subscriptionId: string,
+  planId: string,
+  buyer: ChariowBuyer
+): Promise<PaymentInitResult> {
+  const plan = await getPlanFromDB(planId);
+  if (!plan) return { success: false, error: 'Plan invalide ou inactif.' };
+  const reference = `CHW-RENEW-${atelierId}-${Date.now()}`;
+  const sb = getAdminClient();
+  const { data: row, error } = await sb.from('subscription_payments').insert({
+    atelier_id: atelierId,
+    subscription_id: subscriptionId,
+    plan_id: planId,
+    provider: 'CHARIOW',
+    provider_reference: reference,
+    amount: plan.price,
+    currency: 'XOF',
+    status: 'pending',
+  }).select('id').single();
+  if (error || !row) return { success: false, error: 'Erreur lors de la création du paiement.' };
+  return startChariowPayment(
+    row.id, plan, reference, buyer,
+    `${APP_URL}/abonnement?payment=success&ref=${encodeURIComponent(reference)}`
+  );
 }
 
 // ─── Traitement centralisé et résilient de confirmation de paiement ──────────

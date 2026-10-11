@@ -48,13 +48,15 @@ function SignupInner() {
     firstName: '',
     lastName: '',
     phone: '',
+    email: '',
     workshopName: '',
     pin: '',
   });
   const [showPin, setShowPin] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const [provider, setProvider] = useState<'WAVE' | 'ORANGE_MONEY' | null>(null);
+  const [provider, setProvider] = useState<'WAVE' | 'ORANGE_MONEY' | 'CHARIOW' | null>(null);
+  const useChariow = process.env.NEXT_PUBLIC_PAYMENT_PROVIDER === 'chariow';
   const [submitting, setSubmitting] = useState(false);
 
   // Détection stricte du plan gratuit Découverte
@@ -92,6 +94,7 @@ function SignupInner() {
     if (!form.lastName.trim()) errs.lastName = 'Nom requis.';
     const phone = form.phone.replace(/\s+/g, '');
     if (!phone || phone.length < 9) errs.phone = 'Numéro invalide (min 9 chiffres).';
+    if (useChariow && !isFreePlan && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) errs.email = 'E-mail valide requis pour le paiement.';
     if (!form.workshopName.trim()) errs.workshopName = 'Nom de l\'atelier requis.';
     if (form.pin && !/^\d{4}$/.test(form.pin)) {
       errs.pin = 'Le code PIN doit comporter 4 chiffres.';
@@ -164,7 +167,7 @@ function SignupInner() {
   }
 
   // ─── Paiement Plans Payants (Starter / Pro via Wave / OM) ───────────────────
-  async function handlePay(chosenProvider: 'WAVE' | 'ORANGE_MONEY') {
+  async function handlePay(chosenProvider: 'WAVE' | 'ORANGE_MONEY' | 'CHARIOW') {
     if (submitting) return;
     const errs = validateStep2();
     if (Object.keys(errs).length) { setFormErrors(errs); return; }
@@ -192,6 +195,7 @@ function SignupInner() {
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
           phone: normalizedPhone,
+          email: form.email.trim(),
           workshopName: form.workshopName.trim(),
           planId: selectedPlan.id,
           provider: chosenProvider,
@@ -412,6 +416,21 @@ function SignupInner() {
                   {formErrors.phone && <p className="text-[11px] text-red-500 mt-1">{formErrors.phone}</p>}
                 </div>
 
+                {useChariow && !isFreePlan && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">E-mail * <span className="font-normal text-slate-400">(reçu de paiement)</span></label>
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      value={form.email}
+                      onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                      placeholder="vous@exemple.com"
+                      className={`w-full px-3 py-2.5 rounded-xl border text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F3B32] transition-all ${formErrors.email ? 'border-red-400' : 'border-slate-200'}`}
+                    />
+                    {formErrors.email && <p className="text-[11px] text-red-500 mt-1">{formErrors.email}</p>}
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">Nom de votre atelier *</label>
                   <div className="relative">
@@ -592,7 +611,20 @@ function SignupInner() {
                     </div>
                   )}
 
-                  {/* Boutons Wave & Orange Money */}
+                  {useChariow ? (
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => handlePay('CHARIOW')}
+                        disabled={submitting}
+                        className={`w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-3 transition-all cursor-pointer ${
+                          submitting ? 'bg-slate-200 text-slate-400 cursor-wait' : 'bg-[#0F3B32] hover:bg-[#0c2f28] text-white shadow-lg shadow-emerald-900/20'
+                        }`}
+                      >
+                        {submitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Redirection vers le paiement...</> : 'Payer en ligne'}
+                      </button>
+                    </div>
+                  ) : (
+                    <>
                   <div className="space-y-3">
                     <button
                       onClick={() => handlePay('WAVE')}
@@ -636,6 +668,9 @@ function SignupInner() {
                       )}
                     </button>
                   </div>
+
+                    </>
+                  )}
 
                   <button
                     onClick={() => setStep(2)}
