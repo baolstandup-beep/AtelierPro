@@ -9,7 +9,9 @@ import { createClient } from '@supabase/supabase-js';
 import {
   initWavePaymentForSignup,
   initOrangeMoneyPaymentForSignup,
+  initChariowSignupPayment,
 } from '@/lib/billing/payment-service';
+import { isChariowEnabled, isValidEmail } from '@/lib/billing/chariow';
 
 function getAdminClient() {
   return createClient(
@@ -22,7 +24,11 @@ function getAdminClient() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { firstName, lastName, phone, workshopName, planId, provider } = body;
+    const { firstName, lastName, phone, workshopName, planId } = body;
+    // Quand Chariow est activé, il est le seul fournisseur (le choix Wave/OM du client est ignoré).
+    const useChariow = isChariowEnabled();
+    const provider = useChariow ? 'CHARIOW' : body.provider;
+    const email = String(body.email || '').trim().toLowerCase();
 
     // ─── Validation des champs ───────────────────────────────────────────────
     if (!firstName?.trim() || !lastName?.trim()) {
@@ -47,7 +53,14 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!['WAVE', 'ORANGE_MONEY'].includes(provider)) {
+    if (useChariow && !isValidEmail(email)) {
+      return NextResponse.json(
+        { error: 'Une adresse e-mail valide est requise pour le paiement.', code: 'VALIDATION_ERROR' },
+        { status: 400 }
+      );
+    }
+
+    if (!['WAVE', 'ORANGE_MONEY', 'CHARIOW'].includes(provider)) {
       return NextResponse.json(
         { error: 'Fournisseur de paiement invalide.', code: 'VALIDATION_ERROR' },
         { status: 400 }
@@ -140,6 +153,7 @@ export async function POST(request: Request) {
         phone: normalizedPhone,
         workshop_name: (workshopName || `Atelier ${firstName.trim()}`).trim(),
         plan_id: planId,
+        email: email || null,
         status: 'pending',
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       })
@@ -158,7 +172,16 @@ export async function POST(request: Request) {
 
     // ─── Initier le paiement selon le fournisseur ───────────────────────────
     let result;
-    if (provider === 'WAVE') {
+    if (provider === 'CHARIOW') {
+      const fwd = request.headers.get('x-forwarded-for');
+      result = await initChariowSignupPayment(signup.id, planId, {
+        email,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: normalizedPhone,
+        ip: fwd ? fwd.split(',')[0].trim() : undefined,
+      });
+    } else if (provider === 'WAVE') {
       result = await initWavePaymentForSignup(signup.id, planId, normalizedPhone);
     } else {
       result = await initOrangeMoneyPaymentForSignup(signup.id, planId, normalizedPhone);

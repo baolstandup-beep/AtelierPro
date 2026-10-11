@@ -8,7 +8,8 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
-import { initRenewalPayment } from '@/lib/billing/payment-service';
+import { initRenewalPayment, initChariowRenewalPayment } from '@/lib/billing/payment-service';
+import { isChariowEnabled, isValidEmail } from '@/lib/billing/chariow';
 import { getAtelierIdFromUserId } from '@/lib/billing/subscription-service';
 import type { SaaSProvider } from '@/lib/types';
 
@@ -36,9 +37,12 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { planId, provider } = body as { planId: string; provider: SaaSProvider };
+    const useChariow = isChariowEnabled();
+    const { planId } = body as { planId: string };
+    const provider = (useChariow ? 'CHARIOW' : body.provider) as SaaSProvider;
+    const email = String(body.email || '').trim().toLowerCase();
 
-    if (!planId || !['WAVE', 'ORANGE_MONEY'].includes(provider)) {
+    if (!planId || !['WAVE', 'ORANGE_MONEY', 'CHARIOW'].includes(provider)) {
       return NextResponse.json({ error: 'Paramètres invalides.', code: 'VALIDATION_ERROR' }, { status: 400 });
     }
 
@@ -118,7 +122,23 @@ export async function POST(request: Request) {
     }
 
     // PLANS PAYANTS (Starter, Pro) : initier transaction Wave ou Orange Money
-    const result = await initRenewalPayment(atelierId, sub.id, targetPlan.id, provider);
+    let result;
+    if (provider === 'CHARIOW') {
+      if (!isValidEmail(email)) {
+        return NextResponse.json({ error: 'Une adresse e-mail valide est requise pour le paiement.', code: 'VALIDATION_ERROR' }, { status: 400 });
+      }
+      const { data: prof } = await sb.from('profiles').select('full_name, phone').eq('id', user.id).maybeSingle();
+      const fwd = request.headers.get('x-forwarded-for');
+      result = await initChariowRenewalPayment(atelierId, sub.id, targetPlan.id, {
+        email,
+        firstName: String(prof?.full_name || '').trim().split(/\s+/)[0] || 'Client',
+        lastName: String(prof?.full_name || '').trim().split(/\s+/).slice(1).join(' ') || 'AtelierPro',
+        phone: prof?.phone || String(body.phone || ''),
+        ip: fwd ? fwd.split(',')[0].trim() : undefined,
+      });
+    } else {
+      result = await initRenewalPayment(atelierId, sub.id, targetPlan.id, provider);
+    }
 
     if (!result.success) {
       return NextResponse.json(

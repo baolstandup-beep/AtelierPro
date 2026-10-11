@@ -326,7 +326,7 @@ export interface CreateMeasurementInput {
 
 // ------- SaaS Subscription Types -------
 
-export type SaaSProvider = 'WAVE' | 'ORANGE_MONEY' | 'STRIPE' | 'MANUAL';
+export type SaaSProvider = 'WAVE' | 'ORANGE_MONEY' | 'STRIPE' | 'MANUAL' | 'CHARIOW';
 
 export type SaaSPaymentStatus = 'pending' | 'processing' | 'paid' | 'failed' | 'cancelled' | 'refunded';
 
@@ -361,6 +361,7 @@ export interface Plan {
   features: string[];
   is_active: boolean;
   sort_order: number;
+  chariow_product_id?: string | null;
   created_at: string;
   updated_at: string;
 }
