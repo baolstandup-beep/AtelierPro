@@ -153,7 +153,7 @@ export async function POST(request: Request) {
         phone: normalizedPhone,
         workshop_name: (workshopName || `Atelier ${firstName.trim()}`).trim(),
         plan_id: planId,
-        email: email || null,
+        ...(email ? { email } : {}),
         status: 'pending',
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       })
