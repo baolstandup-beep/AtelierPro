@@ -27,10 +27,13 @@ export interface PaymentInitResult {
   error?: string;
 }
 
+// Accepte un UUID ou un identifiant texte ("plan-starter" / "starter").
 export async function getPlanFromDB(planId: string): Promise<Plan | null> {
   const sb = getAdminClient();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId);
   const { data, error } = await sb.from('plans').select('*')
-    .eq('id', planId).eq('is_active', true).maybeSingle();
+    .eq(isUuid ? 'id' : 'slug', isUuid ? planId : planId.replace(/^plan-/, ''))
+    .eq('is_active', true).maybeSingle();
   if (error || !data) return null;
   return data as Plan;
 }
@@ -67,7 +70,7 @@ async function initSignupPayment(
   const sb = getAdminClient();
   const { error: insertErr } = await sb.from('subscription_payments').insert({
     pending_signup_id: pendingSignupId,
-    plan_id: planId,
+    plan_id: plan.id,
     provider,
     provider_transaction_id: charge.transactionId,
     provider_reference: reference,
@@ -118,7 +121,7 @@ export async function initRenewalPayment(
   const { data: paymentRow, error: insertErr } = await sb.from('subscription_payments').insert({
     atelier_id: atelierId,
     subscription_id: subscriptionId,
-    plan_id: planId,
+    plan_id: plan.id,
     provider,
     provider_reference: reference,
     amount: plan.price,
@@ -228,7 +231,7 @@ export async function initChariowSignupPayment(
   const sb = getAdminClient();
   const { data: row, error } = await sb.from('subscription_payments').insert({
     pending_signup_id: pendingSignupId,
-    plan_id: planId,
+    plan_id: plan.id,
     provider: 'CHARIOW',
     provider_reference: reference,
     amount: plan.price,
@@ -262,7 +265,7 @@ export async function initChariowRenewalPayment(
   const { data: row, error } = await sb.from('subscription_payments').insert({
     atelier_id: atelierId,
     subscription_id: subscriptionId,
-    plan_id: planId,
+    plan_id: plan.id,
     provider: 'CHARIOW',
     provider_reference: reference,
     amount: plan.price,

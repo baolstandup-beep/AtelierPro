@@ -10,6 +10,7 @@ import {
   initWavePaymentForSignup,
   initOrangeMoneyPaymentForSignup,
   initChariowSignupPayment,
+  getPlanFromDB,
 } from '@/lib/billing/payment-service';
 import { isChariowEnabled, isValidEmail } from '@/lib/billing/chariow';
 
@@ -108,22 +109,9 @@ export async function POST(request: Request) {
     }
 
     // ─── Vérifier que le plan existe ────────────────────────────────────────
-    let plan: any = null;
-    const { data: dbPlan } = await sb
-      .from('plans')
-      .select('id, name, slug, price, is_active')
-      .eq('id', planId)
-      .maybeSingle();
-
-    if (dbPlan) {
-      plan = dbPlan;
-    } else if (planId === 'plan-discovery' || planId === 'discovery') {
-      plan = { id: 'plan-discovery', name: 'Découverte', slug: 'discovery', price: 0, is_active: true };
-    } else if (planId === 'plan-starter' || planId === 'starter') {
-      plan = { id: 'plan-starter', name: 'Starter', slug: 'starter', price: 5000, is_active: true };
-    } else if (planId === 'plan-pro' || planId === 'pro') {
-      plan = { id: 'plan-pro', name: 'Pro', slug: 'pro', price: 15000, is_active: true };
-    }
+    // Le frontend peut envoyer un slug ("plan-starter") : on résout le vrai UUID en base,
+    // car pending_signups.plan_id et subscription_payments.plan_id sont des UUID.
+    const plan = await getPlanFromDB(String(planId));
 
     if (!plan || !plan.is_active) {
       return NextResponse.json(
@@ -152,7 +140,7 @@ export async function POST(request: Request) {
         last_name: lastName.trim(),
         phone: normalizedPhone,
         workshop_name: (workshopName || `Atelier ${firstName.trim()}`).trim(),
-        plan_id: planId,
+        plan_id: plan.id,
         ...(email ? { email } : {}),
         status: 'pending',
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
@@ -174,7 +162,7 @@ export async function POST(request: Request) {
     let result;
     if (provider === 'CHARIOW') {
       const fwd = request.headers.get('x-forwarded-for');
-      result = await initChariowSignupPayment(signup.id, planId, {
+      result = await initChariowSignupPayment(signup.id, plan.id, {
         email,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -182,9 +170,9 @@ export async function POST(request: Request) {
         ip: fwd ? fwd.split(',')[0].trim() : undefined,
       });
     } else if (provider === 'WAVE') {
-      result = await initWavePaymentForSignup(signup.id, planId, normalizedPhone);
+      result = await initWavePaymentForSignup(signup.id, plan.id, normalizedPhone);
     } else {
-      result = await initOrangeMoneyPaymentForSignup(signup.id, planId, normalizedPhone);
+      result = await initOrangeMoneyPaymentForSignup(signup.id, plan.id, normalizedPhone);
     }
 
     if (!result.success) {
