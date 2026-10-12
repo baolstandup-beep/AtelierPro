@@ -109,8 +109,7 @@ ALTER TABLE public.subscription_payments
 DO $$ BEGIN
   ALTER TABLE public.subscription_payments
     ADD CONSTRAINT uq_sub_payments_provider_ref UNIQUE (provider, provider_reference);
-EXCEPTION WHEN duplicate_table THEN null;
-EXCEPTION WHEN duplicate_object THEN null;
+EXCEPTION WHEN duplicate_table OR duplicate_object THEN null;
 END $$;
 
 -- ============================================================
@@ -475,7 +474,6 @@ BEGIN
     WHERE id = v_payment.pending_signup_id
       AND status IN ('pending', 'payment_processing');
 
-    GET DIAGNOSTICS v_signup = ROW_COUNT;
   END IF;
 
   -- 6. Si c'est un renouvellement (subscription_id non null), appeler renew_subscription
