@@ -495,7 +495,7 @@ export function PosTerminal({
             </dl>
             <div className="flex flex-wrap justify-end gap-2">
               <LinkButton href={`/ventes/${done.id}`} variant="ghost">Détail</LinkButton>
-              <a href={`/ventes/${done.id}/ticket?imprimer=1`} target="_blank" rel="noopener" className="inline-flex h-10 items-center gap-2 rounded-[var(--radius-control)] border border-sand-strong bg-paper px-4 text-sm font-medium hover:bg-ivory">
+              <a href={`/tickets/${done.id}?imprimer=1`} target="_blank" rel="noopener" className="inline-flex h-10 items-center gap-2 rounded-[var(--radius-control)] border border-sand-strong bg-paper px-4 text-sm font-medium hover:bg-ivory">
                 <Printer className="size-4" aria-hidden /> Imprimer le ticket
               </a>
               <Button onClick={resetSale} autoFocus>Nouvelle vente</Button>
