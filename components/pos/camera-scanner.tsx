@@ -19,6 +19,7 @@ export function CameraScanner({ open, onClose, onDetected }: { open: boolean; on
     let stream: MediaStream | null = null;
     let raf = 0;
     let zxingControls: { stop: () => void } | null = null;
+    const video = videoRef.current;
 
     const finish = (code: string) => {
       if (stopped) return;
@@ -37,7 +38,7 @@ export function CameraScanner({ open, onClose, onDetected }: { open: boolean; on
         const BD = (window as unknown as { BarcodeDetector?: new (o: { formats: string[] }) => Detector }).BarcodeDetector;
         if (BD) {
           stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
-          const video = videoRef.current!;
+          if (!video) return;
           video.srcObject = stream;
           await video.play();
           const detector = new BD({ formats: ["code_128", "ean_13", "ean_8", "upc_a", "upc_e", "code_39", "qr_code"] });
@@ -55,7 +56,7 @@ export function CameraScanner({ open, onClose, onDetected }: { open: boolean; on
         } else {
           const { BrowserMultiFormatReader } = await import("@zxing/browser");
           const reader = new BrowserMultiFormatReader();
-          zxingControls = await reader.decodeFromConstraints({ video: { facingMode: "environment" } }, videoRef.current!, (result) => {
+          zxingControls = await reader.decodeFromConstraints({ video: { facingMode: "environment" } }, video!, (result) => {
             if (result) finish(result.getText());
           });
         }
@@ -76,8 +77,7 @@ export function CameraScanner({ open, onClose, onDetected }: { open: boolean; on
       cancelAnimationFrame(raf);
       zxingControls?.stop();
       stream?.getTracks().forEach((t) => t.stop());
-      const v = videoRef.current;
-      if (v?.srcObject) (v.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+      if (video?.srcObject) (video.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
     };
   }, [open, onClose, onDetected]);
 
