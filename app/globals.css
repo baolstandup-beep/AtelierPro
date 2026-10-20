@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #171717;
+  --color-ink-soft: #3d3a36;
+  --color-muted: #6b655c;
+  --color-ivory: #f7f3ec;
+  --color-sand: #e8ded0;
+  --color-sand-strong: #d6c8b4;
+  --color-gold: #c5a46d;
+  --color-gold-deep: #8a6c38;
+  --color-paper: #ffffff;
+  --color-danger: #a33a2b;
+  --color-danger-soft: #f6e4e0;
+  --color-success: #2f6b4f;
+  --color-success-soft: #e2efe7;
+  --color-warning: #94650f;
+  --color-warning-soft: #f6ecd6;
+
+  --font-display: var(--font-bodoni), "Didot", "Bodoni 72", serif;
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-control: 6px;
+  --radius-panel: 10px;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: var(--color-ivory);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-sand);
+  }
+  input[type="number"]::-webkit-inner-spin-button {
+    opacity: 0.4;
+  }
+}
+
+@layer components {
+  .tabular {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  /* Le ticket de caisse : papier, pointillés, filet doré. */
+  .receipt {
+    background: var(--color-paper);
+    background-image: radial-gradient(circle at 8px -2px, var(--color-ivory) 6px, transparent 6.5px);
+    background-size: 16px 12px;
+    background-repeat: repeat-x;
+    background-position: 0 100%;
+  }
+  .receipt-rule {
+    border-top: 1px dashed var(--color-sand-strong);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Impression : seuls les blocs .print-area sont imprimés. */
+@media print {
+  body {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
