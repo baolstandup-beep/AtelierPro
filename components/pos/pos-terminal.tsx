@@ -287,14 +287,14 @@ export function PosTerminal({
             ))}
           </ul>
         ) : (
-          <div className="rounded-[var(--radius-panel)] border border-dashed border-sand-strong px-6 py-10 text-center text-sm text-muted">
+          <div className="hidden rounded-[var(--radius-panel)] border border-dashed border-sand-strong px-6 py-10 text-center text-sm text-muted sm:block">
             Lecteur USB ou Bluetooth : scannez directement, l&apos;article s&apos;ajoute au ticket. Raccourci pour encaisser : F9.
           </div>
         )}
       </section>
 
       {/* Ticket en cours */}
-      <section aria-label="Ticket en cours" className="receipt flex flex-col rounded-t-[var(--radius-panel)] border border-b-0 border-sand pb-6 xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)]">
+      <section id="ticket-en-cours" aria-label="Ticket en cours" className="receipt flex flex-col rounded-t-[var(--radius-panel)] border border-b-0 border-sand pb-6 xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)]">
         <header className="px-5 pt-5 text-center">
           <p className="font-display text-xl">{shopName}</p>
           <p className="text-xs text-muted">
@@ -375,7 +375,7 @@ export function PosTerminal({
               <label htmlFor="discount">Remise</label>
               <div className="flex items-center gap-1">
                 <Input id="discount" inputMode="numeric" value={discountInput} onChange={(e) => setDiscountInput(e.target.value)} placeholder="0" className="h-8 w-24 text-right" />
-                <Select aria-label="Type de remise" value={discountMode} onChange={(e) => setDiscountMode(e.target.value as "amount" | "percent")} className="h-8 w-20 pr-6">
+                <Select aria-label="Type de remise" value={discountMode} onChange={(e) => setDiscountMode(e.target.value as "amount" | "percent")} className="h-8 w-24 pr-7">
                   <option value="amount">FCFA</option>
                   <option value="percent">%</option>
                 </Select>
@@ -470,6 +470,16 @@ export function PosTerminal({
           </div>
         </div>
       </section>
+
+      {cart.length > 0 ? (
+        <a
+          href="#ticket-en-cours"
+          className="fixed inset-x-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-20 flex items-center justify-between rounded-[var(--radius-panel)] bg-ink px-4 py-3 text-sm text-ivory shadow-lg xl:hidden"
+        >
+          <span>{cart.reduce((s, l) => s + l.quantity, 0)} article(s)</span>
+          <span className="font-semibold tabular">{formatFCFA(total)} · Voir le ticket</span>
+        </a>
+      ) : null}
 
       <CameraScanner open={cameraOpen} onClose={() => setCameraOpen(false)} onDetected={(code) => { setQuery(code); runSearch(code, true); }} />
 

@@ -21,17 +21,34 @@ export function BarList({ items, emptyLabel = "Aucune donnée" }: { items: { lab
   );
 }
 
-/** Histogramme vertical des ventes par jour. */
-export function DayColumns({ days }: { days: { day: string; value: number }[] }) {
-  const max = Math.max(...days.map((d) => d.value), 0);
-  if (!days.length || max <= 0) return <p className="px-5 py-8 text-center text-sm text-muted">Aucune vente sur la période.</p>;
+/** Histogramme vertical des ventes par jour (jours sans vente inclus). */
+export function DayColumns({ days, fromDate, toDate }: { days: { day: string; value: number }[]; fromDate: string; toDate: string }) {
+  const byDay = new Map(days.map((d) => [d.day, d.value]));
+  const all: { day: string; value: number }[] = [];
+  for (let d = new Date(`${fromDate}T00:00:00Z`); d <= new Date(`${toDate}T00:00:00Z`) && all.length < 92; d.setUTCDate(d.getUTCDate() + 1)) {
+    const key = d.toISOString().slice(0, 10);
+    all.push({ day: key, value: byDay.get(key) ?? 0 });
+  }
+  const max = Math.max(...all.map((d) => d.value), 0);
+  if (max <= 0) return <p className="px-5 py-8 text-center text-sm text-muted">Aucune vente sur la période.</p>;
+  const label = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
   return (
-    <div className="flex h-40 items-end gap-1 px-5 pt-4 pb-2" role="img" aria-label="Ventes par jour">
-      {days.map((d) => (
-        <div key={d.day} className="group relative flex h-full flex-1 flex-col justify-end">
-          <div className="min-h-px rounded-t-sm bg-ink group-hover:bg-gold" style={{ height: `${(d.value / max) * 100}%` }} title={`${d.day.split("-").reverse().join("/")} : ${formatFCFA(d.value)}`} />
-        </div>
-      ))}
+    <div className="px-5 pt-4 pb-3">
+      <div className="flex h-40 items-end justify-center gap-1" role="img" aria-label="Ventes par jour">
+        {all.map((d) => (
+          <div key={d.day} className="group flex h-full max-w-10 flex-1 flex-col justify-end">
+            <div
+              className="min-h-px rounded-t-sm bg-ink group-hover:bg-gold"
+              style={{ height: `${(d.value / max) * 100}%` }}
+              title={`${label(d.day)} : ${formatFCFA(d.value)}`}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-1.5 flex justify-between text-xs text-muted">
+        <span>{label(all[0].day)}</span>
+        {all.length > 1 ? <span>{label(all[all.length - 1].day)}</span> : null}
+      </div>
     </div>
   );
 }

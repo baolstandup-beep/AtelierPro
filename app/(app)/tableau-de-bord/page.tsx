@@ -71,7 +71,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/tablea
       <div className="grid gap-6 lg:grid-cols-3">
         <Panel className="lg:col-span-2">
           <PanelHeader title="Ventes par jour" description={period.label} />
-          <DayColumns days={((daily.data ?? []) as { day: string; gross_sales: number }[]).map((x) => ({ day: x.day, value: Number(x.gross_sales) }))} />
+          <DayColumns days={((daily.data ?? []) as { day: string; gross_sales: number }[]).map((x) => ({ day: x.day, value: Number(x.gross_sales) }))} fromDate={period.fromDate} toDate={period.toDate} />
         </Panel>
         <Panel>
           <PanelHeader title="Répartition des paiements" description="Montants nets reçus" />

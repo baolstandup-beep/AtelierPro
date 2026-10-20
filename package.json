@@ -10,11 +10,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run tests/unit",
-    "test:db": "vitest run tests/db",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run --project unit",
+    "test:db": "vitest run --project db",
     "test:e2e": "playwright test",
-    "admin:create": "node scripts/create-admin.mjs"
+    "admin:create": "node scripts/create-admin.mjs",
+    "test:all": "vitest run",
+    "db:test:start": "bash scripts/test-db.sh",
+    "stack:up": "bash scripts/local-stack/up.sh",
+    "stack:down": "bash scripts/local-stack/down.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
